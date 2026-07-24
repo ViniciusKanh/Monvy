@@ -20,7 +20,7 @@ function loadEnv() {
 // Mapeia a URL para o arquivo da funcao (mesma logica do Vercel)
 function resolveHandler(pathname) {
   if (pathname.startsWith('/api/auth/')) return 'api/auth/[action].js';
-  if (pathname.startsWith('/api/entities/')) return 'api/entities/[...path].js';
+  if (pathname.startsWith('/api/entities/')) return 'api/entities/[entity].js';
   if (pathname.startsWith('/api/admin/')) return 'api/admin/[...slug].js';
   if (pathname.startsWith('/api/ai/')) return 'api/ai/[action].js';
   if (pathname === '/api/cards/invoices') return 'api/cards/invoices.js';

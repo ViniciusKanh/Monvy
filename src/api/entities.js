@@ -8,11 +8,11 @@ function makeEntity(name) {
       const qs = new URLSearchParams(filters).toString();
       return api.get(qs ? `${base}?${qs}` : base);
     },
-    get: (id) => api.get(`${base}/${id}`),
+    get: (id) => api.get(`${base}?id=${encodeURIComponent(id)}`),
     create: (data) => api.post(base, data),
     bulkCreate: (items) => api.post(base, { _bulk: items }),
-    update: (id, data) => api.put(`${base}/${id}`, data),
-    remove: (id) => api.del(`${base}/${id}`),
+    update: (id, data) => api.put(`${base}?id=${encodeURIComponent(id)}`, data),
+    remove: (id) => api.del(`${base}?id=${encodeURIComponent(id)}`),
   };
 }
 
@@ -57,8 +57,8 @@ export const Ai = {
 
 export const Admin = {
   listUsers: () => api.get('/api/admin/users'),
-  updateUser: (id, data) => api.put(`/api/admin/users/${id}`, data),
-  removeUser: (id) => api.del(`/api/admin/users/${id}`),
+  updateUser: (id, data) => api.put(`/api/admin/users?id=${encodeURIComponent(id)}`, data),
+  removeUser: (id) => api.del(`/api/admin/users?id=${encodeURIComponent(id)}`),
   getMail: () => api.get('/api/admin/mail'),
   saveMail: (data) => api.put('/api/admin/mail', data),
   testMail: (to) => api.post('/api/admin/mail', { to }),
