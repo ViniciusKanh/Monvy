@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Account, Category } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Card, Button, Select, Badge } from '../components/ui';
+import { Card, Button, Select, Badge, Spinner } from '../components/ui';
 import { formatCurrency, monthKey, monthLabel, monthRange, MONTHS_PT } from '../lib/utils.js';
 import { BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { FileText, Download, Printer, TrendingUp } from 'lucide-react';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
+import { Reports as ReportsApi } from '../api/entities.js';
+import { toast } from '../lib/toast.js';
+import { Mail } from 'lucide-react';
 
 const COLORS = ['#ef4444', '#3b82f6', '#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899', '#10b981', '#64748b'];
 
@@ -56,6 +59,20 @@ export default function Reports() {
     const a = document.createElement('a'); a.href = url; a.download = `monvy-relatorio-${period}m.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
+  const [emailing, setEmailing] = useState(false);
+  const sendByEmail = async () => {
+    setEmailing(true);
+    try {
+      await ReportsApi.email({ summary: {
+        name: user?.full_name, periodLabel: period === 1 ? monthLabel(endMk) : `${period} meses ate ${monthLabel(endMk)}`,
+        inc: totals.inc, exp: totals.exp, bal: totals.bal, rate: totals.rate, totalBalance,
+        categories: byCategory.map((c) => ({ name: c.name, value: c.value })),
+      } });
+      toast.success('Relatorio enviado para o seu e-mail!');
+    } catch (e) { toast.error(e.message || 'Falha ao enviar. Verifique a config de e-mail.'); }
+    finally { setEmailing(false); }
+  };
+
   return (
     <div className="space-y-4 animate-fadeIn print:space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -64,6 +81,7 @@ export default function Reports() {
           <Select value={endMk} onChange={(e) => setEndMk(e.target.value)} className="w-auto">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</Select>
           <Select value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="w-auto"><option value={1}>Somente o mes</option><option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option></Select>
           <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4" /> CSV</Button>
+          <Button variant="outline" onClick={sendByEmail} disabled={emailing}>{emailing ? <Spinner className="w-4 h-4" /> : <><Mail className="w-4 h-4" /> Enviar por e-mail</>}</Button>
           <Button onClick={() => window.print()}><Printer className="w-4 h-4" /> Exportar PDF</Button>
         </div>
       </div>

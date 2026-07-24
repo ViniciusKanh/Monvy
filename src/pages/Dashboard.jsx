@@ -256,7 +256,7 @@ export default function Dashboard() {
 
       {/* Visao geral de gastos + comparativo por categoria */}
       {byCategory.length > 0 && (
-        <div className="grid lg:grid-cols-2 gap-5">
+        <div className="grid md:grid-cols-2 gap-5">
           <Card className="hover-lift">
             <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Visao Geral de Gastos</h3><span className="text-xs text-muted capitalize">{monthLabel(mk)}</span></div>
             <div className="grid grid-cols-2 gap-3 mb-3">

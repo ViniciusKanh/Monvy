@@ -212,10 +212,21 @@ export const SCHEMA_STATEMENTS = [
 ];
 
 // Migracoes idempotentes (rodam com try/catch; ignoram 'duplicate column')
-export const SAFE_ALTERS = [
-  `ALTER TABLE AppSettings ADD COLUMN gemini_api_key TEXT`,
-  `ALTER TABLE "Transaction" ADD COLUMN status TEXT DEFAULT 'pending'`,
+// Migrations versionadas (aplicadas 1x; id gravado em Setting 'migrations_applied')
+export const MIGRATIONS = [
+  { id: '001_appsettings_gemini', statements: [`ALTER TABLE AppSettings ADD COLUMN gemini_api_key TEXT`] },
+  { id: '002_tx_status', statements: [`ALTER TABLE "Transaction" ADD COLUMN status TEXT DEFAULT 'pending'`] },
+  { id: '003_users_verify', statements: [`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1`, `ALTER TABLE users ADD COLUMN verify_token TEXT`] },
+  { id: '004_users_reset', statements: [`ALTER TABLE users ADD COLUMN reset_token TEXT`, `ALTER TABLE users ADD COLUMN reset_expires TEXT`] },
+  { id: '005_perf_indexes', statements: [
+    `CREATE INDEX IF NOT EXISTS idx_tx_owner_date ON "Transaction"(created_by_id, date)`,
+    `CREATE INDEX IF NOT EXISTS idx_tx_owner_status ON "Transaction"(created_by_id, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_cct_owner_month ON CreditCardTransaction(created_by_id, competence_month)`,
+    `CREATE INDEX IF NOT EXISTS idx_inv_owner ON CreditCardInvoice(created_by_id, status)`,
+  ] },
 ];
+// compat
+export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);
 
 // Entidades expostas pela API generica /api/entities/:entity
 export const ENTITIES = {

@@ -35,13 +35,24 @@ export const Auth = {
   me: () => api.get('/api/auth/me'),
   updateProfile: (data) => api.put('/api/auth/profile', data),
   changePassword: (current, next) => api.put('/api/auth/change-password', { current, next }),
+  verify: (token) => api.get(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+  resend: (email) => api.post('/api/auth/resend', { email }),
+  forgot: (email) => api.post('/api/auth/forgot', { email }),
+  reset: (token, password) => api.post('/api/auth/reset', { token, password }),
 };
 
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
+export const Summary = { get: (month) => api.get(`/api/summary?month=${month}`) };
+export const Cards = {
+  generateInvoices: () => api.post('/api/cards/invoices', { action: 'generate' }),
+  payInvoice: (invoiceId, accountId) => api.post('/api/cards/invoices', { action: 'pay', invoiceId, accountId }),
+};
+export const Reports = { email: (payload) => api.post('/api/reports/email', payload) };
 
 export const Ai = {
   parseInvoice: (pdfBase64, apiKey, categories) =>
     api.post('/api/ai/parse-invoice', { pdfBase64, apiKey, categories }),
+  ask: (question, context, apiKey, history) => api.post('/api/ai/assistant', { question, context, apiKey, history }),
 };
 
 export const Admin = {

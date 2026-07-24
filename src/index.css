@@ -117,3 +117,7 @@ body {
 .aurora .b4 { width: 34vw; height: 34vw; left: 14vw; bottom: -14vh; background: radial-gradient(circle, #14b8a6, transparent 60%); animation: drift1 40s ease-in-out infinite reverse; }
 .dark .aurora b { opacity: .26; }
 @media (prefers-reduced-motion: reduce) { .aurora b { animation: none !important; } }
+
+@keyframes checkPop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes scaleIn { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.check-pop { animation: checkPop .5s cubic-bezier(.22,.61,.36,1) both; }

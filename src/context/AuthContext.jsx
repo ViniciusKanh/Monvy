@@ -31,10 +31,9 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (data) => {
-    const { token, user } = await Auth.register(data);
-    setToken(token);
-    setUser(user);
-    return user;
+    const res = await Auth.register(data);
+    if (res.token) { setToken(res.token); setUser(res.user); }
+    return res; // pode ser { needsVerification: true }
   };
 
   const updateProfile = async (data) => {

@@ -1,12 +1,20 @@
 import { db, ensureSchema, newId, nowIso } from '../_lib/db.js';
-import { hashPassword, signToken, sendJson, readBody } from '../_lib/auth.js';
-import { getMailConfig } from '../_lib/settings.js';
+import { hashPassword, sendJson, readBody } from '../_lib/auth.js';
 import { sendMail, tpl } from '../_lib/mailer.js';
+import { seedDefaultCategories } from '../_lib/seed.js';
 
 const DEFAULT_SCREENS = [
   'dashboard','accounts','cards','transactions','categories','budget',
   'goals','subscriptions','calendar','reports','settings',
 ];
+
+function baseUrl(req) {
+  const origin = req.headers.origin;
+  if (origin) return origin.replace(/\/$/, '');
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  return host ? `${proto}://${host}` : '';
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo nao permitido' });
@@ -22,18 +30,24 @@ export default async function handler(req, res) {
     const hash = await hashPassword(password);
     const now = nowIso();
     const id = newId();
+    const token = newId() + newId();
     await db().execute({
-      sql: `INSERT INTO users (id,email,password_hash,full_name,role,allowed_screens,is_active,created_date,updated_date)
-            VALUES (?,?,?,?, 'user', ?, 1, ?, ?)`,
-      args: [id, mail, hash, full_name || '', JSON.stringify(DEFAULT_SCREENS), now, now],
+      sql: `INSERT INTO users (id,email,password_hash,full_name,role,allowed_screens,is_active,email_verified,verify_token,created_date,updated_date)
+            VALUES (?,?,?,?, 'user', ?, 1, 0, ?, ?, ?)`,
+      args: [id, mail, hash, full_name || '', JSON.stringify(DEFAULT_SCREENS), token, now, now],
     });
-    const cfg = await getMailConfig();
-    if (cfg.notifyNewUser) sendMail({ to: mail, subject: 'Bem-vindo ao Monvy!', html: tpl('Conta criada com sucesso 🎉', `Ola${full_name ? ' ' + full_name : ''}, sua conta no Monvy foi criada. Agora voce pode controlar contas, cartoes, metas e muito mais.`) }).catch(() => {});
-    const user = { id, email: mail, role: 'user' };
-    return sendJson(res, 201, {
-      token: signToken(user),
-      user: { id, email: mail, full_name: full_name || '', role: 'user', allowed_screens: DEFAULT_SCREENS },
+
+    try { await seedDefaultCategories(id); } catch {}
+    const link = `${baseUrl(req)}/verificar?token=${token}`;
+    const r = await sendMail({
+      to: mail,
+      subject: 'Confirme seu e-mail — Monvy',
+      html: tpl('Confirme seu e-mail para ativar a conta',
+        `Ola${full_name ? ' ' + full_name : ''}, que bom ter voce no Monvy!<br/><br/>Para ativar sua conta e comecar a organizar suas financas, confirme seu e-mail clicando no botao abaixo. O link e pessoal e intransferivel.`,
+        { ctaText: 'Confirmar meu e-mail', ctaUrl: link }),
     });
+
+    return sendJson(res, 201, { needsVerification: true, email: mail, emailSent: !!r.sent });
   } catch (e) {
     return sendJson(res, 500, { error: e.message });
   }

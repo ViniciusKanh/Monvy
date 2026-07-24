@@ -4,6 +4,7 @@ import { Safe } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button, Card, Input, Field, Modal, Spinner, EmptyState } from '../components/ui';
 import { formatCurrency } from '../lib/utils.js';
+import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { Plus, Vault, PiggyBank, Plane, Car, Home, BookOpen, ShoppingBag, Target, Sparkles, Pencil, Trash2, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 
 const ICONS = { piggy: PiggyBank, plane: Plane, car: Car, home: Home, book: BookOpen, bag: ShoppingBag, target: Target, spark: Sparkles };
@@ -41,15 +42,19 @@ export default function VirtualSafes() {
       <PageHeader title="Cofres Virtuais" subtitle="Separe seu dinheiro por objetivo"
         actions={<Button onClick={openNew}><Plus className="w-4 h-4" /> Novo cofre</Button>} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-2xl p-5 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#065f46,#10b981)' }}>
-          <p className="text-xs text-emerald-100">Total Guardado</p><p className="font-display text-3xl font-extrabold mt-1">{formatCurrency(totalSaved)}</p>
-        </div>
-        <div className="rounded-2xl p-5 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#312e81,#6d28d9)' }}>
-          <p className="text-xs text-violet-100">Meta Total</p><p className="font-display text-3xl font-extrabold mt-1">{formatCurrency(totalTarget)}</p>
-        </div>
-        <div className="rounded-2xl p-5 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#7c2d12,#f59e0b)' }}>
-          <p className="text-xs text-amber-100">Progresso</p><p className="font-display text-3xl font-extrabold mt-1">{progress}%</p>
+      <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10" style={{ background: 'linear-gradient(135deg,#065f46,#0d1433 60%,#312e81)' }}>
+        <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full glow-pulse pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,.30), transparent 68%)' }} />
+        <div className="absolute inset-0 grid-bg opacity-25" />
+        <div className="relative flex flex-col sm:flex-row items-center gap-6">
+          <SafeRing pct={progress} />
+          <div className="flex-1 w-full">
+            <p className="text-[11px] tracking-[0.25em] text-emerald-300/80">TOTAL GUARDADO EM COFRES</p>
+            <p className="font-display text-3xl sm:text-4xl font-extrabold mt-1"><AnimatedValue value={totalSaved} format={formatCurrency} /> <span className="text-lg text-slate-400 font-semibold">/ {formatCurrency(totalTarget)}</span></p>
+            <div className="grid grid-cols-2 gap-3 mt-4 max-w-xs">
+              <div className="rounded-xl bg-white/5 border border-white/10 p-2.5"><p className="text-[11px] text-slate-400">Cofres</p><p className="font-bold">{safes.length}</p></div>
+              <div className="rounded-xl bg-white/5 border border-white/10 p-2.5"><p className="text-[11px] text-slate-400">Progresso</p><p className="font-bold">{progress}%</p></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -57,11 +62,11 @@ export default function VirtualSafes() {
         : safes.length === 0 ? <Card><EmptyState icon={Vault} title="Nenhum cofre" subtitle="Crie cofres para separar dinheiro por objetivo." action={<Button onClick={openNew}><Plus className="w-4 h-4" /> Novo cofre</Button>} /></Card>
         : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {safes.map((s) => {
+            {safes.map((s, idx) => {
               const Icon = ICONS[s.icon] || PiggyBank;
               const pct = s.target_amount ? Math.min(100, Math.round((s.current_amount / s.target_amount) * 100)) : 0;
               return (
-                <Card key={s.id} className="hover-lift">
+                <Reveal key={s.id} i={Math.min(idx, 8)}><Card className="hover-lift h-full">
                   <div className="flex items-start justify-between">
                     <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white" style={{ background: s.color }}><Icon className="w-5 h-5" /></span>
                     <div className="flex gap-1">
@@ -79,7 +84,7 @@ export default function VirtualSafes() {
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => { setMove({ safe: s, type: 'in' }); setMoveVal(''); }}><ArrowDownToLine className="w-4 h-4" /> Guardar</Button>
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => { setMove({ safe: s, type: 'out' }); setMoveVal(''); }}><ArrowUpFromLine className="w-4 h-4" /> Retirar</Button>
                   </div>
-                </Card>
+                </Card></Reveal>
               );
             })}
           </div>
@@ -108,6 +113,16 @@ export default function VirtualSafes() {
         footer={<><Button variant="outline" onClick={() => setMove(null)}>Cancelar</Button><Button onClick={() => doMove.mutate({ safe: move.safe, type: move.type, value: Number(moveVal) })} disabled={!moveVal || doMove.isPending}>{doMove.isPending ? <Spinner className="w-4 h-4" /> : 'Confirmar'}</Button></>}>
         <Field label="Valor"><Input type="number" step="0.01" value={moveVal} onChange={(e) => setMoveVal(e.target.value)} placeholder="0,00" autoFocus /></Field>
       </Modal>
+    </div>
+  );
+}
+
+function SafeRing({ pct }) {
+  const p = Math.min(100, Math.max(0, pct)); const r = 46, c = 2 * Math.PI * r, off = c - (p / 100) * c;
+  return (
+    <div className="relative w-32 h-32 shrink-0">
+      <svg width="128" height="128" viewBox="0 0 128 128" className="-rotate-90"><circle cx="64" cy="64" r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="11" /><circle cx="64" cy="64" r={r} fill="none" stroke="#34d399" strokeWidth="11" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset .8s ease' }} /></svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="font-display text-2xl font-extrabold text-white">{p}%</span><span className="text-[11px] text-slate-400">guardado</span></div>
     </div>
   );
 }

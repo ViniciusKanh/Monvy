@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Subscription } from '../api/entities.js';
+import { Subscription, Transaction } from '../api/entities.js';
+import { detectSubscriptions } from '../lib/analytics.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button, Card, Input, Select, Field, Modal, Textarea, Spinner, EmptyState, Badge } from '../components/ui';
 import { formatCurrency } from '../lib/utils.js';
-import { Plus, RefreshCw, Pencil, Trash2, CalendarClock, AlertTriangle } from 'lucide-react';
+import { Reveal, AnimatedValue } from '../components/Animated.jsx';
+import { Plus, RefreshCw, Pencil, Trash2, CalendarClock, AlertTriangle, Sparkles, Wand2 } from 'lucide-react';
 
 const POPULAR = [
   { name: 'Netflix', emoji: '🎬', color: '#e50914' }, { name: 'Spotify', emoji: '🎵', color: '#1db954' },
@@ -21,6 +23,8 @@ const empty = { name: '', amount: '', renewal_day: 1, category: '', color: '#8b5
 export default function Subscriptions() {
   const qc = useQueryClient();
   const { data: subs = [], isLoading } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
+  const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
+  const suggestions = useMemo(() => detectSubscriptions(transactions, subs), [transactions, subs]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
@@ -31,7 +35,7 @@ export default function Subscriptions() {
   });
   const del = useMutation({ mutationFn: (id) => Subscription.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions'] }) });
 
-  const openNew = (preset) => { setEditing(null); setForm(preset ? { ...empty, name: preset.name, icon_emoji: preset.emoji, color: preset.color } : empty); setModal(true); };
+  const openNew = (preset) => { setEditing(null); setForm(preset ? { ...empty, name: preset.name, icon_emoji: preset.emoji || '📱', color: preset.color, amount: preset.amount ?? '', renewal_day: preset.renewal_day ?? 1 } : empty); setModal(true); };
   const openEdit = (s) => { setEditing(s); setForm({ ...empty, ...s, amount: s.amount, notes: s.notes || '' }); setModal(true); };
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const submit = (e) => { e.preventDefault(); save.mutate({ ...form, amount: Number(form.amount), renewal_day: Number(form.renewal_day) }); };
@@ -47,17 +51,40 @@ export default function Subscriptions() {
       <PageHeader title="Assinaturas" subtitle="Controle seus servicos recorrentes"
         actions={<Button onClick={() => openNew()}><Plus className="w-4 h-4" /> Nova assinatura</Button>} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="hover-lift py-3"><p className="text-xs text-muted">Gasto mensal</p><p className="font-display text-xl font-bold text-violet-500">{formatCurrency(totals.monthly)}</p></Card>
-        <Card className="hover-lift py-3"><p className="text-xs text-muted">Projecao anual</p><p className="font-display text-xl font-bold">{formatCurrency(totals.annual)}</p></Card>
-        <Card className="hover-lift py-3"><p className="text-xs text-muted">Ativas</p><p className="font-display text-xl font-bold">{totals.count}</p></Card>
-        <Card className="hover-lift py-3"><p className="text-xs text-muted">Baixo uso</p><p className="font-display text-xl font-bold text-amber-500">{totals.lowUse}</p></Card>
+      <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10" style={{ background: 'linear-gradient(135deg,#3b0764,#0d1433 60%,#111b3f)' }}>
+        <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full glow-pulse pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(139,92,246,.32), transparent 68%)' }} />
+        <div className="absolute inset-0 grid-bg opacity-25" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] tracking-[0.25em] text-violet-300/80">GASTO MENSAL COM ASSINATURAS</p>
+            <p className="font-display text-4xl font-extrabold mt-1"><AnimatedValue value={totals.monthly} format={formatCurrency} /></p>
+            <p className="text-xs text-slate-400 mt-1">Projecao anual: <b className="text-slate-200">{formatCurrency(totals.annual)}</b></p>
+          </div>
+          <div className="flex gap-3">
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center min-w-[80px]"><p className="text-[11px] text-slate-400">Ativas</p><p className="font-display text-2xl font-bold">{totals.count}</p></div>
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-center min-w-[80px]"><p className="text-[11px] text-amber-300">Baixo uso</p><p className="font-display text-2xl font-bold">{totals.lowUse}</p></div>
+          </div>
+        </div>
       </div>
 
       {totals.lowUse > 0 && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 text-sm">
           <AlertTriangle className="w-4 h-4" /> Voce tem {totals.lowUse} assinatura(s) pouco usada(s). Considere cancelar para economizar.
         </div>
+      )}
+
+      {suggestions.length > 0 && (
+        <Card className="border-emerald-500/30">
+          <p className="text-xs font-bold tracking-widest text-emerald-600 dark:text-emerald-400 mb-3 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> DETECTADAS NO SEU HISTORICO</p>
+          <div className="space-y-2">
+            {suggestions.map((sug, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
+                <div className="flex-1 min-w-0"><p className="font-medium truncate">{sug.name}</p><p className="text-xs text-muted">{formatCurrency(sug.amount)}/mes · aparece em {sug.months} meses</p></div>
+                <Button size="sm" variant="outline" onClick={() => openNew({ name: sug.name, emoji: '🔁', color: '#10b981', amount: sug.amount, renewal_day: sug.renewal_day })}><Plus className="w-4 h-4" /> Adicionar</Button>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       <Card>
@@ -75,8 +102,8 @@ export default function Subscriptions() {
         : subs.length === 0 ? <Card><EmptyState icon={RefreshCw} title="Nenhuma assinatura" subtitle="Adicione seus servicos recorrentes." action={<Button onClick={() => openNew()}><Plus className="w-4 h-4" /> Nova assinatura</Button>} /></Card>
         : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {subs.map((s) => (
-              <Card key={s.id} className="hover-lift">
+            {subs.map((s, i) => (
+              <Reveal key={s.id} i={Math.min(i, 8)}><Card className="hover-lift h-full">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <span className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl" style={{ background: `${s.color}22` }}>{s.icon_emoji || '📱'}</span>
@@ -94,7 +121,7 @@ export default function Subscriptions() {
                     <p className="text-xs text-muted mt-1 flex items-center gap-1 justify-end"><CalendarClock className="w-3 h-3" /> dia {s.renewal_day}</p>
                   </div>
                 </div>
-              </Card>
+              </Card></Reveal>
             ))}
           </div>
         )}

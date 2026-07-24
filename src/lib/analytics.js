@@ -215,32 +215,6 @@ export function behaviorProfile({ transactions, months, catMap }) {
   return { profile, desc, impulsivity, consistency, savingsRate, weekendPct, avgTicket, radar, peakDay: peak?.name, distribution: categoryBreakdown(transactions, null, catMap, 'expense') };
 }
 
-// Avaliacao de modelo estilo ML: split treino/teste + metricas (R2, MAE, RMSE)
-export function evaluateModel(ys) {
-  const n = ys.length;
-  if (n < 3) return { model: 'Regressao Linear (OLS)', nTrain: n, nTest: 0, r2: 0, mae: 0, rmse: 0, slope: 0, intercept: ys[0] || 0, trend: 'estavel' };
-  const nTest = Math.max(1, Math.round(n * 0.2));
-  const nTrain = n - nTest;
-  const train = ys.slice(0, nTrain);
-  const reg = linearRegression(train);
-  // avalia no conjunto de teste (holdout)
-  let sae = 0, sse = 0;
-  const testMean = ys.slice(nTrain).reduce((a, b) => a + b, 0) / nTest;
-  let sst = 0;
-  for (let i = 0; i < nTest; i++) {
-    const x = nTrain + i;
-    const pred = reg.predict(x);
-    const real = ys[x];
-    sae += Math.abs(pred - real);
-    sse += (pred - real) ** 2;
-    sst += (real - testMean) ** 2;
-  }
-  const mae = sae / nTest;
-  const rmse = Math.sqrt(sse / nTest);
-  const r2 = sst > 0 ? Math.max(0, 1 - sse / sst) : (sse === 0 ? 1 : 0);
-  const trend = reg.slope > 1 ? 'alta' : reg.slope < -1 ? 'queda' : 'estavel';
-  return { model: 'Regressao Linear (Minimos Quadrados)', nTrain, nTest, r2, mae, rmse, slope: reg.slope, intercept: reg.intercept, trend, predict: reg.predict };
-}
 
 // Alertas inteligentes para o sino de notificacoes
 export function computeAlerts({ transactions = [], invoices = [], subscriptions = [], categories = [], accounts = [], catMap = {} }) {
@@ -280,4 +254,92 @@ export function computeAlerts({ transactions = [], invoices = [], subscriptions 
 
   const order = { danger: 0, warn: 1, info: 2 };
   return out.sort((a, b) => order[a.severity] - order[b.severity]);
+}
+
+// Regressao linear por (x,y) explicitos
+export function regress(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return { slope: 0, intercept: ys[0] || 0, predict: () => ys[0] || 0 };
+  let sx = 0, sy = 0, sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxy += xs[i] * ys[i]; sxx += xs[i] * xs[i]; }
+  const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx || 1);
+  const intercept = (sy - slope * sx) / n;
+  return { slope, intercept, predict: (x) => intercept + slope * x };
+}
+
+// Avaliacao ML real: ajuste OLS + R2 in-sample + validacao cruzada Leave-One-Out (MAE/RMSE) + sigma (banda)
+export function evaluateModel(ys) {
+  const n = ys.length;
+  const xs = ys.map((_, i) => i);
+  const reg = regress(xs, ys);
+  const mean = ys.reduce((a, b) => a + b, 0) / (n || 1);
+  let ssRes = 0, ssTot = 0;
+  ys.forEach((y, i) => { const p = reg.predict(i); ssRes += (y - p) ** 2; ssTot += (y - mean) ** 2; });
+  const r2 = ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : (ssRes === 0 ? 1 : 0);
+  const sigma = Math.sqrt(ssRes / Math.max(1, n - 2));
+
+  // Leave-One-Out cross validation (metrica honesta em series curtas)
+  let cvSae = 0, cvSse = 0, folds = 0;
+  if (n >= 3) {
+    for (let k = 0; k < n; k++) {
+      const txs = xs.filter((_, i) => i !== k);
+      const tys = ys.filter((_, i) => i !== k);
+      const r = regress(txs, tys);
+      const err = ys[k] - r.predict(k);
+      cvSae += Math.abs(err); cvSse += err * err; folds++;
+    }
+  }
+  const cvMae = folds ? cvSae / folds : 0;
+  const cvRmse = folds ? Math.sqrt(cvSse / folds) : 0;
+  const trend = reg.slope > 1 ? 'alta' : reg.slope < -1 ? 'queda' : 'estavel';
+  return {
+    model: 'Regressao Linear (OLS)', n, folds, r2, cvMae, cvRmse, sigma,
+    slope: reg.slope, intercept: reg.intercept, trend, predict: reg.predict,
+  };
+}
+
+// Detecta assinaturas recorrentes a partir das despesas (mesma descricao em >=3 meses, valor estavel)
+export function detectSubscriptions(transactions, existing = []) {
+  const norm = (d) => String(d || '').toLowerCase().trim();
+  const existingNames = new Set(existing.map((s) => norm(s.name)));
+  const groups = {};
+  for (const t of transactions) {
+    if (t.type !== 'expense' || !t.description) continue;
+    const key = norm(t.description);
+    (groups[key] = groups[key] || []).push(t);
+  }
+  const out = [];
+  for (const [key, list] of Object.entries(groups)) {
+    if (existingNames.has(key)) continue;
+    const months = new Set(list.map((t) => String(t.date).slice(0, 7)));
+    if (months.size < 3) continue;
+    const vals = list.map((t) => num(t.amount));
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length);
+    if (mean > 0 && sd / mean <= 0.15) { // valor estavel
+      const day = Number(String(list[0].date).slice(8, 10)) || 1;
+      out.push({ name: list[0].description, amount: Math.round(mean * 100) / 100, months: months.size, renewal_day: day });
+    }
+  }
+  return out.sort((a, b) => b.months - a.months).slice(0, 8);
+}
+
+// Previsao com sazonalidade (usa media do mes-calendario quando ha >=12 meses)
+export function seasonalForecast(transactions, targetDate) {
+  const d = targetDate ? new Date(targetDate) : (() => { const x = new Date(); x.setMonth(x.getMonth() + 1); return x; })();
+  const targetMonth = d.getMonth();
+  const all = monthlySeries(transactions, lastMonths(24));
+  const nonEmpty = all.filter((s) => s.inc || s.exp);
+  if (nonEmpty.length < 12) { const f = forecastNextMonth(transactions, lastMonths(6)); return { ...f, seasonal: false }; }
+  const forKey = (key) => {
+    const ys = nonEmpty.map((s) => s[key]);
+    const overall = ys.reduce((a, b) => a + b, 0) / ys.length;
+    const sameMonth = nonEmpty.filter((s) => Number(s.mk.split('-')[1]) - 1 === targetMonth).map((s) => s[key]);
+    const seasonAvg = sameMonth.length ? sameMonth.reduce((a, b) => a + b, 0) / sameMonth.length : overall;
+    const reg = linearRegression(ys);
+    const trend = reg.predict(ys.length);
+    return Math.max(0, 0.4 * trend + 0.3 * overall + 0.3 * seasonAvg);
+  };
+  const inc = forKey('inc'), exp = forKey('exp');
+  return { inc, exp, net: inc - exp, seasonal: true };
 }

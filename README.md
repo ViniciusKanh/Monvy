@@ -1326,3 +1326,32 @@ Projeto desenvolvido com foco em:
   <strong>Monvy</strong><br>
   Controle hoje. Decida melhor amanhã. 💚
 </p>
+
+
+## Novidades (v2)
+- **Recuperação de senha** (esqueci/redefinir por e-mail) + confirmação de e-mail obrigatória no cadastro.
+- **Segurança**: rate limiting em auth, migrations versionadas (tabela Setting `migrations_applied`).
+- **Escalabilidade**: índices SQL, filtros `?month=` e `?_limit/_offset` nas listas, `/api/summary` (agregação no banco), bootstrap com janela de 24 meses.
+- **Faturas de cartão**: `/api/cards/invoices` gera faturas por competência (fechamento/vencimento) e paga debitando a conta.
+- **Recorrência real**: lançamentos fixos mensais são materializados automaticamente (bootstrap).
+- **IA**: auto-categorização por histórico, detecção de assinaturas, **Assistente conversacional (Gemini)**, previsão com sazonalidade, Simulador com validação cruzada (LOO) + intervalo de confiança.
+- **Importar Extrato** OFX/CSV com categorização automática.
+- **Onboarding** para novos usuários (primeira conta + categorias padrão).
+- **PWA** instalável (manifest + service worker).
+- **Lembretes por e-mail** (cron diário) e **relatório por e-mail**.
+- **CI**: `.github/workflows/ci.yml` roda testes + build. Testes: `npm test`.
+
+## Variáveis de ambiente (Vercel)
+```
+TURSO_DATABASE_URL=libsql://SEU-BANCO.turso.io
+TURSO_AUTH_TOKEN=seu_token
+JWT_SECRET=string_aleatoria_longa
+CRON_SECRET=string_aleatoria_para_o_cron   # protege /api/cron/reminders
+```
+Config de e-mail (Gmail com senha de app) e chave do Gemini ficam nas **Configurações** do app (admin).
+
+## Deploy resumido
+1. `npm install` (inclui `nodemailer`).
+2. `npm run db:init` uma vez (cria tabelas + admin).
+3. Suba no GitHub → importe no Vercel (preset Vite) → adicione as env vars acima.
+4. O cron de lembretes roda automaticamente no Vercel (definido em `vercel.json`).

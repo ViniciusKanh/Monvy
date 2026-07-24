@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client';
-import { SCHEMA_STATEMENTS, SAFE_ALTERS } from './schema.js';
+import { SCHEMA_STATEMENTS, MIGRATIONS } from './schema.js';
 
 let _client = null;
 let _schemaReady = false;
@@ -21,9 +21,18 @@ export async function ensureSchema() {
   for (const stmt of SCHEMA_STATEMENTS) {
     await c.execute(stmt);
   }
-  for (const stmt of SAFE_ALTERS) {
-    try { await c.execute(stmt); } catch (e) { /* coluna ja existe */ }
+  // migrations versionadas (idempotentes)
+  let applied = [];
+  try {
+    const r = await c.execute({ sql: "SELECT value FROM Setting WHERE key = 'migrations_applied'", args: [] });
+    if (r.rows[0]?.value) applied = JSON.parse(r.rows[0].value);
+  } catch { applied = []; }
+  for (const m of MIGRATIONS) {
+    if (applied.includes(m.id)) continue;
+    for (const stmt of m.statements) { try { await c.execute(stmt); } catch (e) { /* ja existe */ } }
+    applied.push(m.id);
   }
+  await c.execute({ sql: "INSERT INTO Setting (key, value) VALUES ('migrations_applied', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", args: [JSON.stringify(applied)] });
   _schemaReady = true;
 }
 

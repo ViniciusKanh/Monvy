@@ -23,8 +23,8 @@ if (fs.existsSync(envPath)) {
 
 const ALL_SCREENS = [
   'dashboard','accounts','cards','transactions','categories','budget','goals',
-  'subscriptions','safes','calendar','intelligence','health','behavioral',
-  'simulator','reconciliation','reports','settings','users',
+  'subscriptions','safes','calendar','intelligence','health','behavioral','assistant',
+  'simulator','reconciliation','bankImport','reports','settings','users',
 ];
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
@@ -59,8 +59,8 @@ async function main() {
     console.log('> Admin ja existia -> atualizado (senha redefinida). Email: ' + email);
   } else {
     await c.execute({
-      sql: `INSERT INTO users (id,email,password_hash,full_name,first_name,last_name,role,allowed_screens,is_active,created_date,updated_date)
-            VALUES (?,?,?,?,?,?, 'admin', ?, 1, ?, ?)`,
+      sql: `INSERT INTO users (id,email,password_hash,full_name,first_name,last_name,role,allowed_screens,is_active,email_verified,created_date,updated_date)
+            VALUES (?,?,?,?,?,?, 'admin', ?, 1, 1, ?, ?)`,
       args: [newId(), email, hash, name, 'Vinicius', 'Santos', screens, now, now],
     });
     console.log('> Admin criado! Email: ' + email + ' | Senha: ' + password);

@@ -19,15 +19,41 @@ export async function sendMail({ to, subject, html }) {
   } catch (e) { return { error: e.message }; }
 }
 
-export function tpl(title, body) {
-  return `<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;background:#0b1330;border-radius:16px;overflow:hidden">
-    <div style="padding:22px 24px;background:linear-gradient(135deg,#080d1f,#111b3f)">
-      <span style="font-size:22px;font-weight:800;color:#fff">Mon<span style="color:#10b981">vy</span></span>
-    </div>
-    <div style="padding:24px;background:#fff">
-      <h2 style="margin:0 0 8px;color:#0b1330;font-size:18px">${title}</h2>
-      <div style="color:#475569;font-size:14px;line-height:1.6">${body}</div>
-      <p style="margin-top:24px;color:#94a3b8;font-size:12px">Monvy — Gestao Financeira</p>
+export function tpl(title, bodyHtml, opts = {}) {
+  const cta = opts.ctaText && opts.ctaUrl
+    ? `<a href="${opts.ctaUrl}" style="display:inline-block;margin-top:8px;background:linear-gradient(135deg,#059669,#34d399);color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:12px;font-size:14px">${opts.ctaText}</a>`
+    : '';
+  const logo = `<span style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px">Mon<span style="color:#34d399">vy</span></span>`;
+  return `<div style="margin:0;padding:24px;background:#eef2f7">
+    <div style="font-family:Inter,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(8,13,31,.15)">
+      <div style="padding:26px 28px;background:linear-gradient(135deg,#080d1f 0%,#0b1330 55%,#111b3f 100%)">${logo}
+        <div style="height:3px;width:54px;margin-top:12px;border-radius:3px;background:linear-gradient(90deg,#059669,#34d399)"></div>
+      </div>
+      <div style="padding:28px;background:#ffffff">
+        <h2 style="margin:0 0 12px;color:#0b1330;font-size:20px;font-weight:800">${title}</h2>
+        <div style="color:#475569;font-size:14px;line-height:1.7">${bodyHtml}</div>
+        ${cta}
+        <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e2e8f0;color:#334155;font-size:13px;line-height:1.6">
+          Atenciosamente,<br/>
+          <b style="color:#0b1330">Vinicius Santos</b><br/>
+          <span style="color:#64748b">Desenvolvedor do Monvy</span>
+        </div>
+      </div>
+      <div style="padding:14px 28px;background:#f8fafc;color:#94a3b8;font-size:11px;text-align:center">Monvy — Gestao Financeira Pessoal · e-mail automatico, por favor nao responda.</div>
     </div>
   </div>`;
+}
+
+// linha de item para tabelas de e-mail (ex: vencimentos)
+export function itemRow(label, sub, amount, color = '#0b1330') {
+  return `<tr>
+    <td style="padding:10px 0;border-bottom:1px solid #eef2f7">
+      <div style="color:#0b1330;font-weight:600;font-size:14px">${label}</div>
+      <div style="color:#94a3b8;font-size:12px">${sub || ''}</div>
+    </td>
+    <td style="padding:10px 0;border-bottom:1px solid #eef2f7;text-align:right;color:${color};font-weight:700;font-size:14px;white-space:nowrap">${amount}</td>
+  </tr>`;
+}
+export function itemsTable(rows) {
+  return `<table style="width:100%;border-collapse:collapse;margin:8px 0 4px">${rows.join('')}</table>`;
 }

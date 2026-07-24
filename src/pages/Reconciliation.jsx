@@ -6,7 +6,8 @@ import { Card, Button, Badge, Spinner, EmptyState } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import { formatCurrency, todayIso } from '../lib/utils.js';
-import { GitCompare, CheckCircle2, AlertTriangle, Copy, Tag, Wand2, ArrowUpRight, ArrowDownRight, Trash2, Check } from 'lucide-react';
+import { GitCompare, CheckCircle2, AlertTriangle, Copy, Tag, Wand2, ArrowUpRight, ArrowDownRight, Trash2, Check, Sparkles } from 'lucide-react';
+import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 
 export default function Reconciliation() {
   const qc = useQueryClient();
@@ -59,6 +60,21 @@ export default function Reconciliation() {
       for (const t of overdue) await Transaction.update(t.id, { status: 'completed' });
       inval();
       toast.success(`${overdue.length} lancamento(s) conciliado(s) automaticamente.`);
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+
+  const autoCategorize = async () => {
+    if (!uncategorized.length) { toast.info('Nada para categorizar.'); return; }
+    setBusy(true);
+    try {
+      const idx = buildCategoryIndex(transactions);
+      let done = 0;
+      for (const t of uncategorized) {
+        const p = predictCategory(t.description, idx);
+        if (p && catMap[p] && catMap[p].type === (t.type === 'income' ? 'income' : 'expense')) { await Transaction.update(t.id, { category_id: p }); done++; }
+      }
+      inval();
+      toast.success(done ? `${done} lancamento(s) categorizado(s) por IA.` : 'Nao foi possivel inferir categorias (historico insuficiente).');
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
 
@@ -118,8 +134,11 @@ export default function Reconciliation() {
       {/* Sem categoria */}
       {uncategorized.length > 0 && (
         <Card>
-          <h3 className="font-semibold flex items-center gap-2 mb-2"><Tag className="w-4 h-4 text-indigo-500" /> Sem categoria ({uncategorized.length})</h3>
-          <p className="text-sm text-muted">Categorize esses lancamentos em <span className="font-medium">Lancamentos</span> para melhorar suas analises.</p>
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <h3 className="font-semibold flex items-center gap-2"><Tag className="w-4 h-4 text-indigo-500" /> Sem categoria ({uncategorized.length})</h3>
+            <Button size="sm" variant="outline" onClick={autoCategorize} disabled={busy}>{busy ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Auto-categorizar</>}</Button>
+          </div>
+          <p className="text-sm text-muted">A IA usa seu historico para inferir a categoria de cada lancamento.</p>
         </Card>
       )}
 

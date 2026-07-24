@@ -55,11 +55,26 @@ export async function listRows(entity, ownerId, filters = {}) {
   const where = ['(is_deleted IS NULL OR is_deleted = 0)'];
   const args = [];
   if (cols.includes('created_by_id')) { where.push('created_by_id = ?'); args.push(ownerId); }
-  for (const [k, v] of Object.entries(filters)) {
+
+  const f = { ...filters };
+  const limit = f._limit ? Math.min(1000, Math.max(1, parseInt(f._limit))) : null;
+  const offset = f._offset ? Math.max(0, parseInt(f._offset)) : 0;
+  const month = f.month; const since = f._since;
+  delete f._limit; delete f._offset; delete f.month; delete f._since; delete f.entity;
+
+  // filtro por mes (prefixo em date ou competence_month)
+  if (month) {
+    if (cols.includes('competence_month')) { where.push('competence_month = ?'); args.push(month); }
+    else if (cols.includes('date')) { where.push('substr(date,1,7) = ?'); args.push(month); }
+  }
+  if (since && cols.includes('date')) { where.push('substr(date,1,10) >= ?'); args.push(since); }
+
+  for (const [k, v] of Object.entries(f)) {
     if (cols.includes(k)) { where.push(`${k} = ?`); args.push(v); }
   }
   const orderCol = cols.includes('date') ? 'date' : (cols.includes('created_date') ? 'created_date' : cols[0]);
-  const sql = `SELECT * FROM ${sqlName(entity)} WHERE ${where.join(' AND ')} ORDER BY ${orderCol} DESC`;
+  let sql = `SELECT * FROM ${sqlName(entity)} WHERE ${where.join(' AND ')} ORDER BY ${orderCol} DESC`;
+  if (limit) { sql += ` LIMIT ${limit} OFFSET ${offset}`; }
   const r = await db().execute({ sql, args });
   return r.rows.map((row) => fromDb(entity, row));
 }

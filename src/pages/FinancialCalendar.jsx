@@ -79,7 +79,7 @@ export default function FinancialCalendar() {
       <PageHeader title="Calendario Financeiro" subtitle="Vencimentos, faturas e lancamentos por data" />
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 hover-lift">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-bold text-lg capitalize">{MONTHS_PT[m - 1]} {y}</h3>
             <div className="flex items-center gap-1">
@@ -137,7 +137,7 @@ export default function FinancialCalendar() {
         </Card>
 
         <div className="space-y-4">
-          <Card>
+          <Card className="hover-lift">
             <h3 className="font-semibold flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-amber-500" /> Proximos 14 dias</h3>
             {upcoming.length === 0 ? <div className="flex flex-col items-center py-6 text-muted"><CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" /><p className="text-sm">Nenhum vencimento proximo</p></div>
               : <div className="space-y-2">{upcoming.slice(0, 8).map((e, i) => (
@@ -148,7 +148,7 @@ export default function FinancialCalendar() {
                   </div>
                 ))}</div>}
           </Card>
-          <Card>
+          <Card className="hover-lift">
             <h3 className="font-semibold mb-2">Faturas em aberto</h3>
             {openInvoices.length === 0 ? <p className="text-sm text-muted">Sem faturas em aberto</p>
               : openInvoices.map((inv) => (

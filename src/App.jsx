@@ -4,6 +4,9 @@ import { Spinner } from './components/ui';
 import { AppLayout } from './layout/AppLayout.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import Verify from './pages/Verify.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Accounts from './pages/Accounts.jsx';
 import CreditCards from './pages/CreditCards.jsx';
@@ -18,8 +21,10 @@ import Reports from './pages/Reports.jsx';
 import Intelligence from './pages/Intelligence.jsx';
 import FinancialHealth from './pages/FinancialHealth.jsx';
 import BehavioralAnalysis from './pages/BehavioralAnalysis.jsx';
+import AIAssistant from './pages/AIAssistant.jsx';
 import Simulator from './pages/Simulator.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
+import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
 import { Placeholder } from './pages/Placeholder.jsx';
@@ -44,6 +49,11 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/cadastro" element={<Register />} />
+      <Route path="/verificar" element={<Verify />} />
+      <Route path="/esqueci-senha" element={<ForgotPassword />} />
+      <Route path="/redefinir-senha" element={<ResetPassword />} />
+      <Route path="/recuperar" element={<ForgotPassword />} />
+      <Route path="/redefinir" element={<ResetPassword />} />
 
       <Route element={<AppLayout />}>
         <Route path="/" element={<Protected screenKey="dashboard"><Dashboard /></Protected>} />
@@ -59,8 +69,10 @@ export default function App() {
         <Route path="/inteligencia" element={<Protected screenKey="intelligence"><Intelligence /></Protected>} />
         <Route path="/saude" element={<Protected screenKey="health"><FinancialHealth /></Protected>} />
         <Route path="/comportamental" element={<Protected screenKey="behavioral"><BehavioralAnalysis /></Protected>} />
+        <Route path="/assistente" element={<Protected screenKey="assistant"><AIAssistant /></Protected>} />
         <Route path="/simulador" element={<Protected screenKey="simulator"><Simulator /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
+        <Route path="/importar" element={<Protected screenKey="bankImport"><BankImport /></Protected>} />
         <Route path="/relatorios" element={<Protected screenKey="reports"><Reports /></Protected>} />
         <Route path="/configuracoes" element={<Protected screenKey="settings"><Settings /></Protected>} />
         <Route path="/usuarios" element={<Protected screenKey="users"><Users /></Protected>} />

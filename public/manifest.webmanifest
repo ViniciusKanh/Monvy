@@ -1,0 +1,14 @@
+{
+  "name": "Monvy — Gestão Financeira",
+  "short_name": "Monvy",
+  "description": "Controle inteligente das suas finanças pessoais.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080d1f",
+  "theme_color": "#080d1f",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

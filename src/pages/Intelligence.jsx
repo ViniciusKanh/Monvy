@@ -5,7 +5,7 @@ import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Badge, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey } from '../lib/utils.js';
-import { lastMonths, monthlySeries, monthTotals, categoryBreakdown, weekdaySpending, forecastNextMonth, detectAnomalies, groupByDescription, colorAt } from '../lib/analytics.js';
+import { lastMonths, monthlySeries, monthTotals, categoryBreakdown, weekdaySpending, seasonalForecast, detectAnomalies, groupByDescription, colorAt } from '../lib/analytics.js';
 import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Brain, TrendingUp, TrendingDown, Wallet, Eye, AlertTriangle, CheckCircle2, Sparkles, ShoppingBag, CalendarDays, Lightbulb } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export default function Intelligence() {
   const series = useMemo(() => monthlySeries(transactions, months), [transactions, months]);
   const cur = useMemo(() => monthTotals(transactions, mk), [transactions, mk]);
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
-  const forecast = useMemo(() => forecastNextMonth(transactions, months), [transactions, months]);
+  const forecast = useMemo(() => seasonalForecast(transactions), [transactions]);
   const byCat = useMemo(() => categoryBreakdown(transactions, mk, catMap), [transactions, mk, catMap]);
   const wd = useMemo(() => weekdaySpending(transactions, mk), [transactions, mk]);
   const anomalies = useMemo(() => detectAnomalies(transactions, catMap), [transactions, catMap]);
@@ -109,12 +109,12 @@ export default function Intelligence() {
       {/* Previsao + comparativo */}
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
-          <h3 className="font-semibold flex items-center gap-2 mb-3"><Eye className="w-4 h-4 text-violet-500" /> Previsao Proximo Mes</h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><Eye className="w-4 h-4 text-violet-500" /> Previsao Proximo Mes {forecast.seasonal && <Badge color="violet">sazonal</Badge>}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10"><p className="text-xs text-muted">Receita estimada</p><p className="font-bold text-emerald-600 dark:text-emerald-300">{formatCurrency(forecast.inc)}</p></div>
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10"><p className="text-xs text-muted">Despesa estimada</p><p className="font-bold text-rose-600 dark:text-rose-300">{formatCurrency(forecast.exp)}</p></div>
           </div>
-          <div className="mt-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10"><p className="text-xs text-muted">Saldo previsto</p><p className="font-display text-2xl font-bold text-indigo-600 dark:text-indigo-300">{formatCurrency(forecast.net)}</p><p className="text-xs text-muted mt-0.5">Baseado em tendencia (regressao) + media dos ultimos 6 meses</p></div>
+          <div className="mt-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10"><p className="text-xs text-muted">Saldo previsto</p><p className="font-display text-2xl font-bold text-indigo-600 dark:text-indigo-300">{formatCurrency(forecast.net)}</p><p className="text-xs text-muted mt-0.5">{forecast.seasonal ? "Modelo sazonal (tendencia + media do mes-calendario)" : "Tendencia (regressao) + media dos ultimos 6 meses"}</p></div>
         </Card>
         <Card>
           <h3 className="font-semibold mb-3">Analise Mensal Comparativa</h3>

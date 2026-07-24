@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Logo } from '../components/Logo.jsx';
 import { Button, Input, Field, Spinner } from '../components/ui';
+import { MailCheck } from 'lucide-react';
 
 export default function Register() {
   const { register } = useAuth();
@@ -10,6 +11,7 @@ export default function Register() {
   const [form, setForm] = useState({ full_name: '', email: '', password: '', confirm: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e) => {
@@ -19,8 +21,9 @@ export default function Register() {
     if (form.password !== form.confirm) return setError('As senhas nao conferem.');
     setLoading(true);
     try {
-      await register({ full_name: form.full_name, email: form.email, password: form.password });
-      navigate('/', { replace: true });
+      const res = await register({ full_name: form.full_name, email: form.email, password: form.password });
+      if (res?.needsVerification) setSent(form.email);
+      else navigate('/', { replace: true });
     } catch (err) {
       setError(err.message || 'Falha no cadastro');
     } finally { setLoading(false); }
@@ -45,6 +48,15 @@ export default function Register() {
 
           {error && <div className="mb-4 text-sm text-rose-600 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg px-3 py-2">{error}</div>}
 
+          {sent ? (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center mb-4"><MailCheck className="w-8 h-8 text-emerald-500" /></div>
+              <h2 className="font-display font-bold text-lg">Confirme seu e-mail</h2>
+              <p className="text-sm text-muted mt-2">Enviamos um link de confirmacao para <b>{sent}</b>. Clique no link para ativar sua conta e depois faca login.</p>
+              <Button className="w-full mt-5" onClick={() => navigate('/login')}>Ir para o login</Button>
+              <p className="text-xs text-muted mt-3">Nao recebeu? Verifique o spam ou reenvie na tela de login.</p>
+            </div>
+          ) : (
           <form onSubmit={submit} className="space-y-4">
             <Field label="Nome completo">
               <Input required value={form.full_name} onChange={set('full_name')} placeholder="Seu nome" />
@@ -62,10 +74,11 @@ export default function Register() {
               {loading ? <Spinner className="w-4 h-4" /> : 'Criar conta'}
             </Button>
           </form>
+          )}
 
-          <p className="text-sm text-muted text-center mt-6">
+          {!sent && <p className="text-sm text-muted text-center mt-6">
             Ja tem conta? <Link to="/login" className="text-emerald-600 font-semibold">Entrar</Link>
-          </p>
+          </p>}
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Input, Select, Field, Modal, Textarea, Spinner } from './ui';
 import { todayIso } from '../lib/utils.js';
+import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 
 const TYPES = [
   { v: 'expense', label: 'Despesa', cls: 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-500/10' },
@@ -14,7 +15,8 @@ const empty = {
   is_fixed: false, recurrence: 'none', status: 'pending',
 };
 
-export function TransactionModal({ open, onClose, onSubmit, saving, accounts, categories, initial, defaultType }) {
+export function TransactionModal({ open, onClose, onSubmit, saving, accounts, categories, transactions = [], initial, defaultType }) {
+  const catIndex = useMemo(() => buildCategoryIndex(transactions), [transactions]);
   const [form, setForm] = useState(empty);
 
   useEffect(() => {
@@ -32,6 +34,14 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
   }, [open, initial, defaultType]); // eslint-disable-line
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const onDesc = (e) => {
+    const v = e.target.value;
+    setForm((f) => {
+      let cat = f.category_id;
+      if (f.type !== 'transfer' && !cat) { const p = predictCategory(v, catIndex); if (p && categories.some((c) => c.id === p && c.type === f.type)) cat = p; }
+      return { ...f, description: v, category_id: cat };
+    });
+  };
   const cats = useMemo(() => categories.filter((c) => form.type === 'transfer' ? false : c.type === form.type), [categories, form.type]);
 
   const submit = (e) => {
@@ -61,7 +71,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
           <Field label="Valor"><Input type="number" step="0.01" required value={form.amount} onChange={set('amount')} placeholder="0,00" /></Field>
           <Field label="Data"><Input type="date" required value={form.date} onChange={set('date')} /></Field>
         </div>
-        <Field label="Descricao"><Input value={form.description} onChange={set('description')} placeholder="Ex: Mercado" /></Field>
+        <Field label="Descricao" hint="A categoria e sugerida automaticamente pelo historico"><Input value={form.description} onChange={onDesc} placeholder="Ex: Mercado" /></Field>
         <Field label={form.type === 'transfer' ? 'Conta de origem' : 'Conta'}>
           <Select required value={form.account_id} onChange={set('account_id')}>
             <option value="">Selecione</option>
