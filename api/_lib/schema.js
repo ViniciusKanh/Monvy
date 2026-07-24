@@ -1,0 +1,253 @@
+// Definicao central do schema Monvy (SQLite/LibSQL - Turso).
+// Usado pela API (ensureSchema) e pelo script scripts/initDb.mjs.
+
+export const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    profession TEXT,
+    phone TEXT,
+    photo_url TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    allowed_screens TEXT DEFAULT '[]',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_date TEXT,
+    updated_date TEXT,
+    created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Account (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    account_type TEXT NOT NULL DEFAULT 'checking',
+    initial_balance REAL DEFAULT 0,
+    current_balance REAL DEFAULT 0,
+    color TEXT DEFAULT '#18A558',
+    icon TEXT DEFAULT 'wallet',
+    is_active INTEGER DEFAULT 1,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Category (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'expense',
+    color TEXT DEFAULT '#18A558',
+    icon TEXT DEFAULT 'tag',
+    budget_limit REAL,
+    is_active INTEGER DEFAULT 1,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS "Transaction" (
+    id TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    type TEXT NOT NULL DEFAULT 'expense',
+    account_id TEXT,
+    account_to_id TEXT,
+    category_id TEXT,
+    description TEXT,
+    is_fixed INTEGER DEFAULT 0,
+    recurrence TEXT DEFAULT 'none',
+    status TEXT DEFAULT 'pending',
+    installments_total INTEGER,
+    installment_current INTEGER,
+    parent_transaction_id TEXT,
+    obligation_id TEXT,
+    tags TEXT DEFAULT '[]',
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS CreditCard (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    last_digits TEXT,
+    brand TEXT DEFAULT 'visa',
+    closing_day INTEGER NOT NULL DEFAULT 1,
+    due_day INTEGER NOT NULL DEFAULT 10,
+    credit_limit REAL,
+    account_id TEXT,
+    color TEXT DEFAULT '#1a1a2e',
+    is_active INTEGER DEFAULT 1,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS CreditCardTransaction (
+    id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    description TEXT,
+    amount REAL NOT NULL DEFAULT 0,
+    category_id TEXT,
+    installments_total INTEGER DEFAULT 1,
+    installment_current INTEGER DEFAULT 1,
+    competence_month TEXT,
+    is_recurring INTEGER DEFAULT 0,
+    imported_from_pdf INTEGER DEFAULT 0,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS CreditCardInvoice (
+    id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL,
+    competence_month TEXT NOT NULL,
+    total_amount REAL,
+    due_date TEXT,
+    closing_date TEXT,
+    status TEXT DEFAULT 'open',
+    paid_date TEXT,
+    paid_amount REAL,
+    payment_transaction_id TEXT,
+    pdf_url TEXT,
+    ai_analysis TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Goal (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_amount REAL NOT NULL DEFAULT 0,
+    current_amount REAL DEFAULT 0,
+    monthly_target REAL,
+    start_date TEXT,
+    target_date TEXT,
+    status TEXT DEFAULT 'active',
+    category TEXT,
+    color TEXT DEFAULT '#18A558',
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Subscription (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    renewal_day INTEGER NOT NULL DEFAULT 1,
+    category TEXT,
+    color TEXT DEFAULT '#8b5cf6',
+    icon_emoji TEXT DEFAULT '📱',
+    is_active INTEGER DEFAULT 1,
+    usage_frequency TEXT DEFAULT 'monthly',
+    notes TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Anomaly (
+    id TEXT PRIMARY KEY,
+    transaction_id TEXT NOT NULL,
+    detected_date TEXT,
+    amount REAL,
+    category_id TEXT,
+    account_id TEXT,
+    anomaly_score REAL NOT NULL DEFAULT 0,
+    reason TEXT,
+    z_score REAL,
+    category_average REAL,
+    is_acknowledged INTEGER DEFAULT 0,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Forecast (
+    id TEXT PRIMARY KEY,
+    forecast_date TEXT NOT NULL,
+    predicted_balance REAL NOT NULL DEFAULT 0,
+    lower_bound REAL,
+    upper_bound REAL,
+    confidence_level REAL DEFAULT 0.95,
+    mode TEXT NOT NULL DEFAULT 'cash',
+    generated_at TEXT,
+    features_importance TEXT DEFAULT '{}',
+    explanation TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS AppSettings (
+    id TEXT PRIMARY KEY,
+    gemini_api_key_configured INTEGER DEFAULT 0,
+    gemini_api_key TEXT,
+    default_view_mode TEXT DEFAULT 'cash',
+    currency TEXT DEFAULT 'BRL',
+    locale TEXT DEFAULT 'pt-BR',
+    notifications_enabled INTEGER DEFAULT 1,
+    auto_categorize INTEGER DEFAULT 1,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Safe (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_amount REAL DEFAULT 0,
+    current_amount REAL DEFAULT 0,
+    icon TEXT DEFAULT 'piggy',
+    color TEXT DEFAULT '#10b981',
+    notes TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS Setting (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS idx_tx_owner ON "Transaction"(created_by_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_tx_date ON "Transaction"(date)`,
+  `CREATE INDEX IF NOT EXISTS idx_cct_card ON CreditCardTransaction(card_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_acc_owner ON Account(created_by_id)`,
+];
+
+// Migracoes idempotentes (rodam com try/catch; ignoram 'duplicate column')
+export const SAFE_ALTERS = [
+  `ALTER TABLE AppSettings ADD COLUMN gemini_api_key TEXT`,
+  `ALTER TABLE "Transaction" ADD COLUMN status TEXT DEFAULT 'pending'`,
+];
+
+// Entidades expostas pela API generica /api/entities/:entity
+export const ENTITIES = {
+  Account: 'Account',
+  Category: 'Category',
+  Transaction: '"Transaction"',
+  CreditCard: 'CreditCard',
+  CreditCardTransaction: 'CreditCardTransaction',
+  CreditCardInvoice: 'CreditCardInvoice',
+  Goal: 'Goal',
+  Subscription: 'Subscription',
+  Anomaly: 'Anomaly',
+  Forecast: 'Forecast',
+  AppSettings: 'AppSettings',
+  Safe: 'Safe',
+};
+
+// Colunas do tipo JSON (serializadas/desserializadas automaticamente)
+export const JSON_FIELDS = {
+  Transaction: ['tags'],
+  Forecast: ['features_importance'],
+};
+
+// Colunas boolean (armazenadas como 0/1)
+export const BOOL_FIELDS = {
+  Account: ['is_active'],
+  Category: ['is_active'],
+  Transaction: ['is_fixed'],
+  CreditCard: ['is_active'],
+  CreditCardTransaction: ['is_recurring', 'imported_from_pdf'],
+  Goal: [],
+  Subscription: ['is_active'],
+  Anomaly: ['is_acknowledged'],
+  AppSettings: ['gemini_api_key_configured', 'notifications_enabled', 'auto_categorize'],
+};
