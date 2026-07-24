@@ -32,7 +32,6 @@ export const NAV_GROUPS = [
     items: [
       { key: 'intelligence', label: 'Inteligencia', path: '/inteligencia', icon: Brain },
       { key: 'health', label: 'Saude Financeira', path: '/saude', icon: HeartPulse },
-      { key: 'assistant', label: 'Assistente IA', path: '/assistente', icon: Bot },
       { key: 'behavioral', label: 'Analise Comportamental', path: '/comportamental', icon: BarChart3 },
     ],
   },

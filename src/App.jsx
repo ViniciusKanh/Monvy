@@ -21,7 +21,6 @@ import Reports from './pages/Reports.jsx';
 import Intelligence from './pages/Intelligence.jsx';
 import FinancialHealth from './pages/FinancialHealth.jsx';
 import BehavioralAnalysis from './pages/BehavioralAnalysis.jsx';
-import AIAssistant from './pages/AIAssistant.jsx';
 import Simulator from './pages/Simulator.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
@@ -69,7 +68,6 @@ export default function App() {
         <Route path="/inteligencia" element={<Protected screenKey="intelligence"><Intelligence /></Protected>} />
         <Route path="/saude" element={<Protected screenKey="health"><FinancialHealth /></Protected>} />
         <Route path="/comportamental" element={<Protected screenKey="behavioral"><BehavioralAnalysis /></Protected>} />
-        <Route path="/assistente" element={<Protected screenKey="assistant"><AIAssistant /></Protected>} />
         <Route path="/simulador" element={<Protected screenKey="simulator"><Simulator /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
         <Route path="/importar" element={<Protected screenKey="bankImport"><BankImport /></Protected>} />

@@ -4,7 +4,19 @@ import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 // body: { pdfBase64, apiKey, categories:[{id,name}], model? }
 // Usa Google Gemini (tier gratuito) com visao para ler a fatura em PDF
 // e devolver os lancamentos separados e ja mapeados a categorias.
-const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+
+// Descobre um modelo valido da chave (fallback quando os fixos dao 404)
+async function discoverModel(apiKey) {
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const models = (data.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'));
+    const flash = models.find((m) => /flash/i.test(m.name)) || models[0];
+    return flash ? flash.name.replace(/^models\//, '') : null;
+  } catch { return null; }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo nao permitido' });
@@ -36,10 +48,13 @@ Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount"
     };
 
     let lastErr = 'Falha ao chamar o Gemini';
-    for (const m of (model ? [model] : MODELS)) {
+    const candidates = model ? [model] : [...MODELS];
+    const discovered = await discoverModel(apiKey);
+    if (discovered && !candidates.includes(discovered)) candidates.push(discovered);
+    for (const m of candidates) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!r.ok) { lastErr = `Gemini ${r.status}: ${(await r.text()).slice(0, 300)}`; continue; }
+      if (!r.ok) { lastErr = `Gemini (${m}) ${r.status}: ${(await r.text()).slice(0, 200)}`; continue; }
       const data = await r.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       let parsed;
@@ -52,7 +67,7 @@ Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount"
       })).filter((it) => it.amount > 0);
       return sendJson(res, 200, { items, model: m });
     }
-    return sendJson(res, 502, { error: lastErr });
+    return sendJson(res, 502, { error: 'Nao consegui usar o Gemini. Verifique se a chave e valida e tem acesso a um modelo Flash. Detalhe: ' + lastErr });
   } catch (e) {
     return sendJson(res, 500, { error: e.message });
   }

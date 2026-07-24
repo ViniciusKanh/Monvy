@@ -23,7 +23,7 @@ if (fs.existsSync(envPath)) {
 
 const ALL_SCREENS = [
   'dashboard','accounts','cards','transactions','categories','budget','goals',
-  'subscriptions','safes','calendar','intelligence','health','behavioral','assistant',
+  'subscriptions','safes','calendar','intelligence','health','behavioral',
   'simulator','reconciliation','bankImport','reports','settings','users',
 ];
 
