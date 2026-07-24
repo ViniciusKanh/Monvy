@@ -1,5 +1,5 @@
-import { db, ensureSchema, nowIso } from '../../_lib/db.js';
-import { getAuth, sendJson, readBody } from '../../_lib/auth.js';
+import { db, ensureSchema, nowIso } from '../_lib/db.js';
+import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 
 // PUT /api/admin/users/:id  -> atualiza role, allowed_screens, is_active (somente admin)
 export default async function handler(req, res) {

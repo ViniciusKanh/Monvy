@@ -1,7 +1,7 @@
-import { ensureSchema } from '../../_lib/db.js';
-import { getAuth, sendJson, readBody } from '../../_lib/auth.js';
-import { getRow, updateRow, deleteRow } from '../../_lib/entities.js';
-import { recalcAllAccounts } from '../../_lib/hooks.js';
+import { ensureSchema } from '../_lib/db.js';
+import { getAuth, sendJson, readBody } from '../_lib/auth.js';
+import { getRow, updateRow, deleteRow } from '../_lib/entities.js';
+import { recalcAllAccounts } from '../_lib/hooks.js';
 
 export default async function handler(req, res) {
   try {
