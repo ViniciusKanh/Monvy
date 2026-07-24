@@ -129,7 +129,7 @@ export function AppLayout() {
           <div className="h-[3px] bg-gradient-to-r from-emerald-500 via-indigo-500 to-violet-500" />
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto overflow-x-hidden">
           <ErrorBoundary routeKey={location.pathname}><Outlet /></ErrorBoundary>
         </main>
         <OnboardingWizard />

@@ -68,7 +68,7 @@ export default function Accounts() {
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] tracking-[0.25em] text-emerald-300/80">PATRIMONIO EM CONTAS</p>
-            <p className="font-display text-4xl sm:text-5xl font-extrabold mt-2"><AnimatedValue value={total} format={formatCurrency} /></p>
+            <p className="font-display text-3xl sm:text-5xl font-extrabold mt-2"><AnimatedValue value={total} format={formatCurrency} /></p>
             <p className="text-xs text-slate-400 mt-1">{accounts.length} conta(s) ativa(s)</p>
           </div>
           {accounts.length > 0 && (

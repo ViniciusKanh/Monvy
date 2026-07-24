@@ -75,9 +75,9 @@ export default function Reports() {
 
   return (
     <div className="space-y-4 animate-fadeIn print:space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div><h1 className="font-display text-2xl font-bold gradient-text">Relatorio Financeiro</h1><p className="text-muted text-sm">Analise completa das suas financas</p></div>
-        <div className="flex items-center gap-2 print:hidden">
+        <div className="flex items-center gap-2 print:hidden flex-wrap">
           <Select value={endMk} onChange={(e) => setEndMk(e.target.value)} className="w-auto">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</Select>
           <Select value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="w-auto"><option value={1}>Somente o mes</option><option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option></Select>
           <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4" /> CSV</Button>

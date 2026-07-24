@@ -57,7 +57,7 @@ export default function Subscriptions() {
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] tracking-[0.25em] text-violet-300/80">GASTO MENSAL COM ASSINATURAS</p>
-            <p className="font-display text-4xl font-extrabold mt-1"><AnimatedValue value={totals.monthly} format={formatCurrency} /></p>
+            <p className="font-display text-3xl sm:text-4xl font-extrabold mt-1"><AnimatedValue value={totals.monthly} format={formatCurrency} /></p>
             <p className="text-xs text-slate-400 mt-1">Projecao anual: <b className="text-slate-200">{formatCurrency(totals.annual)}</b></p>
           </div>
           <div className="flex gap-3">

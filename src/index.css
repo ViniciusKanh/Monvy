@@ -121,3 +121,10 @@ body {
 @keyframes checkPop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes scaleIn { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .check-pop { animation: checkPop .5s cubic-bezier(.22,.61,.36,1) both; }
+
+/* Mobile: evita scroll horizontal acidental e zoom em inputs no iOS */
+html, body { max-width: 100%; overflow-x: hidden; }
+@media (max-width: 640px) {
+  .input-base { font-size: 16px; }
+  .card { border-radius: 1rem; }
+}

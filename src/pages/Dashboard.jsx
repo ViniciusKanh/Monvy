@@ -139,7 +139,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-[11px] tracking-[0.28em] text-slate-400 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> PATRIMONIO TOTAL</p>
                 <div className="flex items-end gap-3 mt-2 flex-wrap">
-                  <p className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-none"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
+                  <p className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-none"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
                   <span className={`mb-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/20'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mes</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1.5">{accounts.length} conta(s) · {cards.length} cartao(oes) · {money(savedGoals)} guardado em metas</p>
