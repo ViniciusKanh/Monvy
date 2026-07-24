@@ -4,13 +4,16 @@ import { Category, Transaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button, Card, Input, Modal, Field, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
-import { formatCurrency, monthKey, monthLabel, inMonth } from '../lib/utils.js';
+import { formatCurrency, monthKey, monthLabel, monthRange, inMonth } from '../lib/utils.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { PiggyBank, AlertTriangle, Pencil, Lightbulb, CheckCircle2, TrendingDown } from 'lucide-react';
+import { PiggyBank, AlertTriangle, Pencil, Lightbulb, CheckCircle2, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Budget() {
   const qc = useQueryClient();
-  const mk = monthKey(new Date());
+  const [mk, setMk] = useState(monthKey(new Date()));
+  const months = monthRange(11, 4);
+  const isCurrent = mk === monthKey(new Date());
+  const shiftMonth = (d) => { const [y, m] = mk.split('-').map(Number); setMk(monthKey(new Date(y, m - 1 + d, 1))); };
   const { data: categories = [], isLoading } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const [editing, setEditing] = useState(null);
@@ -38,9 +41,9 @@ export default function Budget() {
 
   // dica inteligente: % gasto vs % do mes decorrido
   const now = new Date();
-  const dayPct = Math.round((now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100);
+  const dayPct = isCurrent ? Math.round((now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100) : 100;
   const spentPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
-  const projected = dayPct > 0 ? Math.round(totalSpent / (dayPct / 100)) : totalSpent;
+  const projected = isCurrent && dayPct > 0 ? Math.round(totalSpent / (dayPct / 100)) : totalSpent;
   const tip = totalBudget === 0 ? { t: 'info', m: 'Defina limites nas suas categorias de despesa para acompanhar o orcamento.' }
     : spentPct > dayPct + 10 ? { t: 'warn', m: `Voce ja usou ${spentPct}% do orcamento, mas o mes esta em ${dayPct}%. Ritmo acima do ideal — segure os gastos.` }
     : spentPct < dayPct - 10 ? { t: 'ok', m: `Otimo ritmo! ${spentPct}% do orcamento usado com o mes em ${dayPct}%. Voce esta economizando.` }
@@ -48,7 +51,14 @@ export default function Budget() {
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Orcamento" subtitle={`Limites de gasto por categoria · ${monthLabel(mk)}`} />
+      <PageHeader title="Orcamento" subtitle="Limites de gasto por categoria"
+        actions={
+          <div className="flex items-center gap-1 card px-1 py-1">
+            <button onClick={() => shiftMonth(-1)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-4 h-4" /></button>
+            <select value={mk} onChange={(e) => setMk(e.target.value)} className="bg-transparent text-sm font-semibold outline-none cursor-pointer px-1 capitalize">{months.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select>
+            <button onClick={() => shiftMonth(1)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        } />
 
       {/* Hero: medidor geral do orcamento */}
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>
@@ -64,7 +74,7 @@ export default function Budget() {
               <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2.5"><p className="text-[11px] text-rose-300">Estourados</p><p className="font-bold">{over}</p></div>
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5"><p className="text-[11px] text-amber-300">Em atencao</p><p className="font-bold">{attention}</p></div>
             </div>
-            {totalBudget > 0 && (
+            {totalBudget > 0 && isCurrent && (
               <p className="text-xs text-slate-400 mt-3">Projecao para o fim do mes: <b className={projected > totalBudget ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(projected)}</b> {projected > totalBudget ? `(${formatCurrency(projected - totalBudget)} acima)` : '(dentro do orcamento)'}</p>
             )}
           </div>
