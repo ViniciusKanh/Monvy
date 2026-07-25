@@ -5,6 +5,7 @@ import { AppLayout } from './layout/AppLayout.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Verify from './pages/Verify.jsx';
+import Privacy from './pages/Privacy.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/cadastro" element={<Register />} />
       <Route path="/verificar" element={<Verify />} />
+      <Route path="/privacidade" element={<Privacy />} />
       <Route path="/esqueci-senha" element={<ForgotPassword />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/recuperar" element={<ForgotPassword />} />
