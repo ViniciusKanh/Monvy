@@ -14,6 +14,7 @@ import Transactions from './pages/Transactions.jsx';
 import Categories from './pages/Categories.jsx';
 import Goals from './pages/Goals.jsx';
 import Budget from './pages/Budget.jsx';
+import Payments from './pages/Payments.jsx';
 import Subscriptions from './pages/Subscriptions.jsx';
 import VirtualSafes from './pages/VirtualSafes.jsx';
 import FinancialCalendar from './pages/FinancialCalendar.jsx';
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="/lancamentos" element={<Protected screenKey="transactions"><Transactions /></Protected>} />
         <Route path="/categorias" element={<Protected screenKey="categories"><Categories /></Protected>} />
         <Route path="/orcamento" element={<Protected screenKey="budget"><Budget /></Protected>} />
+        <Route path="/pagamentos" element={<Protected screenKey="payments"><Payments /></Protected>} />
         <Route path="/metas" element={<Protected screenKey="goals"><Goals /></Protected>} />
         <Route path="/assinaturas" element={<Protected screenKey="subscriptions"><Subscriptions /></Protected>} />
         <Route path="/cofres" element={<Protected screenKey="safes"><VirtualSafes /></Protected>} />
