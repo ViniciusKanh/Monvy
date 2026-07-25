@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Button, Input, Select, Field, Modal, Textarea, Spinner } from './ui';
+import { Paperclip, X, FileText, Eye } from 'lucide-react';
 import { todayIso } from '../lib/utils.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 
@@ -9,15 +10,41 @@ const TYPES = [
   { v: 'transfer', label: 'Transferencia', cls: 'text-blue-600 border-blue-500 bg-blue-50 dark:bg-blue-500/10' },
 ];
 
+// Comprime imagem (ou le PDF) para dataURL leve, guardado no banco
+function readReceipt(file, max = 1100) {
+  return new Promise((resolve, reject) => {
+    if (file.type === 'application/pdf') { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); return; }
+    const img = new Image(); const r = new FileReader();
+    r.onload = () => { img.src = r.result; }; r.onerror = reject;
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/jpeg', 0.72));
+    };
+    r.readAsDataURL(file);
+  });
+}
+
 const empty = {
   type: 'expense', date: todayIso(), amount: '', description: '',
   account_id: '', account_to_id: '', category_id: '',
-  is_fixed: false, recurrence: 'none', status: 'pending',
+  is_fixed: false, recurrence: 'none', status: 'pending', receipt_url: '',
 };
 
 export function TransactionModal({ open, onClose, onSubmit, saving, accounts, categories, transactions = [], initial, defaultType }) {
   const catIndex = useMemo(() => buildCategoryIndex(transactions), [transactions]);
   const [form, setForm] = useState(empty);
+  const [busyReceipt, setBusyReceipt] = useState(false);
+  const receiptRef = useRef(null);
+  const onReceipt = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file) return;
+    setBusyReceipt(true);
+    try { const url = await readReceipt(file); setForm((f) => ({ ...f, receipt_url: url })); }
+    catch { /* ignore */ } finally { setBusyReceipt(false); }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -26,7 +53,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
         type: initial.type, date: (initial.date || todayIso()).slice(0, 10),
         amount: initial.amount, description: initial.description || '',
         account_id: initial.account_id || '', account_to_id: initial.account_to_id || '',
-        category_id: initial.category_id || '', is_fixed: !!initial.is_fixed, recurrence: initial.recurrence || 'none', status: initial.status || 'pending',
+        category_id: initial.category_id || '', is_fixed: !!initial.is_fixed, recurrence: initial.recurrence || 'none', status: initial.status || 'pending', receipt_url: initial.receipt_url || '',
       });
     } else {
       setForm({ ...empty, type: defaultType || 'expense', account_id: accounts?.[0]?.id || '' });
@@ -53,6 +80,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
       category_id: form.type === 'transfer' ? null : form.category_id || null,
       is_fixed: form.is_fixed, recurrence: form.recurrence,
       status: form.type === 'transfer' ? 'completed' : form.status,
+      receipt_url: form.receipt_url || null,
     };
     onSubmit(payload);
   };
@@ -116,6 +144,26 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
             <span className="text-xs text-muted ml-auto">(afeta o saldo)</span>
           </label>
         )}
+
+        <Field label="Comprovante (opcional)" hint="Anexe a foto do comprovante ou um PDF para controle">
+          {form.receipt_url ? (
+            <div className="flex items-center gap-3 p-2 rounded-lg border border-[hsl(var(--border))]">
+              {form.receipt_url.startsWith('data:application/pdf') || form.receipt_url.includes('.pdf')
+                ? <span className="w-12 h-12 rounded-lg bg-rose-500/10 flex items-center justify-center"><FileText className="w-6 h-6 text-rose-500" /></span>
+                : <img src={form.receipt_url} alt="" className="w-12 h-12 rounded-lg object-cover" />}
+              <span className="text-sm text-muted flex-1">Comprovante anexado</span>
+              <button type="button" onClick={() => window.open(form.receipt_url, '_blank')} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Eye className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setForm((f) => ({ ...f, receipt_url: '' }))} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><X className="w-4 h-4" /></button>
+            </div>
+          ) : (
+            <>
+              <input ref={receiptRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onReceipt} />
+              <button type="button" onClick={() => receiptRef.current?.click()} disabled={busyReceipt} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed border-[hsl(var(--border))] text-sm text-muted hover:bg-black/5 dark:hover:bg-white/5">
+                {busyReceipt ? <Spinner className="w-4 h-4" /> : <><Paperclip className="w-4 h-4" /> Anexar comprovante</>}
+              </button>
+            </>
+          )}
+        </Field>
       </form>
     </Modal>
   );

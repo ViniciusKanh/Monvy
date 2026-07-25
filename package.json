@@ -22,7 +22,9 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.24.0",
     "recharts": "^2.12.7",
-    "nodemailer": "^6.9.14"
+    "nodemailer": "^6.9.14",
+    "pdfjs-dist": "^4.7.76",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

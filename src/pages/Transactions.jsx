@@ -6,7 +6,7 @@ import { TransactionModal } from '../components/TransactionModal.jsx';
 import { Button, Card, Input, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, monthRange, inMonth } from '../lib/utils.js';
-import { Plus, ChevronLeft, ChevronRight, Search, ArrowLeftRight, Pencil, Trash2, ArrowUpRight, ArrowDownRight, CircleCheck, Clock } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Search, ArrowLeftRight, Pencil, Trash2, ArrowUpRight, ArrowDownRight, CircleCheck, Clock, Paperclip, X } from 'lucide-react';
 
 const TYPE_FILTERS = [['all', 'Todos'], ['income', 'Receitas'], ['expense', 'Despesas'], ['transfer', 'Transf.']];
 const STATUS_FILTERS = [['all', 'Todos'], ['pending', 'A pagar/receber'], ['completed', 'Pagos']];
@@ -21,6 +21,7 @@ export default function Transactions() {
   const [defaultType, setDefaultType] = useState('expense');
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
+  const [viewReceipt, setViewReceipt] = useState(null);
 
   const { data: transactions = [], isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
@@ -139,6 +140,7 @@ export default function Transactions() {
                                 {t.is_fixed && <Badge color="blue">Fixo</Badge>}
                                 {t.parent_transaction_id && <Badge color="amber">Recorrente</Badge>}
                                 {!isTransfer && (pend ? <Badge color="amber">{isInc ? 'A receber' : 'A pagar'}</Badge> : <Badge color="emerald">{isInc ? 'Recebido' : 'Pago'}</Badge>)}
+                                {t.receipt_url && <button onClick={() => setViewReceipt(t.receipt_url)} className="inline-flex items-center gap-0.5 text-[11px] text-sky-500 font-medium hover:underline"><Paperclip className="w-3 h-3" /> comprovante</button>}
                               </div>
                             </div>
                             <p className={`font-semibold shrink-0 ${isInc ? 'text-emerald-500' : isTransfer ? 'text-indigo-500' : 'text-rose-500'} ${pend ? 'opacity-70' : ''}`}>{isInc ? '+' : isTransfer ? '' : '-'}{formatCurrency(t.amount)}</p>
@@ -159,6 +161,13 @@ export default function Transactions() {
         )}
 
       <TransactionModal open={modal} onClose={() => { setModal(false); setEditing(null); }} onSubmit={(p) => save.mutate(p)} saving={save.isPending} accounts={accounts} categories={categories} transactions={transactions} initial={editing} defaultType={defaultType} />
+
+      <Modal open={!!viewReceipt} onClose={() => setViewReceipt(null)} title="Comprovante" maxWidth="max-w-2xl"
+        footer={<><Button variant="outline" onClick={() => window.open(viewReceipt, '_blank')}>Abrir em nova aba</Button><Button onClick={() => setViewReceipt(null)}>Fechar</Button></>}>
+        {viewReceipt && (viewReceipt.startsWith('data:application/pdf') || viewReceipt.includes('.pdf')
+          ? <iframe title="comprovante" src={viewReceipt} className="w-full h-[60vh] rounded-lg border border-[hsl(var(--border))]" />
+          : <img src={viewReceipt} alt="Comprovante" className="w-full rounded-lg" />)}
+      </Modal>
 
       <Modal open={!!toDelete} onClose={() => setToDelete(null)} title="Excluir lancamento" maxWidth="max-w-md"
         footer={<><Button variant="outline" onClick={() => setToDelete(null)}>Cancelar</Button><Button variant="danger" onClick={() => del.mutate(toDelete.id)} disabled={del.isPending}>{del.isPending ? <Spinner className="w-4 h-4" /> : 'Excluir'}</Button></>}>

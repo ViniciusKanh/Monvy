@@ -7,6 +7,7 @@ import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import { formatCurrency, monthKey, monthLabel, todayIso } from '../lib/utils.js';
 import { colorAt } from '../lib/analytics.js';
+import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc } from 'lucide-react';
 
 const BRANDS = ['visa', 'mastercard', 'elo', 'amex', 'hipercard', 'other'];
@@ -78,20 +79,23 @@ export default function CreditCards() {
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file || !selected) return;
-    const key = settingsList[0]?.gemini_api_key;
-    if (!key) { toast.error('Configure a chave da API Gemini em Configuracoes.'); return; }
     setImporting(true);
     try {
-      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
-      toast.info('Lendo fatura com IA...');
-      const { items } = await Ai.parseInvoice(b64, key, categories.map((c) => ({ id: c.id, name: c.name })));
-      if (!items?.length) { toast.error('Nenhum lancamento encontrado no PDF.'); setImporting(false); return; }
+      toast.info('Lendo a fatura (processamento local)...');
+      const { parseInvoicePdf } = await import('../lib/invoiceParser.js');
+      const items = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode levar alguns segundos)...') });
+      if (!items.length) { toast.error('Nao encontrei lancamentos no PDF. Pode ser digitalizado/imagem — tente um PDF com texto ou o import CSV/OFX.'); setImporting(false); return; }
+      const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
       const cache = {}; const rows = [];
-      for (const it of items) { let catId = null; if (it.category) catId = cache[it.category] ?? (cache[it.category] = await ensureCategory(it.category)); rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date || todayIso(), category_id: catId, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: (it.date || todayIso()).slice(0, 7), imported_from_pdf: true }); }
+      for (const it of items) {
+        let catId = predictCategory(it.description, idx);
+        if (!catId && it.categoryHint) catId = cache[it.categoryHint] ?? (cache[it.categoryHint] = await ensureCategory(it.categoryHint));
+        rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: it.date.slice(0, 7), imported_from_pdf: true });
+      }
       await CreditCardTransaction.bulkCreate(rows);
       qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] });
-      toast.success(`${rows.length} lancamentos importados!`);
-    } catch (err) { toast.error(err.message || 'Falha ao importar fatura'); } finally { setImporting(false); }
+      toast.success(`${rows.length} lancamentos importados da fatura!`);
+    } catch (err) { toast.error('Falha ao ler o PDF: ' + (err.message || err)); } finally { setImporting(false); }
   }
 
   const openNewCard = () => { setEditingCard(null); setCardForm({ ...emptyCard, account_id: accounts[0]?.id || '' }); setCardModal(true); };

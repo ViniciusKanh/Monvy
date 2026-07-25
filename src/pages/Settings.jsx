@@ -127,20 +127,6 @@ export default function Settings() {
           </div>
         </Card>
 
-        {/* IA */}
-        <Card className="hover-lift">
-          <h3 className="font-semibold mb-1 flex items-center gap-2"><Sparkles className="w-4 h-4 text-blue-500" /> Inteligencia Artificial</h3>
-          <p className="text-xs text-muted mb-3">Chave gratuita do Google Gemini para ler faturas em PDF.</p>
-          <Field label="Chave da API Gemini">
-            <div className="relative">
-              <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-              <Input type={showKey ? 'text' : 'password'} value={form.gemini_api_key} onChange={(e) => set('gemini_api_key', e.target.value)} placeholder="AIza..." className="pl-9 pr-9" />
-              <button type="button" onClick={() => setShowKey((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
-            </div>
-          </Field>
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-2">Gerar chave gratuita <ExternalLink className="w-3 h-3" /></a>
-          {settings?.gemini_api_key && <Badge color="emerald" className="mt-2 ml-2">Configurada</Badge>}
-        </Card>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
