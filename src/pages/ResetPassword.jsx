@@ -47,8 +47,8 @@ export default function ResetPassword() {
             <h1 className="font-display text-2xl font-bold">Criar nova senha</h1>
             <p className="text-muted text-sm mt-1 mb-6">Escolha uma senha forte (min. 8 caracteres).</p>
             <form onSubmit={submit} className="space-y-4">
-              <Field label="Nova senha"><div className="relative"><Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><Input type="password" required value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} placeholder="********" className="pl-9" /></div></Field>
-              <Field label="Confirmar senha"><div className="relative"><Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><Input type="password" required value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} placeholder="********" className="pl-9" /></div></Field>
+              <Field label="Nova senha"><div className="relative"><Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" /><Input type="password" required value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} placeholder="********" className="pl-10" /></div></Field>
+              <Field label="Confirmar senha"><div className="relative"><Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" /><Input type="password" required value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} placeholder="********" className="pl-10" /></div></Field>
               <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? <Spinner className="w-4 h-4" /> : 'Redefinir senha'}</Button>
             </form>
           </>

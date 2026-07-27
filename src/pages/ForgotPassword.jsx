@@ -33,7 +33,7 @@ export default function ForgotPassword() {
             <p className="text-muted text-sm mt-1 mb-6">Digite seu e-mail e enviaremos um link para criar uma nova senha.</p>
             <form onSubmit={submit} className="space-y-4">
               <Field label="E-mail">
-                <div className="relative"><Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" className="pl-9" /></div>
+                <div className="relative"><Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" /><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" className="pl-10" /></div>
               </Field>
               <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? <Spinner className="w-4 h-4" /> : 'Enviar link'}</Button>
             </form>

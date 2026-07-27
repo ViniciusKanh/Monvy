@@ -6,7 +6,7 @@ import { TransactionModal } from '../components/TransactionModal.jsx';
 import { Button, Card, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, monthRange, inMonth, todayIso } from '../lib/utils.js';
-import { ChevronLeft, ChevronRight, Plus, ArrowUpRight, ArrowDownRight, CircleCheck, Undo2, Pencil, Paperclip, AlertTriangle, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, ArrowUpRight, ArrowDownRight, CircleCheck, Undo2, Pencil, Paperclip, AlertTriangle, CalendarClock, ArrowLeftRight } from 'lucide-react';
 
 const TABS = [['pending', 'A pagar / receber'], ['completed', 'Concluidos'], ['all', 'Todos']];
 
@@ -57,6 +57,7 @@ export default function Payments() {
     <div className="animate-fadeIn">
       <PageHeader title="Contas a Pagar e Receber" subtitle="Controle o que falta pagar e receber"
         actions={<>
+          <Button variant="outline" onClick={() => openNew('transfer')}><ArrowLeftRight className="w-4 h-4 text-indigo-500" /> Transferir</Button>
           <Button variant="outline" onClick={() => openNew('income')}><ArrowUpRight className="w-4 h-4 text-emerald-500" /> A receber</Button>
           <Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> A pagar</Button>
         </>} />

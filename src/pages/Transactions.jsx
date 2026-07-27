@@ -65,6 +65,7 @@ export default function Transactions() {
     <div className="animate-fadeIn">
       <PageHeader title="Lancamentos" subtitle="Receitas, despesas e transferencias"
         actions={<>
+          <Button variant="outline" onClick={() => openNew('transfer')}><ArrowLeftRight className="w-4 h-4 text-indigo-500" /> Transferir</Button>
           <Button variant="outline" onClick={() => openNew('income')}><ArrowUpRight className="w-4 h-4 text-emerald-500" /> Receita</Button>
           <Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Despesa</Button>
         </>} />
