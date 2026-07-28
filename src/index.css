@@ -46,23 +46,25 @@ body {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(120,130,150,.35); border-radius: 8px; }
 
-.card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+@layer components {
+  .card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+  }
+  .input-base {
+    width: 100%;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: .625rem;
+    padding: .6rem .8rem;
+    font-size: .9rem;
+    color: hsl(var(--text));
+    outline: none;
+  }
+  .input-base:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .15); }
 }
-.input-base {
-  width: 100%;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: .625rem;
-  padding: .6rem .8rem;
-  font-size: .9rem;
-  color: hsl(var(--text));
-  outline: none;
-}
-.input-base:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .15); }
 .text-muted { color: hsl(var(--muted)); }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

@@ -29,6 +29,8 @@ export default async function handler(req, res) {
       args.push(JSON.stringify(body.allowed_screens || []));
     }
     if (body.full_name !== undefined) { sets.push('full_name = ?'); args.push(body.full_name); }
+    if (body.require_2fa !== undefined) { sets.push('require_2fa = ?'); args.push(body.require_2fa ? 1 : 0); }
+    if (body.reset_2fa) { sets.push('totp_enabled = 0'); sets.push('totp_secret = NULL'); }
     if (!sets.length) return sendJson(res, 400, { error: 'Nada para atualizar' });
     sets.push('updated_date = ?'); args.push(nowIso());
     args.push(id);

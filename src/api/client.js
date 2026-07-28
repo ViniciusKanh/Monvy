@@ -1,10 +1,14 @@
 const TOKEN_KEY = 'monvy_token';
 
 export function getToken() {
-  try { return window.localStorage.getItem(TOKEN_KEY); } catch { return null; }
+  try { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
 }
-export function setToken(t) {
-  try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {}
+// persist=true -> mantem conectado (localStorage); false -> so nesta sessao (sessionStorage)
+export function setToken(t, persist = true) {
+  try {
+    localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY);
+    if (t) (persist ? localStorage : sessionStorage).setItem(TOKEN_KEY, t);
+  } catch {}
 }
 
 async function request(method, path, body) {

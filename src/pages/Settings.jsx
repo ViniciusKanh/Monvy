@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Spinner, Badge } from '../components/ui';
 import { toast } from '../lib/toast.js';
-import { Sun, Moon, ShieldCheck, KeyRound, Bell, Palette, User, Sparkles, ExternalLink, Eye, EyeOff, Check, Camera, Lock, Mail, Send } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, KeyRound, Bell, Palette, User, Sparkles, ExternalLink, Eye, EyeOff, Check, Camera, Lock, Mail, Send, Smartphone } from 'lucide-react';
 
 // redimensiona a imagem para ~256px e devolve dataURL (evita foto gigante no banco)
 function resizeImage(file, max = 256) {
@@ -28,7 +28,7 @@ function resizeImage(file, max = 256) {
 
 export default function Settings() {
   const qc = useQueryClient();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const { data: list = [], isLoading } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
   const settings = list[0];
@@ -58,6 +58,30 @@ export default function Settings() {
     if (pw.next.length < 8) return toast.error('A nova senha deve ter ao menos 8 caracteres');
     if (pw.next !== pw.confirm) return toast.error('As senhas nao conferem');
     changePw.mutate();
+  };
+
+  // --- Verificacao em duas etapas (TOTP) ---
+  const [twofa, setTwofa] = useState({ open: false, secret: '', otpauth: '', qr: '', code: '', busy: false });
+  const resetTwofa = () => setTwofa({ open: false, secret: '', otpauth: '', qr: '', code: '', busy: false });
+  const startSetup = async () => {
+    setTwofa((t) => ({ ...t, busy: true }));
+    try {
+      const { secret, otpauth } = await Auth.setup2fa();
+      let qr = ''; try { const QR = (await import('qrcode')).default; qr = await QR.toDataURL(otpauth, { margin: 1, width: 200 }); } catch {}
+      setTwofa({ open: true, secret, otpauth, qr, code: '', busy: false });
+    } catch (e) { toast.error(e.message || 'Falha ao iniciar 2FA'); setTwofa((t) => ({ ...t, busy: false })); }
+  };
+  const confirmEnable = async () => {
+    if (twofa.code.length < 6) return toast.error('Digite o codigo de 6 digitos');
+    setTwofa((t) => ({ ...t, busy: true }));
+    try { await Auth.enable2fa(twofa.code); await refreshUser(); toast.success('Verificacao em duas etapas ativada'); resetTwofa(); }
+    catch (e) { toast.error(e.message === '2FA_INVALID' ? 'Codigo invalido' : (e.message || 'Falha ao ativar')); setTwofa((t) => ({ ...t, busy: false })); }
+  };
+  const disableTwofa = async () => {
+    const pass = window.prompt('Confirme sua senha para desativar a verificacao em duas etapas:');
+    if (!pass) return;
+    try { await Auth.disable2fa({ password: pass }); await refreshUser(); toast.success('Verificacao em duas etapas desativada'); }
+    catch (e) { toast.error(e.message || 'Falha ao desativar'); }
   };
 
   const { data: mail } = useQuery({ queryKey: ['adminmail'], queryFn: () => Admin.getMail(), enabled: isAdmin });
@@ -141,6 +165,36 @@ export default function Settings() {
             </div>
             <Button variant="outline" onClick={submitPw} disabled={changePw.isPending} className="w-full">{changePw.isPending ? <Spinner className="w-4 h-4" /> : 'Alterar senha'}</Button>
           </div>
+        </Card>
+
+        {/* Verificacao em duas etapas */}
+        <Card className="hover-lift">
+          <h3 className="font-semibold flex items-center gap-2 mb-1"><Smartphone className="w-4 h-4 text-indigo-500" /> Verificacao em duas etapas</h3>
+          <p className="text-xs text-muted mb-3">Proteja sua conta com um app autenticador (Google Authenticator, Authy ou Microsoft Authenticator).</p>
+          {user?.totp_enabled ? (
+            <div className="space-y-3">
+              <Badge color="emerald"><ShieldCheck className="w-3 h-3" /> Ativada</Badge>
+              {user?.require_2fa && <p className="text-xs text-muted">O administrador definiu esta protecao como obrigatoria para sua conta.</p>}
+              <Button variant="outline" onClick={disableTwofa} disabled={user?.require_2fa} className="w-full">Desativar</Button>
+            </div>
+          ) : !twofa.open ? (
+            <div className="space-y-2">
+              {user?.require_2fa && <p className="text-xs text-amber-600 font-medium">Obrigatoria para sua conta — ative agora.</p>}
+              <Button onClick={startSetup} disabled={twofa.busy} className="w-full">{twofa.busy ? <Spinner className="w-4 h-4" /> : 'Ativar verificacao em duas etapas'}</Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted">1. Escaneie o QR code no app autenticador (ou insira a chave manualmente).</p>
+              {twofa.qr && <img src={twofa.qr} alt="QR 2FA" className="mx-auto rounded-lg border border-line" />}
+              <div className="text-center"><code className="text-[11px] bg-black/5 dark:bg-white/10 px-2 py-1 rounded break-all">{twofa.secret}</code></div>
+              <p className="text-xs text-muted">2. Digite o codigo gerado para confirmar.</p>
+              <Input inputMode="numeric" maxLength={6} value={twofa.code} onChange={(e) => setTwofa((t) => ({ ...t, code: e.target.value.replace(/\D/g, '') }))} placeholder="000000" className="tracking-[0.4em] text-center text-lg" />
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={resetTwofa} className="flex-1">Cancelar</Button>
+                <Button onClick={confirmEnable} disabled={twofa.busy} className="flex-1">{twofa.busy ? <Spinner className="w-4 h-4" /> : 'Confirmar'}</Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Envio de e-mail (somente admin) */}

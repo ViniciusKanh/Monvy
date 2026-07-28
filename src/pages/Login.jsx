@@ -9,7 +9,7 @@ import { Mail, Lock, Eye, EyeOff, ShieldCheck, TrendingUp, Sparkles, Check } fro
 
 const FEATURES = [
   { icon: TrendingUp, title: 'Controle total', text: 'Contas, cartoes, metas e orcamento em um so lugar.' },
-  { icon: Sparkles, title: 'Inteligencia com IA', text: 'Previsoes, alertas e leitura de faturas automatica.' },
+  { icon: Sparkles, title: 'Analises inteligentes', text: 'Relatorios, previsoes e alertas para planejar melhor.' },
   { icon: ShieldCheck, title: 'Seguro e privado', text: 'Seus dados protegidos com criptografia.' },
 ];
 
@@ -23,6 +23,9 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [needVerify, setNeedVerify] = useState(false);
+  const [needs2fa, setNeeds2fa] = useState(false);
+  const [code, setCode] = useState('');
+  const [remember, setRemember] = useState(true);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => { if (user && !success) navigate('/', { replace: true }); }, [user]); // eslint-disable-line
@@ -36,9 +39,11 @@ export default function Login() {
     e.preventDefault();
     setError(''); setNeedVerify(false); setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, { code: needs2fa ? code : undefined, remember });
       setSuccess(true);
     } catch (err) {
+      if (err.message === '2FA_REQUIRED') { setNeeds2fa(true); setError(''); setLoading(false); return; }
+      if (err.message === '2FA_INVALID') { setError('Codigo de verificacao invalido.'); setLoading(false); return; }
       if (err.status === 403) { setNeedVerify(true); setError('Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.'); }
       else setError(err.message || 'Falha no login');
       setLoading(false);
@@ -95,8 +100,17 @@ export default function Login() {
                   <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">{show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                 </div>
               </Field>
-              <div className="text-right -mt-1"><Link to="/esqueci-senha" className="text-xs text-emerald-600 font-semibold hover:underline">Esqueci minha senha</Link></div>
-              <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? <Spinner className="w-4 h-4" /> : 'Entrar'}</Button>
+              {needs2fa && (
+                <Field label="Codigo de verificacao (app autenticador)">
+                  <Input inputMode="numeric" autoFocus maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="tracking-[0.4em] text-center text-lg" />
+                  <span className="block text-xs text-muted mt-1">Abra seu app autenticador e digite o codigo de 6 digitos.</span>
+                </Field>
+              )}
+              <div className="flex items-center justify-between -mt-1">
+                <label className="flex items-center gap-2 text-xs text-muted cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Manter conectado</label>
+                <Link to="/esqueci-senha" className="text-xs text-emerald-600 font-semibold hover:underline">Esqueci minha senha</Link>
+              </div>
+              <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? <Spinner className="w-4 h-4" /> : (needs2fa ? 'Verificar e entrar' : 'Entrar')}</Button>
             </form>
             <p className="text-sm text-muted text-center mt-6">Nao tem conta? <Link to="/cadastro" className="text-emerald-600 font-semibold">Cadastre-se</Link></p>
           </div>

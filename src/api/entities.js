@@ -30,7 +30,7 @@ export const AppSettings = makeEntity('AppSettings');
 export const Safe = makeEntity('Safe');
 
 export const Auth = {
-  login: (email, password) => api.post('/api/auth/login', { email, password }),
+  login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),
   register: (data) => api.post('/api/auth/register', data),
   me: () => api.get('/api/auth/me'),
   updateProfile: (data) => api.put('/api/auth/profile', data),

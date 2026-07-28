@@ -218,6 +218,11 @@ export const MIGRATIONS = [
   { id: '002_tx_status', statements: [`ALTER TABLE "Transaction" ADD COLUMN status TEXT DEFAULT 'pending'`] },
   { id: '003_users_verify', statements: [`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1`, `ALTER TABLE users ADD COLUMN verify_token TEXT`] },
   { id: '004_users_reset', statements: [`ALTER TABLE users ADD COLUMN reset_token TEXT`, `ALTER TABLE users ADD COLUMN reset_expires TEXT`] },
+  { id: '007_totp', statements: [
+    `ALTER TABLE users ADD COLUMN totp_secret TEXT`,
+    `ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN require_2fa INTEGER DEFAULT 0`,
+  ] },
   { id: '006_tx_receipt', statements: [`ALTER TABLE "Transaction" ADD COLUMN receipt_url TEXT`] },
   { id: '005_perf_indexes', statements: [
     `CREATE INDEX IF NOT EXISTS idx_tx_owner_date ON "Transaction"(created_by_id, date)`,

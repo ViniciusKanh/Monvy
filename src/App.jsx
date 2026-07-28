@@ -29,6 +29,7 @@ import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
 import { Placeholder } from './pages/Placeholder.jsx';
+import Enroll2FA from './pages/Enroll2FA.jsx';
 
 function FullLoader() {
   return <div className="h-screen flex items-center justify-center"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
@@ -39,6 +40,7 @@ function Protected({ screenKey, children }) {
   const location = useLocation();
   if (loading) return <FullLoader />;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (user.require_2fa && !user.totp_enabled) return <Enroll2FA />;
   if (screenKey && !canAccess(screenKey)) {
     return <Placeholder title="Acesso negado" screenKey={screenKey} message="Voce nao tem permissao para acessar esta tela. Fale com o administrador." />;
   }

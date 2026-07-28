@@ -24,7 +24,8 @@
     "recharts": "^2.12.7",
     "nodemailer": "^6.9.14",
     "pdfjs-dist": "^4.7.76",
-    "tesseract.js": "^5.1.1"
+    "tesseract.js": "^5.1.1",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

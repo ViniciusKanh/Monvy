@@ -23,12 +23,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { loadMe(); }, [loadMe]);
 
-  const login = async (email, password) => {
-    const { token, user } = await Auth.login(email, password);
-    setToken(token);
+  const login = async (email, password, opts = {}) => {
+    const { code, remember = true } = opts;
+    const { token, user } = await Auth.login(email, password, code);
+    setToken(token, remember);
     setUser(user);
     return user;
   };
+
+  const refreshUser = async () => { try { const { user } = await Auth.me(); setUser(user); return user; } catch { return null; } };
 
   const register = async (data) => {
     const res = await Auth.register(data);
@@ -51,7 +54,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, register, logout, canAccess, updateProfile }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, register, logout, canAccess, updateProfile, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

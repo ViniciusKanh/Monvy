@@ -10,11 +10,11 @@ export default async function handler(req, res) {
     if (auth.role !== 'admin') return sendJson(res, 403, { error: 'Acesso restrito ao administrador' });
     if (req.method !== 'GET') return sendJson(res, 405, { error: 'Metodo nao permitido' });
 
-    const r = await db().execute(`SELECT id,email,full_name,role,allowed_screens,is_active,created_date FROM users ORDER BY created_date ASC`);
+    const r = await db().execute(`SELECT id,email,full_name,role,allowed_screens,is_active,created_date,totp_enabled,require_2fa FROM users ORDER BY created_date ASC`);
     const users = r.rows.map((u) => {
       let screens = [];
       try { screens = JSON.parse(u.allowed_screens || '[]'); } catch {}
-      return { id: u.id, email: u.email, full_name: u.full_name, role: u.role, allowed_screens: screens, is_active: !!u.is_active, created_date: u.created_date };
+      return { id: u.id, email: u.email, full_name: u.full_name, role: u.role, allowed_screens: screens, is_active: !!u.is_active, created_date: u.created_date, totp_enabled: u.totp_enabled === 1, require_2fa: u.require_2fa === 1 };
     });
     return sendJson(res, 200, users);
   } catch (e) {

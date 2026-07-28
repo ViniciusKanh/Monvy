@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       // pagamento vira um lancamento real (cash) que debita a conta
       const tx = await createRow('Transaction', o, {
         date: nowIso().slice(0, 10), amount: total, type: 'expense', account_id: body.accountId,
-        description: `Pagamento fatura ${card?.name || 'cartao'} (${inv.competence_month})`, status: 'completed',
+        description: `Fatura ${inv.competence_month} - ${card?.name || 'cartao'}`, status: 'completed',
       });
       await db().execute({ sql: `UPDATE CreditCardInvoice SET status='paid', paid_date=?, paid_amount=?, payment_transaction_id=?, updated_date=? WHERE id=?`, args: [nowIso().slice(0, 10), total, tx.id, nowIso(), inv.id] });
       await recalcAllAccounts(o);

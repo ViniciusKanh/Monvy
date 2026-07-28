@@ -55,6 +55,14 @@ export default function CreditCards() {
   const saveCard = useMutation({ mutationFn: (p) => editingCard ? CreditCard.update(editingCard.id, p) : CreditCard.create(p), onSuccess: () => { qc.invalidateQueries({ queryKey: ['cards'] }); setCardModal(false); } });
   const delCard = useMutation({ mutationFn: (id) => CreditCard.remove(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['cards'] }); setSelectedId(null); } });
   const delTx = useMutation({ mutationFn: (id) => CreditCardTransaction.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['cardtx'] }) });
+  const delImported = useMutation({
+    mutationFn: async () => {
+      const imported = txs.filter((t) => t.card_id === selected?.id && (t.competence_month === mk) && t.imported_from_pdf);
+      for (const t of imported) await CreditCardTransaction.remove(t.id);
+      if (selectedInvoice) await CreditCardInvoice.remove(selectedInvoice.id);
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success('Fatura importada excluida.'); },
+  });
   const genInvoices = useMutation({ mutationFn: () => Cards.generateInvoices(), onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success('Faturas atualizadas.'); } });
   const payInvoice = useMutation({ mutationFn: ({ invoiceId, accountId }) => Cards.payInvoice(invoiceId, accountId), onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); setPayModal(null); toast.success('Fatura paga!'); } });
   const saveTx = useMutation({
@@ -83,18 +91,20 @@ export default function CreditCards() {
     try {
       toast.info('Lendo a fatura (processamento local)...');
       const { parseInvoicePdf } = await import('../lib/invoiceParser.js');
-      const items = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode levar alguns segundos)...') });
-      if (!items.length) { toast.error('Nao encontrei lancamentos no PDF. Pode ser digitalizado/imagem — tente um PDF com texto ou o import CSV/OFX.'); setImporting(false); return; }
+      const { isInvoice, items } = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode demorar)...') });
+      if (!isInvoice && items.length < 2) { toast.error('Este PDF nao parece uma fatura de cartao de credito.'); setImporting(false); return; }
+      if (!items.length) { toast.error('Nao encontrei lancamentos na fatura.'); setImporting(false); return; }
       const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
       const cache = {}; const rows = [];
       for (const it of items) {
         let catId = predictCategory(it.description, idx);
         if (!catId && it.categoryHint) catId = cache[it.categoryHint] ?? (cache[it.categoryHint] = await ensureCategory(it.categoryHint));
-        rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: it.date.slice(0, 7), imported_from_pdf: true });
+        rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
       }
       await CreditCardTransaction.bulkCreate(rows);
-      qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] });
-      toast.success(`${rows.length} lancamentos importados da fatura!`);
+      await Cards.generateInvoices();
+      qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
+      toast.success(`${rows.length} lancamentos importados e fatura gerada!`);
     } catch (err) { toast.error('Falha ao ler o PDF: ' + (err.message || err)); } finally { setImporting(false); }
   }
 
@@ -203,6 +213,7 @@ export default function CreditCards() {
                   <div className="flex gap-2">
                     <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleInvoiceFile} />
                     <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>{importing ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Importar fatura</>}</Button>
+                    {monthTxs.some((t) => t.imported_from_pdf) && <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir os lancamentos importados desta fatura?')) delImported.mutate(); }} disabled={delImported.isPending}>{delImported.isPending ? <Spinner className="w-4 h-4" /> : <><Trash2 className="w-4 h-4 text-rose-500" /> Excluir fatura</>}</Button>}
                     <Button size="sm" onClick={() => { setTxForm({ ...emptyTx }); setTxModal(true); }}><Plus className="w-4 h-4" /> Compra</Button>
                   </div>
                 </div>
