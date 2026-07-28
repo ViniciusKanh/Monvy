@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Account, Transaction, Category, CreditCard, Goal, Subscription, CreditCardInvoice } from '../api/entities.js';
+import { Account, Transaction, Category, CreditCard, CreditCardTransaction, Goal, Subscription, CreditCardInvoice } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: () => Goal.list() });
   const { data: subs = [] } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: () => CreditCardInvoice.list() });
+  const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
@@ -53,7 +54,21 @@ export default function Dashboard() {
     for (const c of byCategory) { const isEss = ESSENTIAL.some((k) => c.name.toLowerCase().includes(k)); if (isEss) ess += c.value; else varr += c.value; }
     const tot = ess + varr; return { ess, varr, tot, essPct: tot ? Math.round((ess / tot) * 100) : 0 };
   }, [byCategory]);
-  const recent = useMemo(() => transactions.filter((t) => inMonth(t.date, mk)).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6), [transactions, mk]);
+  // gastos no cartao de credito por categoria (mes selecionado)
+  const cardByCategory = useMemo(() => {
+    const inMk = cardTxs.filter((t) => t.competence_month === mk || String(t.date).slice(0, 7) === mk);
+    const map = {};
+    for (const t of inMk) { const c = catMap[t.category_id]; const name = c?.name || 'Sem categoria'; (map[name] = map[name] || { name, value: 0, color: c?.color }); map[name].value += Number(t.amount) || 0; }
+    return Object.values(map).filter((x) => x.value > 0).sort((a, b) => b.value - a.value).map((x, i) => ({ ...x, color: x.color || colorAt(i) }));
+  }, [cardTxs, mk, catMap]);
+  const cardTotal = cardByCategory.reduce((s, c) => s + c.value, 0);
+
+  // recentes: contas (a pagar/receber) + compras do cartao, com flag
+  const recent = useMemo(() => {
+    const acct = transactions.filter((t) => inMonth(t.date, mk)).map((t) => ({ ...t, _src: 'account' }));
+    const card = cardTxs.filter((t) => t.competence_month === mk || inMonth(t.date, mk)).map((t) => ({ ...t, _src: 'card' }));
+    return [...acct, ...card].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (String(b.created_date || '').localeCompare(String(a.created_date || ''))))).slice(0, 8);
+  }, [transactions, cardTxs, mk]);
 
   // saldo acumulado (para sparkline do hero) a partir do saldo atual
   const balanceTrail = useMemo(() => {
@@ -238,6 +253,31 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Gastos no cartao de credito por categoria */}
+      <Card className="hover-lift">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="font-semibold flex items-center gap-2"><CardIcon className="w-4 h-4 text-violet-500" /> Gastos no Cartao de Credito por Categoria</h3>
+          <span className="text-xs text-muted capitalize">{monthLabel(mk)} · total {val(cardTotal)}</span>
+        </div>
+        {cardByCategory.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted flex flex-col items-center"><CardIcon className="w-8 h-8 mb-2 opacity-40" />Sem gastos no cartao em {monthLabel(mk)}.</div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-5 items-center">
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={210}>
+                <PieChart><Pie data={cardByCategory} dataKey="value" nameKey="name" innerRadius={62} outerRadius={90} paddingAngle={3} stroke="none">{cardByCategory.map((e, i) => <Cell key={i} fill={e.color || colorAt(i)} />)}</Pie><Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /></PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="text-xs text-muted">cartao</span><span className="font-display font-bold">{val(cardTotal)}</span></div>
+            </div>
+            <div className="space-y-2.5">
+              {cardByCategory.slice(0, 6).map((c, i) => { const pct = cardTotal > 0 ? Math.round((c.value / cardTotal) * 100) : 0; return (
+                <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2 truncate"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color || colorAt(i) }} />{c.name}</span><span className="text-muted">{pct}% · {val(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color || colorAt(i) }} /></div></div>
+              ); })}
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Projecao + acoes rapidas */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2 hover-lift">
@@ -295,12 +335,25 @@ export default function Dashboard() {
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Lancamentos recentes</h3><button onClick={() => navigate('/lancamentos')} className="text-sm text-emerald-600 font-semibold hover:underline flex items-center gap-1">Ver todos <ArrowRight className="w-3.5 h-3.5" /></button></div>
           {recent.length === 0 ? <div className="py-10 text-center text-sm text-muted">Nenhum lancamento em {monthLabel(mk)}. <button onClick={() => navigate('/lancamentos')} className="text-emerald-600 font-semibold">Adicionar</button></div>
-            : <div className="divide-y divide-[hsl(var(--border))]">{recent.map((t) => { const cat = catMap[t.category_id]; const isInc = t.type === 'income'; const pend = (t.status || 'pending') !== 'completed' && t.type !== 'transfer';
+            : <div className="divide-y divide-[hsl(var(--border))]">{recent.map((t) => {
+              const cat = catMap[t.category_id];
+              const isCard = t._src === 'card';
+              const isCredit = isCard ? Number(t.amount) < 0 : t.type === 'income';
+              const amt = Math.abs(Number(t.amount) || 0);
+              const pend = !isCard && (t.status || 'pending') !== 'completed' && t.type !== 'transfer';
+              const statusLabel = pend ? (t.type === 'income' ? 'a receber' : 'a pagar') : '';
+              const ts = t.created_date || t.updated_date;
+              const timeStr = ts && /T\d{2}:\d{2}/.test(String(ts)) ? new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+              const dateStr = new Date(t.date + 'T00:00').toLocaleDateString('pt-BR');
+              const bg = isCard ? '#8b5cf6' : (cat?.color || (isCredit ? '#10b981' : '#f43f5e'));
               return (
-                <div key={t.id} className="flex items-center gap-3 py-2.5">
-                  <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: cat?.color || (isInc ? '#10b981' : '#f43f5e') }}>{isInc ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}</span>
-                  <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description || cat?.name || 'Lancamento'}</p><p className="text-xs text-muted">{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')}{pend ? ' · pendente' : ''}</p></div>
-                  <p className={`font-semibold ${isInc ? 'text-emerald-500' : 'text-rose-500'} ${pend ? 'opacity-60' : ''}`}>{isInc ? '+' : '-'}{val(t.amount)}</p>
+                <div key={`${t._src}-${t.id}`} className="flex items-center gap-3 py-2.5">
+                  <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: bg }}>{isCard ? <CardIcon className="w-4 h-4" /> : isCredit ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate flex items-center gap-1.5">{t.description || cat?.name || 'Lancamento'}{isCard && <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300"><CardIcon className="w-3 h-3" /> Cartao</span>}</p>
+                    <p className="text-xs text-muted truncate">{dateStr}{timeStr ? ` ${timeStr}` : ''} · {cat?.name || 'Sem categoria'}{statusLabel ? ` · ${statusLabel}` : ''}</p>
+                  </div>
+                  <p className={`font-semibold shrink-0 ${isCredit ? 'text-emerald-500' : 'text-rose-500'} ${pend ? 'opacity-60' : ''}`}>{isCredit ? '+' : '-'}{val(amt)}</p>
                 </div>
               ); })}</div>}
         </Card>

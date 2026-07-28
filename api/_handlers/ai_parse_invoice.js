@@ -30,11 +30,15 @@ export default async function handler(req, res) {
 
     const catList = categories.map((c) => c.name).filter(Boolean);
     const prompt = `Voce e um extrator de faturas de cartao de credito brasileiras.
-Analise o PDF e extraia CADA lancamento/compra individualmente.
-Para cada lancamento retorne: date (YYYY-MM-DD), description (curta e limpa), amount (numero positivo em reais),
-category (escolha a MAIS adequada entre: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Outros'}),
+Extraia CADA item da lista de lancamentos/transacoes da fatura, INCLUSIVE estornos, creditos e reembolsos.
+REGRAS DE SINAL (MUITO IMPORTANTE):
+- Compras, IOF, juros e tarifas => amount POSITIVO.
+- Estornos, creditos, reembolsos e devolucoes (aparecem com sinal de menos "-", ou "−") => amount NEGATIVO.
+NAO inclua linhas de resumo/pagamento: "pagamento de fatura anterior", "pagamento recebido", "saldo", "total desta fatura", "limite".
+A SOMA de todos os amounts (respeitando o sinal) DEVE ser IGUAL ao total desta fatura mostrado no PDF. Confira antes de responder.
+Para cada item retorne: date (YYYY-MM-DD), description (curta e limpa), amount (numero; NEGATIVO para estorno/credito),
+category (a MAIS adequada entre: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'}; use "Estorno" para creditos e estornos),
 installment_current e installments_total (se for parcelado, ex 2/10; senao 1 e 1).
-IGNORE: pagamentos de fatura anterior, estornos, juros e saldo. Some apenas compras reais.
 Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount":0,"category":"","installment_current":1,"installments_total":1}]}`;
 
     const payload = {
@@ -61,12 +65,13 @@ Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount"
       let parsed;
       try { parsed = JSON.parse(text); } catch { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); }
       const items = (parsed.items || parsed || []).map((it) => ({
-        date: it.date, description: it.description || 'Compra', amount: Math.abs(Number(it.amount) || 0),
+        date: it.date, description: it.description || 'Compra', amount: Number(it.amount) || 0,
         category: it.category || 'Outros',
         installment_current: Number(it.installment_current) || 1,
         installments_total: Number(it.installments_total) || 1,
-      })).filter((it) => it.amount > 0);
-      return sendJson(res, 200, { items, model: m });
+      })).filter((it) => it.amount !== 0);
+      const total = items.reduce((s, it) => s + it.amount, 0);
+      return sendJson(res, 200, { items, total, model: m });
     }
     return sendJson(res, 502, { error: 'Nao consegui usar o Gemini. Verifique se a chave e valida e tem acesso a um modelo Flash. Detalhe: ' + lastErr });
   } catch (e) {

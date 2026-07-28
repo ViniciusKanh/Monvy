@@ -7,7 +7,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 const MESES = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
 
 // Linhas de resumo/opcoes que NAO sao compras
-const SKIP = /(estorno|cr[eé]dito|pagamento|pagto|saldo|fatura anterior|total\b|limite|iof de|juros|multa|encargos|parcelar em|valor de entrada|valor da parcela|\bcet\b|pagamento m[ií]nimo|pr[oó]xima|fechamento|anuidade|\bpontos\b|desconto|per[ií]odo vigente|vencimento|emiss[aã]o|resumo|dispon[ií]vel|utilizado)/i;
+// NAO ignora estorno/credito: eles sao capturados como valores NEGATIVOS para a soma bater com o PDF.
+// "pagamento"/"pagto" continua ignorado (pagamento de fatura anterior nao entra na soma).
+const SKIP = /(pagamento|pagto|saldo|fatura anterior|total\b|limite|parcelar em|valor de entrada|valor da parcela|\bcet\b|pr[oó]xima|fechamento|anuidade|\bpontos\b|per[ií]odo vigente|vencimento|emiss[aã]o|resumo|dispon[ií]vel|utilizado)/i;
 
 // Palavra-chave -> categoria sugerida
 const KEYWORDS = [
@@ -48,9 +50,9 @@ export function parseLines(lines, opts = {}) {
     const monies = [...line.matchAll(MONEY)];
     if (!monies.length) continue;
     const last = monies[monies.length - 1];
-    if (last[1]) continue;             // valor negativo = credito/estorno -> pula
-    const amount = toNumber(last[2]);
-    if (!amount || amount > 500000) continue;
+    const sign = last[1] ? -1 : 1;      // "-" = credito/estorno -> valor negativo
+    const amount = sign * toNumber(last[2]);
+    if (!amount || Math.abs(amount) > 500000) continue;
 
     // parcela
     let ic = 1, it = 1;
@@ -61,13 +63,14 @@ export function parseLines(lines, opts = {}) {
     let desc = line
       .replace(dateM[0], ' ')
       .replace(/[•·•�*]{2,}\s*\d{3,4}/g, ' ')        // •••• 5205
-      .replace(/(?:R\$)?\s*[−-]?\s*\d{1,3}(?:\.\d{3})*,\d{2}/g, ' ')
+      .replace(/[−-]?\s*(?:R\$)?\s*[−-]?\s*\d{1,3}(?:\.\d{3})*,\d{2}/g, ' ')
+      .replace(/\s*[−-]\s*$/g, '')
       .replace(/-\s*parcela\s*\d{1,2}\s*(?:\/|de)\s*\d{1,2}/i, ' ')
       .replace(/parcela\s*\d{1,2}\s*(?:\/|de)\s*\d{1,2}/i, ' ')
       .replace(/\s+/g, ' ').trim();
     if (desc.length < 2) continue;
 
-    out.push({ date, description: desc.slice(0, 60), amount, installment_current: ic, installments_total: it, categoryHint: keywordCategory(desc) });
+    out.push({ date, description: desc.slice(0, 60), amount, installment_current: ic, installments_total: it, categoryHint: amount < 0 ? 'Estorno' : keywordCategory(desc) });
   }
   return out;
 }

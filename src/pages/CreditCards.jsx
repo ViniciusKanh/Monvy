@@ -99,12 +99,14 @@ export default function CreditCards() {
       let catId = predictCategory(it.description, idx);
       const hint = it.category || it.categoryHint;
       if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
-      rows.push({ card_id: selected.id, description: it.description, amount: Math.abs(Number(it.amount) || 0), date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
+      rows.push({ card_id: selected.id, description: it.description, amount: Number(it.amount) || 0, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
     }
     await CreditCardTransaction.bulkCreate(rows);
     await Cards.generateInvoices();
     qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
-    toast.success(`${rows.length} lancamentos importados (${source}) e fatura gerada!`);
+    const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const credits = rows.filter((r) => r.amount < 0).length;
+    toast.success(`${rows.length} lancamentos (${source})${credits ? ` incl. ${credits} estorno(s)` : ''} · total ${formatCurrency(total)}. Confira com o PDF.`);
   }
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
