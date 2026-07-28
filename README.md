@@ -77,7 +77,7 @@ Contas, cartões, metas, orçamento, relatórios e IA — tudo em um só lugar. 
 
 ---
 
-## 🧠 A parte inteligente (IA)
+## 🧠 A parte inteligente (IA) 
 
 Tudo funciona **sem tokens nem APIs pagas de terceiros**:
 
