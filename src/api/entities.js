@@ -39,6 +39,9 @@ export const Auth = {
   resend: (email) => api.post('/api/auth/resend', { email }),
   forgot: (email) => api.post('/api/auth/forgot', { email }),
   reset: (token, password) => api.post('/api/auth/reset', { token, password }),
+  setup2fa: () => api.post('/api/auth/2fa', { op: 'setup' }),
+  enable2fa: (code) => api.post('/api/auth/2fa', { op: 'enable', code }),
+  disable2fa: (data) => api.post('/api/auth/2fa', { op: 'disable', ...data }),
 };
 
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
