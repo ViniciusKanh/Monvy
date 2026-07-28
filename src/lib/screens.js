@@ -20,7 +20,7 @@ export const NAV_GROUPS = [
     label: 'Planejamento',
     items: [
       { key: 'categories', label: 'Categorias', path: '/categorias', icon: Tags },
-      { key: 'budget', label: 'Orcamento', path: '/orcamento', icon: PiggyBank },
+      { key: 'budget', label: 'Orçamento', path: '/orcamento', icon: PiggyBank },
       { key: 'goals', label: 'Metas', path: '/metas', icon: Target },
       { key: 'payments', label: 'Pagar & Receber', path: '/pagamentos', icon: CircleDollarSign },
       { key: 'subscriptions', label: 'Assinaturas', path: '/assinaturas', icon: RefreshCw },

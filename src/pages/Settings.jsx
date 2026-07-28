@@ -197,6 +197,23 @@ export default function Settings() {
           )}
         </Card>
 
+        {/* Leitura de faturas por IA (somente admin) */}
+        {isAdmin && (
+          <Card className="hover-lift">
+            <h3 className="font-semibold flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-violet-500" /> Leitura de faturas (IA)</h3>
+            <p className="text-xs text-muted mb-3">Chave da API do Google Gemini para ler e categorizar faturas de cartao em PDF automaticamente. A camada gratuita costuma bastar. Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold inline-flex items-center gap-0.5">aistudio.google.com/apikey <ExternalLink className="w-3 h-3" /></a>.</p>
+            <div className="space-y-3">
+              <Field label="Chave da API Gemini" hint={settings?.gemini_api_key_configured ? 'Configurada — preencha so para alterar' : 'Sem chave, a leitura usa o metodo local'}>
+                <div className="relative">
+                  <Input type={showKey ? 'text' : 'password'} value={form.gemini_api_key} onChange={(e) => set('gemini_api_key', e.target.value)} placeholder="AIza..." className="pr-10" />
+                  <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                </div>
+              </Field>
+              <Button variant="outline" onClick={() => saveSettings.mutate(form)} disabled={saveSettings.isPending} className="w-full">{saveSettings.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar chave'}</Button>
+            </div>
+          </Card>
+        )}
+
         {/* Envio de e-mail (somente admin) */}
         {isAdmin && (
           <Card className="hover-lift">

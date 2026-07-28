@@ -44,14 +44,14 @@ export default function Budget() {
   const dayPct = isCurrent ? Math.round((now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100) : 100;
   const spentPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
   const projected = isCurrent && dayPct > 0 ? Math.round(totalSpent / (dayPct / 100)) : totalSpent;
-  const tip = totalBudget === 0 ? { t: 'info', m: 'Defina limites nas suas categorias de despesa para acompanhar o orcamento.' }
-    : spentPct > dayPct + 10 ? { t: 'warn', m: `Voce ja usou ${spentPct}% do orcamento, mas o mes esta em ${dayPct}%. Ritmo acima do ideal — segure os gastos.` }
-    : spentPct < dayPct - 10 ? { t: 'ok', m: `Otimo ritmo! ${spentPct}% do orcamento usado com o mes em ${dayPct}%. Voce esta economizando.` }
-    : { t: 'ok', m: `No ritmo: ${spentPct}% do orcamento usado, mes em ${dayPct}%.` };
+  const tip = totalBudget === 0 ? { t: 'info', m: 'Defina limites nas suas categorias de despesa para acompanhar o orçamento.' }
+    : spentPct > dayPct + 10 ? { t: 'warn', m: `Voce ja usou ${spentPct}% do orçamento, mas o mes esta em ${dayPct}%. Ritmo acima do ideal — segure os gastos.` }
+    : spentPct < dayPct - 10 ? { t: 'ok', m: `Otimo ritmo! ${spentPct}% do orçamento usado com o mes em ${dayPct}%. Voce esta economizando.` }
+    : { t: 'ok', m: `No ritmo: ${spentPct}% do orçamento usado, mes em ${dayPct}%.` };
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Orcamento" subtitle="Limites de gasto por categoria"
+      <PageHeader title="Orçamento" subtitle="Limites de gasto por categoria"
         actions={
           <div className="flex items-center gap-1 card px-1 py-1">
             <button onClick={() => shiftMonth(-1)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-4 h-4" /></button>
@@ -60,7 +60,7 @@ export default function Budget() {
           </div>
         } />
 
-      {/* Hero: medidor geral do orcamento */}
+      {/* Hero: medidor geral do orçamento */}
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>
         <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full glow-pulse pointer-events-none" style={{ background: `radial-gradient(circle, ${spentPct >= 100 ? 'rgba(244,63,94,.3)' : spentPct >= 80 ? 'rgba(245,158,11,.3)' : 'rgba(16,185,129,.28)'}, transparent 68%)` }} />
         <div className="absolute inset-0 grid-bg opacity-25" />
@@ -75,7 +75,7 @@ export default function Budget() {
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5"><p className="text-[11px] text-amber-300">Em atencao</p><p className="font-bold">{attention}</p></div>
             </div>
             {totalBudget > 0 && isCurrent && (
-              <p className="text-xs text-slate-400 mt-3">Projecao para o fim do mes: <b className={projected > totalBudget ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(projected)}</b> {projected > totalBudget ? `(${formatCurrency(projected - totalBudget)} acima)` : '(dentro do orcamento)'}</p>
+              <p className="text-xs text-slate-400 mt-3">Projecao para o fim do mes: <b className={projected > totalBudget ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(projected)}</b> {projected > totalBudget ? `(${formatCurrency(projected - totalBudget)} acima)` : '(dentro do orçamento)'}</p>
             )}
           </div>
         </div>

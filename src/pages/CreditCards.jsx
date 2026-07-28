@@ -84,27 +84,54 @@ export default function CreditCards() {
     const created = await Category.create({ name, type: 'expense', color: colorAt(Math.floor(Math.random() * 8)) });
     return created.id;
   }
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1] || '');
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+  async function importRows(items, source) {
+    const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
+    const cache = {}; const rows = [];
+    for (const it of items) {
+      let catId = predictCategory(it.description, idx);
+      const hint = it.category || it.categoryHint;
+      if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
+      rows.push({ card_id: selected.id, description: it.description, amount: Math.abs(Number(it.amount) || 0), date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
+    }
+    await CreditCardTransaction.bulkCreate(rows);
+    await Cards.generateInvoices();
+    qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
+    toast.success(`${rows.length} lancamentos importados (${source}) e fatura gerada!`);
+  }
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file || !selected) return;
     setImporting(true);
+    const apiKey = settingsList[0]?.gemini_api_key;
     try {
-      toast.info('Lendo a fatura (processamento local)...');
+      // 1) IA (Gemini le o PDF nativamente) — melhor precisao em qualquer banco
+      if (apiKey) {
+        toast.info('Lendo a fatura com IA...');
+        try {
+          const base64 = await fileToBase64(file);
+          const { items = [] } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
+          if (items.length) { await importRows(items, 'IA'); setImporting(false); return; }
+          toast.info('A IA nao encontrou lancamentos — tentando leitura local...');
+        } catch (aiErr) {
+          toast.info('IA indisponivel (' + (aiErr.message || 'erro') + ') — tentando leitura local...');
+        }
+      } else {
+        toast.info('Chave de IA nao configurada. Usando leitura local — configure a chave em Configuracoes para melhor precisao.');
+      }
+      // 2) Fallback local (offline)
       const { parseInvoicePdf } = await import('../lib/invoiceParser.js');
       const { isInvoice, items } = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode demorar)...') });
       if (!isInvoice && items.length < 2) { toast.error('Este PDF nao parece uma fatura de cartao de credito.'); setImporting(false); return; }
       if (!items.length) { toast.error('Nao encontrei lancamentos na fatura.'); setImporting(false); return; }
-      const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
-      const cache = {}; const rows = [];
-      for (const it of items) {
-        let catId = predictCategory(it.description, idx);
-        if (!catId && it.categoryHint) catId = cache[it.categoryHint] ?? (cache[it.categoryHint] = await ensureCategory(it.categoryHint));
-        rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
-      }
-      await CreditCardTransaction.bulkCreate(rows);
-      await Cards.generateInvoices();
-      qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success(`${rows.length} lancamentos importados e fatura gerada!`);
+      await importRows(items, 'local');
     } catch (err) { toast.error('Falha ao ler o PDF: ' + (err.message || err)); } finally { setImporting(false); }
   }
 

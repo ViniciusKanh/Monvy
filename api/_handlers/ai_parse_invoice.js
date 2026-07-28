@@ -48,9 +48,10 @@ Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount"
     };
 
     let lastErr = 'Falha ao chamar o Gemini';
-    const candidates = model ? [model] : [...MODELS];
-    const discovered = await discoverModel(apiKey);
-    if (discovered && !candidates.includes(discovered)) candidates.push(discovered);
+    // Prefere o modelo realmente disponivel na chave (descoberto), depois os fixos
+    const discovered = model ? null : await discoverModel(apiKey);
+    const seen = new Set();
+    const candidates = (model ? [model] : [discovered, ...MODELS]).filter((m) => m && !seen.has(m) && seen.add(m));
     for (const m of candidates) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

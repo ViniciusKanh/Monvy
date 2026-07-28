@@ -43,6 +43,8 @@ export default function Simulator() {
   const [cat, setCat] = useState('');
   const [value, setValue] = useState('');
   const [rateInput, setRateInput] = useState('0.8');
+  const [expenseMode, setExpenseMode] = useState('parcelada'); // 'parcelada' | 'fixo'
+  const [installments, setInstallments] = useState('10');
 
   const [phase, setPhase] = useState('idle');
   const [steps, setSteps] = useState([]);
@@ -84,11 +86,18 @@ export default function Simulator() {
     setStep('predict', 'run'); log('Projetando 12 meses com intervalo de confianca 95%...'); await delay(600);
     const baseNet = ev.predict(ys.length);
     const v = Number(value) || 0;
-    let delta = 0;
-    if (scenario === 'cut' || scenario === 'income') delta = v;
-    else if (scenario === 'expense' || scenario === 'goal') delta = -v;
     const isInvest = scenario === 'invest';
     const r = (Number(rateInput) || 0) / 100;
+
+    // Cenario "Nova Despesa": compra parcelada (total / n) ou gasto fixo mensal
+    const nInst = Math.max(1, Number(installments) || 1);
+    const parcela = scenario === 'expense' ? (expenseMode === 'parcelada' ? v / nInst : v) : 0;
+    const expenseMonths = expenseMode === 'parcelada' ? nInst : 12; // por quantos meses a despesa pesa
+
+    // delta mensal constante para os demais cenarios
+    let delta = 0;
+    if (scenario === 'cut' || scenario === 'income') delta = v;
+    else if (scenario === 'goal') delta = -v;
 
     // historico de saldo (reconstruido do saldo atual)
     let running2 = totalBalance; const hist = [];
@@ -97,25 +106,50 @@ export default function Simulator() {
     // futuro com banda de confianca (incerteza cresce com sqrt(t))
     const fut = []; let bal = totalBalance;
     for (let i = 1; i <= 12; i++) {
-      if (isInvest) bal = bal * (1 + r) + v; else bal += baseNet + delta;
+      let monthDelta = delta;
+      if (scenario === 'expense') monthDelta = i <= expenseMonths ? -parcela : 0; // parcela some depois de quitada
+      if (isInvest) bal = bal * (1 + r) + v; else bal += baseNet + monthDelta;
       const band = 1.96 * ev.sigma * Math.sqrt(i);
       const d = new Date(); d.setMonth(d.getMonth() + i);
       fut.push({ name: `${MONTHS_PT[d.getMonth()].slice(0, 3)}/${String(d.getFullYear()).slice(2)}`, pred: Math.round(bal), lo: Math.round(bal - band), band: Math.round(2 * band) });
     }
-    const lastActual = hist[hist.length - 1].actual;
     const projection = [
       ...hist.map((h, i) => (i === hist.length - 1 ? { name: h.name, actual: h.actual, pred: h.actual, lo: h.actual, band: 0 } : { name: h.name, actual: h.actual })),
       ...fut,
     ];
     const baseEnd = totalBalance + baseNet * 12;
     const scenEnd = fut[11].pred;
+
+    // Impacto detalhado para "Nova Despesa"
+    let impact = null;
+    if (scenario === 'expense') {
+      const surplusBefore = avgInc - avgExp;
+      const surplusAfter = surplusBefore - parcela;
+      const endD = new Date(); endD.setMonth(endD.getMonth() + nInst);
+      impact = {
+        mode: expenseMode, parcela, nInst, total: expenseMode === 'parcelada' ? v : null,
+        pctIncome: avgInc > 0 ? (parcela / avgInc) * 100 : 0,
+        pctSurplus: surplusBefore > 0 ? (parcela / surplusBefore) * 100 : null,
+        surplusBefore, surplusAfter,
+        savingsBefore: rate, savingsAfter: avgInc > 0 ? (surplusAfter / avgInc) * 100 : 0,
+        goesNegative: surplusAfter < 0,
+        endLabel: expenseMode === 'parcelada' ? `${MONTHS_PT[endD.getMonth()]}/${endD.getFullYear()}` : null,
+      };
+      log(`Nova despesa: ${money(parcela)}/mes${expenseMode === 'parcelada' ? ` x${nInst} (total ${money(v)})` : ' (fixo)'}`);
+      log(`Sobra mensal: ${money(surplusBefore)} -> ${money(surplusAfter)} · poupanca ${impact.savingsBefore.toFixed(0)}% -> ${impact.savingsAfter.toFixed(0)}%`);
+    }
+
     let summary;
     if (isInvest) summary = `Investindo ${money(v)}/mes a ${rateInput}% a.m., projecao em 12 meses: ${money(scenEnd)} (±${money(1.96 * ev.sigma * Math.sqrt(12))}).`;
     else if (scenario === 'goal') summary = `Guardando ${money(v)}/mes, voce reserva ${money(v * 12)} em 12 meses.`;
+    else if (scenario === 'expense') {
+      if (expenseMode === 'parcelada') summary = `Parcela de ${money(parcela)}/mes por ${nInst}x (compra de ${money(v)}). Consome ${impact.pctIncome.toFixed(0)}% da sua renda e ${impact.pctSurplus != null ? impact.pctSurplus.toFixed(0) + '% da sua sobra mensal' : 'mais do que voce sobra'}. Ultima parcela em ${impact.endLabel}.` + (impact.goesNegative ? ' Atencao: isso deixa seu mes no vermelho enquanto durar.' : ' Cabe no seu orcamento.');
+      else summary = `Gasto fixo de ${money(parcela)}/mes consome ${impact.pctIncome.toFixed(0)}% da renda. Sua taxa de poupanca cai de ${impact.savingsBefore.toFixed(0)}% para ${impact.savingsAfter.toFixed(0)}%.` + (impact.goesNegative ? ' Atencao: seu mes fica no vermelho.' : '');
+    }
     else { const diff = scenEnd - baseEnd; summary = `Impacto do cenario em 12 meses: ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia atual.`; }
 
     log('Modelo pronto. Previsao gerada com sucesso.'); setStep('predict', 'done');
-    setResult({ projection, summary, color: sc.color });
+    setResult({ projection, summary, color: sc.color, impact });
     setPhase('done'); running.current = false;
 
     try { const d = new Date(); d.setMonth(d.getMonth() + 1); Forecast.create({ forecast_date: d.toISOString().slice(0, 10), predicted_balance: scenEnd, lower_bound: fut[11].lo, upper_bound: fut[11].lo + fut[11].band, confidence_level: 0.95, mode: 'cash', generated_at: new Date().toISOString(), explanation: JSON.stringify({ genMonth: monthKey(new Date()), baseNet, r2: ev.r2, cvMae: ev.cvMae, model: ev.model }) }).catch(() => {}); } catch {}
@@ -155,9 +189,23 @@ export default function Simulator() {
           <h3 className="font-semibold flex items-center gap-2 mb-4"><sc.icon className="w-4 h-4" style={{ color: sc.color }} /> Configuracao — {sc.label}</h3>
           <div className="space-y-4">
             {scenario === 'cut' && <Field label="Categoria para cortar"><Select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Selecione a categoria</option>{expenseCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
-            <Field label={scenario === 'goal' ? 'Valor a guardar/mes' : scenario === 'income' ? 'Renda extra/mes' : scenario === 'invest' ? 'Aporte mensal' : scenario === 'expense' ? 'Novo gasto/mes' : 'Valor a economizar/mes'}>
+            {scenario === 'expense' && (
+              <Field label="Tipo de despesa">
+                <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full">
+                  {[['parcelada', 'Compra parcelada'], ['fixo', 'Gasto fixo mensal']].map(([val, lbl]) => (
+                    <button key={val} type="button" onClick={() => setExpenseMode(val)} className={`flex-1 px-3 py-1.5 rounded-md text-sm font-semibold transition ${expenseMode === val ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{lbl}</button>
+                  ))}
+                </div>
+              </Field>
+            )}
+            <Field label={scenario === 'goal' ? 'Valor a guardar/mes' : scenario === 'income' ? 'Renda extra/mes' : scenario === 'invest' ? 'Aporte mensal' : scenario === 'expense' ? (expenseMode === 'parcelada' ? 'Valor total da compra' : 'Novo gasto/mes') : 'Valor a economizar/mes'}>
               <Input type="number" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} placeholder="R$ 0,00" />
             </Field>
+            {scenario === 'expense' && expenseMode === 'parcelada' && (
+              <Field label="Numero de parcelas" hint={Number(value) > 0 && Number(installments) > 0 ? `${money(Number(value) / Math.max(1, Number(installments)))}/mes` : null}>
+                <Input type="number" min="1" step="1" value={installments} onChange={(e) => setInstallments(e.target.value)} placeholder="10" />
+              </Field>
+            )}
             {scenario === 'invest' && <Field label="Rendimento mensal (%)"><Input type="number" step="0.01" value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="0.8" /></Field>}
             <Button onClick={run} className="w-full" style={{ background: sc.color }} disabled={phase === 'running' || !enoughData}>
               {phase === 'running' ? <><Spinner className="w-4 h-4" /> Treinando modelo...</> : <><Play className="w-4 h-4" /> Treinar & Simular</>}
@@ -234,6 +282,19 @@ export default function Simulator() {
               </ComposedChart>
             </ResponsiveContainer>
             <div className="mt-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-sm text-indigo-700 dark:text-indigo-300 flex items-start gap-2"><Sparkles className="w-4 h-4 mt-0.5 shrink-0" /> {result.summary}</div>
+            {result.impact && (
+              <>
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <Metric label="Parcela/mes" value={money(result.impact.parcela)} tone="#f59e0b" />
+                  <Metric label="% da renda" value={`${result.impact.pctIncome.toFixed(0)}%`} tone="#6366f1" />
+                  <Metric label="% da sobra" value={result.impact.pctSurplus != null ? `${result.impact.pctSurplus.toFixed(0)}%` : '—'} tone={result.impact.goesNegative ? '#f43f5e' : '#10b981'} />
+                  <Metric label="Poupanca depois" value={`${result.impact.savingsAfter.toFixed(0)}%`} tone={result.impact.savingsAfter < result.impact.savingsBefore ? '#f43f5e' : '#10b981'} />
+                </div>
+                <div className={`mt-2 text-xs rounded-lg p-2 ${result.impact.goesNegative ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'}`}>
+                  Sobra mensal: <b>{money(result.impact.surplusBefore)}</b> &rarr; <b>{money(result.impact.surplusAfter)}</b>{result.impact.endLabel ? ` · ultima parcela em ${result.impact.endLabel}` : ' · gasto continuo'}
+                </div>
+              </>
+            )}
           </Card>
         </Reveal>
       )}
