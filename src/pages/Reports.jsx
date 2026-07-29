@@ -50,6 +50,9 @@ export default function Reports() {
     return Object.values(map).sort((a, b) => b.value - a.value);
   }, [periodTx, catMap]);
   const maxCat = byCategory[0]?.value || 1;
+  const totalExp = byCategory.reduce((s, c) => s + c.value, 0) || 1;
+  const topExpenses = useMemo(() => periodTx.filter((t) => t.type === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5), [periodTx]);
+  const statement = useMemo(() => [...periodTx].sort((a, b) => (a.date < b.date ? 1 : -1)), [periodTx]);
 
   const exportCsv = () => {
     const rows = [['Data', 'Tipo', 'Descricao', 'Categoria', 'Valor', 'Status']];
@@ -145,6 +148,48 @@ export default function Reports() {
               </div>
             </div>
           )}
+      </Card>
+
+      {/* Maiores despesas + resumo por categoria */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <Card>
+          <h3 className="font-semibold mb-3">Maiores despesas do periodo</h3>
+          {topExpenses.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem despesas no periodo.</p>
+            : <div className="space-y-2">{topExpenses.map((t, i) => { const c = catMap[t.category_id]; return (
+              <div key={t.id} className="flex items-center gap-3">
+                <span className="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                <div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{t.description || c?.name || 'Despesa'}</p><p className="text-[11px] text-muted">{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')} · {c?.name || 'Sem categoria'}</p></div>
+                <span className="font-semibold text-rose-500 shrink-0">{formatCurrency(t.amount)}</span>
+              </div>
+            ); })}</div>}
+        </Card>
+        <Card>
+          <h3 className="font-semibold mb-3">Resumo por categoria</h3>
+          {byCategory.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem dados.</p>
+            : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-muted border-b border-[hsl(var(--border))]"><th className="py-1.5 font-medium">Categoria</th><th className="py-1.5 font-medium text-right">Valor</th><th className="py-1.5 font-medium text-right">%</th></tr></thead>
+              <tbody>{byCategory.map((c, i) => (<tr key={i} className="border-b border-[hsl(var(--border))] last:border-0"><td className="py-1.5 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color || COLORS[i % COLORS.length] }} />{c.name}</td><td className="py-1.5 text-right font-medium">{formatCurrency(c.value)}</td><td className="py-1.5 text-right text-muted">{((c.value / totalExp) * 100).toFixed(1)}%</td></tr>))}</tbody>
+              <tfoot><tr className="font-bold"><td className="py-1.5">Total</td><td className="py-1.5 text-right">{formatCurrency(totalExp)}</td><td className="py-1.5 text-right">100%</td></tr></tfoot>
+            </table></div>}
+        </Card>
+      </div>
+
+      {/* Extrato detalhado (para PDF) */}
+      <Card>
+        <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Extrato detalhado</h3><span className="text-xs text-muted">{statement.length} lancamento(s)</span></div>
+        {statement.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem lancamentos no periodo.</p>
+          : <div className="overflow-x-auto max-h-96 overflow-y-auto print:max-h-none print:overflow-visible">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-[hsl(var(--card))]"><tr className="text-left text-muted border-b border-[hsl(var(--border))]"><th className="py-1.5 font-medium">Data</th><th className="py-1.5 font-medium">Descricao</th><th className="py-1.5 font-medium">Categoria</th><th className="py-1.5 font-medium text-right">Valor</th></tr></thead>
+              <tbody>{statement.map((t) => { const c = catMap[t.category_id]; const isInc = t.type === 'income'; return (
+                <tr key={t.id} className="border-b border-[hsl(var(--border))] last:border-0">
+                  <td className="py-1.5 whitespace-nowrap text-muted">{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')}</td>
+                  <td className="py-1.5">{t.description || c?.name || (isInc ? 'Receita' : t.type === 'transfer' ? 'Transferencia' : 'Despesa')}</td>
+                  <td className="py-1.5 text-muted">{t.type === 'transfer' ? 'Transferencia' : (c?.name || '—')}</td>
+                  <td className={`py-1.5 text-right font-medium whitespace-nowrap ${isInc ? 'text-emerald-500' : t.type === 'transfer' ? 'text-indigo-500' : 'text-rose-500'}`}>{isInc ? '+' : t.type === 'transfer' ? '' : '-'}{formatCurrency(t.amount)}</td>
+                </tr>
+              ); })}</tbody>
+            </table>
+          </div>}
       </Card>
     </div>
   );

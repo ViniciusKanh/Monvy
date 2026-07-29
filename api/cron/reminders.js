@@ -39,7 +39,25 @@ export default async function handler(req, res) {
         args: [u.id, t3],
       })).rows;
 
-      if (!tx.length && !inv.length) continue;
+      // orcamento estourado no mes corrente
+      const ym = t0.slice(0, 7);
+      const cats = (await db().execute({
+        sql: `SELECT id, name, budget_limit FROM Category WHERE created_by_id = ? AND budget_limit IS NOT NULL AND budget_limit > 0`,
+        args: [u.id],
+      })).rows;
+      const budgetRows = [];
+      if (cats.length) {
+        const spend = (await db().execute({
+          sql: `SELECT category_id, SUM(amount) AS total FROM "Transaction"
+                WHERE created_by_id = ? AND type = 'expense' AND (is_deleted IS NULL OR is_deleted = 0)
+                AND substr(date,1,7) = ? GROUP BY category_id`,
+          args: [u.id, ym],
+        })).rows;
+        const sm = Object.fromEntries(spend.map((r) => [r.category_id, Number(r.total) || 0]));
+        for (const c of cats) { const sp = sm[c.id] || 0; if (sp > Number(c.budget_limit)) budgetRows.push(itemRow(`Orcamento estourado: ${c.name}`, `limite ${brl(c.budget_limit)}`, brl(sp), '#e11d48')); }
+      }
+
+      if (!tx.length && !inv.length && !budgetRows.length) continue;
 
       const rows = [];
       for (const t of tx) {
@@ -52,12 +70,16 @@ export default async function handler(req, res) {
       }
       const total = tx.reduce((s, t) => s + (t.type === 'expense' ? Number(t.amount) : 0), 0) + inv.reduce((s, i) => s + Number(i.total_amount || 0), 0);
 
+      let body = `Ola${u.full_name ? ' ' + u.full_name : ''}, aqui esta o resumo dos seus alertas:`;
+      if (rows.length) body += `<div style="margin-top:12px;font-weight:700;color:#0b1330">Vencimentos proximos ou em atraso</div>${itemsTable(rows)}<div style="margin-top:6px;color:#0b1330;font-weight:700">Total a pagar: ${brl(total)}</div>`;
+      if (budgetRows.length) body += `<div style="margin-top:16px;font-weight:700;color:#0b1330">Orcamento do mes</div>${itemsTable(budgetRows)}`;
+      body += `<div style="margin-top:12px">Acesse o Monvy para conciliar e manter tudo em dia.</div>`;
+      const count = tx.length + inv.length + budgetRows.length;
+
       await sendMail({
         to: u.email,
-        subject: `Monvy — voce tem ${tx.length + inv.length} vencimento(s) proximo(s)`,
-        html: tpl(`Lembrete de vencimentos ⏰`,
-          `Ola${u.full_name ? ' ' + u.full_name : ''}, estes compromissos estao proximos do vencimento ou em atraso:${itemsTable(rows)}<div style="margin-top:8px;color:#0b1330;font-weight:700">Total a pagar: ${brl(total)}</div>Acesse o Monvy para conciliar e manter tudo em dia.`,
-        ),
+        subject: `Monvy — voce tem ${count} alerta(s)`,
+        html: tpl(`Seus alertas do Monvy ⏰`, body),
       });
       sent++;
     }
