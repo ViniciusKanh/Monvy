@@ -24,6 +24,10 @@ import Intelligence from './pages/Intelligence.jsx';
 import FinancialHealth from './pages/FinancialHealth.jsx';
 import BehavioralAnalysis from './pages/BehavioralAnalysis.jsx';
 import Simulator from './pages/Simulator.jsx';
+import Market from './pages/Market.jsx';
+import Converter from './pages/Converter.jsx';
+import Holidays from './pages/Holidays.jsx';
+import Cnpj from './pages/Cnpj.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
@@ -75,6 +79,10 @@ export default function App() {
         <Route path="/saude" element={<Protected screenKey="health"><FinancialHealth /></Protected>} />
         <Route path="/comportamental" element={<Protected screenKey="behavioral"><BehavioralAnalysis /></Protected>} />
         <Route path="/simulador" element={<Protected screenKey="simulator"><Simulator /></Protected>} />
+        <Route path="/mercado" element={<Protected screenKey="market"><Market /></Protected>} />
+        <Route path="/conversor" element={<Protected screenKey="converter"><Converter /></Protected>} />
+        <Route path="/feriados" element={<Protected screenKey="holidays"><Holidays /></Protected>} />
+        <Route path="/cnpj" element={<Protected screenKey="cnpj"><Cnpj /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
         <Route path="/importar" element={<Protected screenKey="bankImport"><BankImport /></Protected>} />
         <Route path="/relatorios" element={<Protected screenKey="reports"><Reports /></Protected>} />

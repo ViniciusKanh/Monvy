@@ -3,6 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
+  ArrowRightLeft, CalendarDays, Building2,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -40,8 +41,17 @@ export const NAV_GROUPS = [
     label: 'Ferramentas',
     items: [
       { key: 'simulator', label: 'Simulador', path: '/simulador', icon: Calculator },
+      { key: 'market', label: 'Mercado & Indicadores', path: '/mercado', icon: TrendingUp },
       { key: 'reconciliation', label: 'Conciliacao', path: '/conciliacao', icon: GitCompare },
       { key: 'bankImport', label: 'Importar Extrato', path: '/importar', icon: Upload },
+    ],
+  },
+  {
+    label: 'Consultas',
+    items: [
+      { key: 'converter', label: 'Conversor de Moedas', path: '/conversor', icon: ArrowRightLeft },
+      { key: 'holidays', label: 'Feriados Nacionais', path: '/feriados', icon: CalendarDays },
+      { key: 'cnpj', label: 'Consulta CNPJ', path: '/cnpj', icon: Building2 },
     ],
   },
   {
