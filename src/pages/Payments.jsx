@@ -6,6 +6,7 @@ import { TransactionModal } from '../components/TransactionModal.jsx';
 import { Button, Card, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, monthRange, inMonth, todayIso } from '../lib/utils.js';
+import { useHolidayMap } from '../lib/holidays.js';
 import { ChevronLeft, ChevronRight, Plus, ArrowUpRight, ArrowDownRight, CircleCheck, Undo2, Pencil, Paperclip, AlertTriangle, CalendarClock, ArrowLeftRight } from 'lucide-react';
 
 const TABS = [['pending', 'A pagar / receber'], ['completed', 'Concluidos'], ['all', 'Todos']];
@@ -24,6 +25,7 @@ export default function Payments() {
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
+  const holidayMap = useHolidayMap(Number(mk.slice(0, 4)));
 
   const inval = () => { qc.invalidateQueries({ queryKey: ['transactions'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); };
   const setStatus = useMutation({ mutationFn: ({ id, status }) => Transaction.update(id, { status }), onSuccess: inval });
@@ -115,6 +117,7 @@ export default function Payments() {
                         <span>{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')}</span>
                         <span>· {cat?.name || 'Sem categoria'}</span>
                         {overdue && <Badge color="rose"><AlertTriangle className="w-3 h-3" /> Vencido</Badge>}
+                        {(() => { const hn = holidayMap.get(String(t.date).slice(0, 10)); return hn && !done ? <span title={`Feriado: ${hn} — a compensacao bancaria pode ser afetada`} className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300"><CalendarClock className="w-3 h-3" /> cai em feriado</span> : null; })()}
                         {t.receipt_url && <button onClick={() => setViewReceipt(t.receipt_url)} className="inline-flex items-center gap-0.5 text-sky-500 font-medium hover:underline"><Paperclip className="w-3 h-3" /> comprovante</button>}
                       </div>
                     </div>

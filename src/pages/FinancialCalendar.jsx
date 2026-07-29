@@ -4,6 +4,7 @@ import { Transaction, CreditCardInvoice, Subscription, CreditCard, Category } fr
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Badge } from '../components/ui';
 import { formatCurrency, monthKey, monthLabel, MONTHS_PT } from '../lib/utils.js';
+import { useHolidayMap } from '../lib/holidays.js';
 import { ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Lock, CalendarClock, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const WD = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
@@ -22,6 +23,7 @@ export default function FinancialCalendar() {
   const cardMap = useMemo(() => Object.fromEntries(cards.map((c) => [c.id, c])), [cards]);
 
   const [y, m] = mk.split('-').map(Number);
+  const holidayMap = useHolidayMap(y);
   const daysInMonth = new Date(y, m, 0).getDate();
   const firstWd = new Date(y, m - 1, 1).getDay();
 
@@ -101,11 +103,13 @@ export default function FinancialCalendar() {
               const isSel = date === sel;
               const isToday = date === new Date().toISOString().slice(0, 10);
               const d = Number(date.slice(8, 10));
+              const hol = holidayMap.get(date);
               return (
-                <button key={i} onClick={() => setSel(date)} className={`aspect-square rounded-xl p-1 flex flex-col items-center justify-start text-sm transition ${isSel ? 'bg-emerald-500 text-white' : isToday ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}>
-                  <span className={`font-medium ${isSel ? '' : ''}`}>{d}</span>
+                <button key={i} onClick={() => setSel(date)} title={hol ? `Feriado: ${hol}` : undefined} className={`aspect-square rounded-xl p-1 flex flex-col items-center justify-start text-sm transition ${isSel ? 'bg-emerald-500 text-white' : isToday ? 'bg-emerald-50 dark:bg-emerald-500/10' : hol ? 'bg-amber-50 dark:bg-amber-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                  <span className={`font-medium ${!isSel && hol ? 'text-amber-600 dark:text-amber-400' : ''}`}>{d}</span>
                   <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
-                    {evs.slice(0, 4).map((e, j) => <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: isSel ? '#fff' : TYPE_DOT[e.kind] }} />)}
+                    {hol && <span className="w-1.5 h-1.5 rounded-full" style={{ background: isSel ? '#fff' : '#f59e0b' }} />}
+                    {evs.slice(0, 3).map((e, j) => <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: isSel ? '#fff' : TYPE_DOT[e.kind] }} />)}
                   </div>
                 </button>
               );
@@ -115,6 +119,7 @@ export default function FinancialCalendar() {
             {[['income', 'Receita'], ['expense', 'Despesa'], ['due', 'Vencimento'], ['closing', 'Fechamento'], ['sub', 'Assinatura']].map(([k, l]) => (
               <span key={k} className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: TYPE_DOT[k] }} /> {l}</span>
             ))}
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} /> Feriado</span>
           </div>
 
           {monthInsights.heaviestDay && (
@@ -125,6 +130,7 @@ export default function FinancialCalendar() {
 
           <div className="mt-4 border-t border-[hsl(var(--border))] pt-4">
             <p className="text-sm font-semibold mb-2">{new Date(sel + 'T00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })} — {selEvents.length} evento(s)</p>
+            {holidayMap.get(sel) && <div className="mb-2 flex items-center gap-2 text-xs p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"><CalendarClock className="w-3.5 h-3.5" /> Feriado: {holidayMap.get(sel)} — pagamentos podem ser compensados no proximo dia util.</div>}
             {selEvents.length === 0 ? <p className="text-sm text-muted py-3 text-center">Sem eventos neste dia.</p>
               : <div className="space-y-2">{selEvents.map((e, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: `${TYPE_DOT[e.kind]}14` }}>

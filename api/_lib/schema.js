@@ -230,6 +230,11 @@ export const MIGRATIONS = [
     `CREATE INDEX IF NOT EXISTS idx_cct_owner_month ON CreditCardTransaction(created_by_id, competence_month)`,
     `CREATE INDEX IF NOT EXISTS idx_inv_owner ON CreditCardInvoice(created_by_id, status)`,
   ] },
+  { id: '008_bank_address', statements: [
+    `ALTER TABLE Account ADD COLUMN bank TEXT`,
+    `ALTER TABLE users ADD COLUMN cep TEXT`,
+    `ALTER TABLE users ADD COLUMN address TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);

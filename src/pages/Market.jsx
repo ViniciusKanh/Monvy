@@ -1,15 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Account } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
-import { Card, Spinner, Badge } from '../components/ui';
+import { Card, Spinner, Badge, Button, Input, Select } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
 import { lastMonths, monthlySeries } from '../lib/analytics.js';
+import { getFxAlerts, addFxAlert, removeFxAlert, isHit } from '../lib/fxAlerts.js';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import {
   DollarSign, Euro, Bitcoin, TrendingUp, TrendingDown, Percent, Landmark,
   Sparkles, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, PiggyBank,
+  Bell, Trash2, Plus, CheckCircle2,
 } from 'lucide-react';
 
 const fmt = (v) => formatCurrency(v);
@@ -86,7 +88,14 @@ export default function Market() {
   }, [ipca, totalBalance]);
 
   const loading = quotesQ.isLoading && ratesQ.isLoading;
-  const refetchAll = () => { quotesQ.refetch(); ratesQ.refetch(); };
+  const refetchAll = () => { quotesQ.refetch(); ratesQ.refetch(); histQ.refetch(); };
+
+  // Alertas de cambio (watchlist local)
+  const [fxAlerts, setFxAlertsState] = useState(() => getFxAlerts());
+  const [nf, setNf] = useState({ code: 'USD', dir: 'above', value: '' });
+  const currentOf = (code) => Number((q[`${code}BRL`] || {}).bid) || 0;
+  const addAlert = () => { const v = Number(String(nf.value).replace(',', '.')); if (!v) return; setFxAlertsState(addFxAlert({ code: nf.code, dir: nf.dir, value: v })); setNf((s) => ({ ...s, value: '' })); };
+  const delAlert = (id) => setFxAlertsState(removeFxAlert(id));
 
   return (
     <div className="space-y-5 animate-fadeIn">
@@ -199,6 +208,32 @@ export default function Market() {
           </Card>
         </div>
       </div>
+
+      {/* Alertas de cambio */}
+      <Card className="hover-lift">
+        <h3 className="font-semibold flex items-center gap-2 mb-1"><Bell className="w-4 h-4 text-amber-500" /> Alertas de cambio</h3>
+        <p className="text-xs text-muted mb-3">Defina um alvo e o sino de notificacoes avisa quando a cotacao bater.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <Select value={nf.code} onChange={(e) => setNf((s) => ({ ...s, code: e.target.value }))}><option value="USD">Dolar (USD)</option><option value="EUR">Euro (EUR)</option><option value="BTC">Bitcoin (BTC)</option></Select>
+          <Select value={nf.dir} onChange={(e) => setNf((s) => ({ ...s, dir: e.target.value }))}><option value="above">subir acima de</option><option value="below">cair abaixo de</option></Select>
+          <Input type="number" step="0.01" value={nf.value} onChange={(e) => setNf((s) => ({ ...s, value: e.target.value }))} placeholder="R$ alvo" />
+          <Button onClick={addAlert} disabled={!nf.value}><Plus className="w-4 h-4" /> Adicionar</Button>
+        </div>
+        {fxAlerts.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {fxAlerts.map((a) => { const cur = currentOf(a.code); const hit = isHit(a, cur); return (
+              <div key={a.id} className={`flex items-center gap-3 p-2.5 rounded-xl border ${hit ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-[hsl(var(--border))]'}`}>
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${hit ? 'bg-emerald-500 text-white' : 'bg-amber-500/15 text-amber-500'}`}>{hit ? <CheckCircle2 className="w-4 h-4" /> : <Bell className="w-4 h-4" />}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{a.code} {a.dir === 'above' ? 'acima de' : 'abaixo de'} {fmt(a.value)}</p>
+                  <p className="text-xs text-muted">atual: {cur ? fmt(cur) : '—'} {hit ? '· alvo atingido!' : ''}</p>
+                </div>
+                <button onClick={() => delAlert(a.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ); })}
+          </div>
+        )}
+      </Card>
 
       <p className="text-xs text-muted text-center pt-2">Dados de fontes publicas (AwesomeAPI e BrasilAPI). Conteudo informativo — nao e recomendacao de investimento.</p>
     </div>

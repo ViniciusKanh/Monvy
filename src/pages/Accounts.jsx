@@ -15,12 +15,19 @@ const TYPES = [
 ];
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e'];
 const iconFor = (t) => (TYPES.find((x) => x.v === t)?.icon || Wallet);
-const emptyForm = { name: '', account_type: 'checking', initial_balance: 0, color: '#10b981' };
+const emptyForm = { name: '', account_type: 'checking', initial_balance: 0, color: '#10b981', bank: '' };
+
+async function fetchBanks() {
+  const r = await fetch('https://brasilapi.com.br/api/banks/v1');
+  if (!r.ok) throw new Error('Falha ao buscar bancos');
+  return r.json();
+}
 
 export default function Accounts() {
   const qc = useQueryClient();
   const { data: accounts = [], isLoading } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
+  const { data: banks = [] } = useQuery({ queryKey: ['banks'], queryFn: fetchBanks, staleTime: 7 * 24 * 3_600_000, retry: 1 });
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -33,7 +40,7 @@ export default function Accounts() {
   const del = useMutation({ mutationFn: (id) => Account.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }) });
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setModal(true); };
-  const openEdit = (a) => { setEditing(a); setForm({ name: a.name, account_type: a.account_type, initial_balance: a.initial_balance, color: a.color }); setModal(true); setMenuId(null); };
+  const openEdit = (a) => { setEditing(a); setForm({ name: a.name, account_type: a.account_type, initial_balance: a.initial_balance, color: a.color, bank: a.bank || '' }); setModal(true); setMenuId(null); };
   const close = () => setModal(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const submit = (e) => { e.preventDefault(); save.mutate({ ...form, initial_balance: Number(form.initial_balance) }); };
@@ -127,6 +134,10 @@ export default function Accounts() {
         footer={<><Button variant="outline" onClick={close}>Cancelar</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
         <form onSubmit={submit} className="space-y-4">
           <Field label="Nome"><Input required value={form.name} onChange={set('name')} placeholder="Ex: Nubank" /></Field>
+          <Field label="Banco (opcional)" hint="Comece a digitar para buscar na lista oficial de bancos">
+            <Input list="banks-list" value={form.bank} onChange={set('bank')} placeholder="Ex: Nubank, Itau, Bradesco" />
+            <datalist id="banks-list">{banks.filter((b) => b.name).map((b) => <option key={b.ispb} value={b.name}>{b.code ? `${b.code} — ${b.name}` : b.name}</option>)}</datalist>
+          </Field>
           <Field label="Tipo"><Select value={form.account_type} onChange={set('account_type')}>{TYPES.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}</Select></Field>
           <Field label="Saldo inicial"><Input type="number" step="0.01" value={form.initial_balance} onChange={set('initial_balance')} /></Field>
           <Field label="Cor">

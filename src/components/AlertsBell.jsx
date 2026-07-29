@@ -3,9 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Transaction, CreditCardInvoice, Subscription, Category, Account } from '../api/entities.js';
 import { computeAlerts } from '../lib/analytics.js';
-import { Bell, AlertTriangle, CalendarClock, PiggyBank, Zap, Wallet, TrendingDown, CheckCircle2 } from 'lucide-react';
+import { getFxAlerts, isHit } from '../lib/fxAlerts.js';
+import { Bell, AlertTriangle, CalendarClock, PiggyBank, Zap, Wallet, TrendingDown, CheckCircle2, DollarSign } from 'lucide-react';
 
-const KIND_ICON = { overdue: AlertTriangle, invoice: CalendarClock, budget: PiggyBank, anomaly: Zap, balance: Wallet, savings: TrendingDown };
+const KIND_ICON = { overdue: AlertTriangle, invoice: CalendarClock, budget: PiggyBank, anomaly: Zap, balance: Wallet, savings: TrendingDown, fx: DollarSign };
+
+async function fetchFx() {
+  const r = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL');
+  if (!r.ok) throw new Error('fx');
+  return r.json();
+}
+const fmtBRL = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const SEV = {
   danger: 'text-rose-500 bg-rose-500/10',
   warn: 'text-amber-500 bg-amber-500/10',
@@ -24,7 +32,20 @@ export function AlertsBell({ dark }) {
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
-  const alerts = useMemo(() => computeAlerts({ transactions, invoices, subscriptions, categories, accounts, catMap }), [transactions, invoices, subscriptions, categories, accounts, catMap]);
+  const baseAlerts = useMemo(() => computeAlerts({ transactions, invoices, subscriptions, categories, accounts, catMap }), [transactions, invoices, subscriptions, categories, accounts, catMap]);
+
+  // Alertas de cambio (watchlist local) — dispara quando a cotacao bate o alvo
+  const { data: fx } = useQuery({ queryKey: ['fx-bell'], queryFn: fetchFx, retry: 1, staleTime: 30_000, refetchInterval: 60_000 });
+  const fxAlerts = useMemo(() => {
+    if (!fx) return [];
+    return getFxAlerts().map((a) => {
+      const cur = Number((fx[`${a.code}BRL`] || {}).bid) || 0;
+      if (!isHit(a, cur)) return null;
+      return { id: a.id, kind: 'fx', severity: 'info', title: `${a.code} ${a.dir === 'above' ? 'passou de' : 'caiu abaixo de'} ${fmtBRL(a.value)}`, text: `Cotacao atual: ${fmtBRL(cur)}`, path: '/mercado' };
+    }).filter(Boolean);
+  }, [fx]);
+
+  const alerts = useMemo(() => [...fxAlerts, ...baseAlerts], [fxAlerts, baseAlerts]);
   const count = alerts.length;
 
   useEffect(() => {

@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     const auth = getAuth(req);
     if (!auth) return sendJson(res, 401, { error: 'Nao autenticado' });
     const body = await readBody(req);
-    const fields = ['full_name', 'first_name', 'last_name', 'phone', 'profession', 'photo_url'];
+    const fields = ['full_name', 'first_name', 'last_name', 'phone', 'profession', 'photo_url', 'cep', 'address'];
     const sets = [], args = [];
     for (const f of fields) if (body[f] !== undefined) { sets.push(`${f} = ?`); args.push(body[f]); }
     if (sets.length) {
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const r = await db().execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [auth.sub] });
     const u = r.rows[0];
     let screens = []; try { screens = JSON.parse(u.allowed_screens || '[]'); } catch {}
-    return sendJson(res, 200, { user: { id: u.id, email: u.email, full_name: u.full_name, first_name: u.first_name, last_name: u.last_name, phone: u.phone, profession: u.profession, role: u.role, photo_url: u.photo_url, allowed_screens: screens } });
+    return sendJson(res, 200, { user: { id: u.id, email: u.email, full_name: u.full_name, first_name: u.first_name, last_name: u.last_name, phone: u.phone, profession: u.profession, cep: u.cep, address: u.address, role: u.role, photo_url: u.photo_url, allowed_screens: screens } });
   } catch (e) {
     return sendJson(res, 500, { error: e.message });
   }

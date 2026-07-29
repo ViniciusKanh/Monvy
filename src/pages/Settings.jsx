@@ -34,11 +34,27 @@ export default function Settings() {
   const settings = list[0];
   const fileRef = useRef(null);
 
-  const [profile, setProfile] = useState({ full_name: '', phone: '', profession: '', photo_url: '' });
+  const [profile, setProfile] = useState({ full_name: '', phone: '', profession: '', photo_url: '', cep: '', address: '' });
+  const [cepBusy, setCepBusy] = useState(false);
   const [form, setForm] = useState({ currency: 'BRL', default_view_mode: 'cash', notifications_enabled: true, auto_categorize: true, gemini_api_key: '' });
   const [showKey, setShowKey] = useState(false);
 
-  useEffect(() => { if (user) setProfile({ full_name: user.full_name || '', phone: user.phone || '', profession: user.profession || '', photo_url: user.photo_url || '' }); }, [user]);
+  useEffect(() => { if (user) setProfile({ full_name: user.full_name || '', phone: user.phone || '', profession: user.profession || '', photo_url: user.photo_url || '', cep: user.cep || '', address: user.address || '' }); }, [user]);
+
+  const onCep = async (val) => {
+    setProfile((p) => ({ ...p, cep: val }));
+    const d = String(val).replace(/\D/g, '');
+    if (d.length !== 8) return;
+    setCepBusy(true);
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cep/v2/${d}`);
+      if (!r.ok) throw new Error('cep');
+      const c = await r.json();
+      const addr = [c.street, c.neighborhood, c.city && `${c.city}/${c.state}`].filter(Boolean).join(', ');
+      setProfile((p) => ({ ...p, address: addr || p.address }));
+      toast.success('Endereco preenchido pelo CEP');
+    } catch { toast.error('CEP nao encontrado'); } finally { setCepBusy(false); }
+  };
   useEffect(() => { if (settings) setForm((f) => ({ ...f, ...settings, gemini_api_key: settings.gemini_api_key || '' })); }, [settings]);
 
   const saveProfile = useMutation({ mutationFn: (p) => updateProfile(p), onSuccess: () => toast.success('Perfil atualizado') });
@@ -126,6 +142,10 @@ export default function Settings() {
             <div className="grid grid-cols-2 gap-3">
               <Field label="Telefone"><Input value={profile.phone} onChange={(e) => setP('phone', e.target.value)} placeholder="(11) 90000-0000" /></Field>
               <Field label="Profissao"><Input value={profile.profession} onChange={(e) => setP('profession', e.target.value)} placeholder="Ex: Cientista de Dados" /></Field>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="CEP" hint={cepBusy ? 'buscando...' : 'preenche o endereco'}><Input value={profile.cep} onChange={(e) => onCep(e.target.value)} placeholder="00000-000" inputMode="numeric" /></Field>
+              <div className="col-span-2"><Field label="Endereco"><Input value={profile.address} onChange={(e) => setP('address', e.target.value)} placeholder="Rua, bairro, cidade/UF" /></Field></div>
             </div>
             <Button onClick={() => saveProfile.mutate(profile)} disabled={saveProfile.isPending} className="w-full">{saveProfile.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar perfil'}</Button>
           </div>

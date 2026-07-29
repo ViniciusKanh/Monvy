@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Button, Input, Select, Field, Modal, Textarea, Spinner } from './ui';
-import { Paperclip, X, FileText, Eye } from 'lucide-react';
+import { Paperclip, X, FileText, Eye, Building2 } from 'lucide-react';
 import { todayIso } from '../lib/utils.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 
@@ -60,6 +60,26 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
     }
   }, [open, initial, defaultType]); // eslint-disable-line
 
+  const [cnpj, setCnpj] = useState({ busy: false, hint: '' });
+  const descDigits = (form.description || '').replace(/\D/g, '');
+  const looksCnpj = descDigits.length === 14;
+  async function lookupCnpj() {
+    setCnpj({ busy: true, hint: '' });
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${descDigits}`);
+      if (!r.ok) throw new Error('nao encontrado');
+      const d = await r.json();
+      const name = d.nome_fantasia || d.razao_social || form.description;
+      const cnae = d.cnae_fiscal_descricao || '';
+      setForm((f) => {
+        let cat = f.category_id;
+        if (f.type !== 'transfer' && !cat && cnae) { const p = predictCategory(cnae, catIndex); if (p && categories.some((c) => c.id === p && c.type === f.type)) cat = p; }
+        return { ...f, description: name, category_id: cat };
+      });
+      setCnpj({ busy: false, hint: cnae ? `Estabelecimento identificado · segmento: ${cnae}` : 'Estabelecimento identificado.' });
+    } catch { setCnpj({ busy: false, hint: 'CNPJ nao encontrado na base publica.' }); }
+  }
+
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const onDesc = (e) => {
     const v = e.target.value;
@@ -99,7 +119,12 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
           <Field label="Valor"><Input type="number" step="0.01" required value={form.amount} onChange={set('amount')} placeholder="0,00" /></Field>
           <Field label="Data"><Input type="date" required value={form.date} onChange={set('date')} /></Field>
         </div>
-        <Field label="Descricao" hint="A categoria e sugerida automaticamente pelo historico"><Input value={form.description} onChange={onDesc} placeholder="Ex: Mercado" /></Field>
+        <Field label="Descricao" hint={cnpj.hint || 'Categoria sugerida pelo historico. Dica: cole um CNPJ e toque em buscar para identificar o estabelecimento'}>
+          <div className="flex gap-2">
+            <Input value={form.description} onChange={onDesc} placeholder="Ex: Mercado ou um CNPJ" className="flex-1" />
+            {looksCnpj && form.type !== 'transfer' && <Button type="button" variant="outline" onClick={lookupCnpj} disabled={cnpj.busy} className="shrink-0" title="Buscar CNPJ">{cnpj.busy ? <Spinner className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}</Button>}
+          </div>
+        </Field>
         <Field label={form.type === 'transfer' ? 'Conta de origem' : 'Conta'}>
           <Select required value={form.account_id} onChange={set('account_id')}>
             <option value="">Selecione</option>
