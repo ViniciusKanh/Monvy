@@ -16,6 +16,12 @@ import {
 
 const money = (v) => formatCurrency(v);
 
+async function fetchFx() {
+  const r = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL');
+  if (!r.ok) throw new Error('fx');
+  return r.json();
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -30,6 +36,7 @@ export default function Dashboard() {
   const { data: subs = [] } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: () => CreditCardInvoice.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: fx } = useQuery({ queryKey: ['fx-usd'], queryFn: fetchFx, retry: 1, staleTime: 60_000, refetchInterval: 120_000 });
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
@@ -158,6 +165,19 @@ export default function Dashboard() {
                   <span className={`mb-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/20'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mes</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1.5">{accounts.length} conta(s) · {cards.length} cartao(oes) · {money(savedGoals)} guardado em metas</p>
+                {(() => {
+                  const usd = Number((fx?.USDBRL || {}).bid) || 0;
+                  const eur = Number((fx?.EURBRL || {}).bid) || 0;
+                  if (!usd && !eur) return null;
+                  const f = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  return (
+                    <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
+                      {usd > 0 && <span className="flex items-center gap-1">🇺🇸 {hide ? '••••' : `US$ ${f(totalBalance / usd)}`}</span>}
+                      {eur > 0 && <span className="flex items-center gap-1">🇪🇺 {hide ? '••••' : `€ ${f(totalBalance / eur)}`}</span>}
+                      <span className="text-slate-500">· patrimonio no cambio de hoje</span>
+                    </p>
+                  );
+                })()}
               </div>
               <div className="hidden sm:flex flex-col items-center shrink-0"><Ring pct={rate} /><span className="text-[11px] text-slate-400 mt-1">poupanca</span></div>
             </div>
