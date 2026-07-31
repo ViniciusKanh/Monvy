@@ -33,6 +33,8 @@ export default function CreditCards() {
   const [txForm, setTxForm] = useState(emptyTx);
   const [payModal, setPayModal] = useState(null);
   const [payAccount, setPayAccount] = useState('');
+  const [payMode, setPayMode] = useState('full');
+  const [payAmount, setPayAmount] = useState('');
   const [importing, setImporting] = useState(false);
   const fileRef = useRef(null);
 
@@ -64,7 +66,7 @@ export default function CreditCards() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success('Fatura importada excluida.'); },
   });
   const genInvoices = useMutation({ mutationFn: () => Cards.generateInvoices(), onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success('Faturas atualizadas.'); } });
-  const payInvoice = useMutation({ mutationFn: ({ invoiceId, accountId }) => Cards.payInvoice(invoiceId, accountId), onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); setPayModal(null); toast.success('Fatura paga!'); } });
+  const payInvoice = useMutation({ mutationFn: (payload) => Cards.payInvoice(payload), onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); qc.invalidateQueries({ queryKey: ['transactions'] }); setPayModal(null); toast.success(r?.fullyPaid === false ? 'Pagamento parcial registrado!' : 'Fatura paga!'); } });
   const saveTx = useMutation({
     mutationFn: (p) => {
       const n = Math.max(1, Number(p.installments_total) || 1);
@@ -215,16 +217,25 @@ export default function CreditCards() {
                   </Card>
                 )}
 
-                {selectedInvoice && (
-                  <Card className="py-3 flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      {selectedInvoice.status === 'paid' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <FileText className="w-5 h-5 text-amber-500" />}
-                      <div><p className="text-sm font-semibold">Fatura {selectedInvoice.competence_month}</p><p className="text-xs text-muted">Venc. {selectedInvoice.due_date ? new Date(selectedInvoice.due_date + 'T00:00').toLocaleDateString('pt-BR') : '-'} · {formatCurrency(selectedInvoice.total_amount)}</p></div>
-                    </div>
-                    {selectedInvoice.status === 'paid' ? <Badge color="emerald">Paga</Badge>
-                      : <Button size="sm" onClick={() => { setPayModal(selectedInvoice); setPayAccount(selected.account_id || accounts[0]?.id || ''); }}><Wallet className="w-4 h-4" /> Pagar fatura</Button>}
-                  </Card>
-                )}
+                {invoiceTotal > 0 && (() => {
+                  const isPaid = selectedInvoice?.status === 'paid';
+                  const totalDue = Number(selectedInvoice?.total_amount ?? invoiceTotal);
+                  const paidSoFar = Number(selectedInvoice?.paid_amount || 0);
+                  const remaining = totalDue - paidSoFar;
+                  return (
+                    <Card className="py-3 flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        {isPaid ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <FileText className="w-5 h-5 text-amber-500" />}
+                        <div>
+                          <p className="text-sm font-semibold">Fatura {monthLabel(mk)}</p>
+                          <p className="text-xs text-muted">{selectedInvoice?.due_date ? `Venc. ${new Date(selectedInvoice.due_date + 'T00:00').toLocaleDateString('pt-BR')} · ` : ''}{formatCurrency(totalDue)}{paidSoFar > 0 && !isPaid ? ` · em aberto ${formatCurrency(remaining)}` : ''}</p>
+                        </div>
+                      </div>
+                      {isPaid ? <Badge color="emerald">Paga</Badge>
+                        : <Button size="sm" onClick={() => { setPayModal({ invoiceId: selectedInvoice?.id || null, cardId: selected.id, competence_month: mk, total: totalDue, remaining }); setPayAccount(selected.account_id || accounts[0]?.id || ''); setPayMode('full'); setPayAmount(''); }}><Wallet className="w-4 h-4" /> Pagar fatura</Button>}
+                    </Card>
+                  );
+                })()}
 
                 {topCats.length > 0 && (
                   <Card>
@@ -286,9 +297,23 @@ export default function CreditCards() {
 
       {/* Modal pagar */}
       <Modal open={!!payModal} onClose={() => setPayModal(null)} title="Pagar fatura" maxWidth="max-w-md"
-        footer={<><Button variant="outline" onClick={() => setPayModal(null)}>Cancelar</Button><Button onClick={() => payInvoice.mutate({ invoiceId: payModal.id, accountId: payAccount })} disabled={!payAccount || payInvoice.isPending}>{payInvoice.isPending ? <Spinner className="w-4 h-4" /> : 'Confirmar pagamento'}</Button></>}>
-        <p className="text-sm text-muted mb-3">Valor: <b className="text-[hsl(var(--text))]">{payModal ? formatCurrency(payModal.total_amount) : ''}</b>. Sera debitado da conta escolhida como um lancamento.</p>
-        <Field label="Conta para debito"><Select value={payAccount} onChange={(e) => setPayAccount(e.target.value)}><option value="">Selecione</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
+        footer={<><Button variant="outline" onClick={() => setPayModal(null)}>Cancelar</Button>
+          <Button onClick={() => payInvoice.mutate({ invoiceId: payModal.invoiceId, cardId: payModal.cardId, competence_month: payModal.competence_month, accountId: payAccount, amount: payMode === 'partial' ? Number(String(payAmount).replace(',', '.')) : undefined })} disabled={!payAccount || payInvoice.isPending || (payMode === 'partial' && !(Number(String(payAmount).replace(',', '.')) > 0))}>{payInvoice.isPending ? <Spinner className="w-4 h-4" /> : 'Confirmar pagamento'}</Button></>}>
+        <div className="space-y-3">
+          <div className="rounded-xl bg-emerald-500/10 p-3">
+            <p className="text-xs text-muted">Fatura {payModal ? monthLabel(payModal.competence_month) : ''}</p>
+            <p className="font-display text-2xl font-bold">{payModal ? formatCurrency(payModal.remaining) : ''}</p>
+            <p className="text-xs text-muted">valor em aberto</p>
+          </div>
+          <Field label="Pagar com a conta"><Select value={payAccount} onChange={(e) => setPayAccount(e.target.value)}><option value="">Selecione</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
+          <Field label="Tipo de pagamento">
+            <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full">
+              {[['full', 'Valor total'], ['partial', 'Outro valor']].map(([v, l]) => (<button key={v} type="button" onClick={() => setPayMode(v)} className={`flex-1 px-3 py-1.5 rounded-md text-sm font-semibold transition ${payMode === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>))}
+            </div>
+          </Field>
+          {payMode === 'partial' && <Field label="Valor a pagar"><Input type="number" step="0.01" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="0,00" /></Field>}
+          <p className="text-xs text-muted">Cria um lancamento "Fatura {payModal ? payModal.competence_month : ''}" debitando a conta escolhida.</p>
+        </div>
       </Modal>
 
       {/* Modal compra */}

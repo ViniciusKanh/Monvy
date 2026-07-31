@@ -39,12 +39,28 @@ export default function Simulator() {
   const avgExp = series.reduce((a, s) => a + s.exp, 0) / (series.length || 1);
   const rate = avgInc > 0 ? ((avgInc - avgExp) / avgInc) * 100 : 0;
 
+  // CDI atual (para o cenario de investimento) via BrasilAPI
+  const ratesQ = useQuery({ queryKey: ['market-rates'], queryFn: async () => { const r = await fetch('https://brasilapi.com.br/api/taxas/v1'); if (!r.ok) throw new Error('taxas'); return r.json(); }, retry: 1, staleTime: 3_600_000 });
+  const cdi = useMemo(() => { const f = (Array.isArray(ratesQ.data) ? ratesQ.data : []).find((x) => (x.nome || '').toLowerCase() === 'cdi'); return f ? Number(f.valor) : null; }, [ratesQ.data]);
+  const cdiMonthly = cdi ? (Math.pow(1 + cdi / 100, 1 / 12) - 1) * 100 : null;
+
   const [scenario, setScenario] = useState('cut');
   const [cat, setCat] = useState('');
   const [value, setValue] = useState('');
   const [rateInput, setRateInput] = useState('0.8');
   const [expenseMode, setExpenseMode] = useState('parcelada'); // 'parcelada' | 'fixo'
   const [installments, setInstallments] = useState('10');
+
+  // media mensal da categoria selecionada (corte realista: nao da pra cortar mais do que se gasta)
+  const catAvg = useMemo(() => {
+    if (!cat) return 0;
+    const per = {};
+    for (const t of transactions) { if (t.type !== 'expense' || t.category_id !== cat) continue; const k = String(t.date).slice(0, 7); per[k] = (per[k] || 0) + Number(t.amount); }
+    const vals = months.map((k) => per[k] || 0);
+    return vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
+  }, [cat, transactions, months]);
+  // ao entrar no cenario de investimento, sugere a taxa do CDI atual
+  useEffect(() => { if (scenario === 'invest' && cdiMonthly) setRateInput(cdiMonthly.toFixed(2)); }, [scenario, cdiMonthly]);
 
   const [phase, setPhase] = useState('idle');
   const [steps, setSteps] = useState([]);
@@ -64,95 +80,116 @@ export default function Simulator() {
     running.current = true;
     setPhase('running'); setResult(null); setModel(null); setProgress(0); setLogs([]);
     setSteps(STEP_DEFS.map((s) => ({ ...s, status: 'pending' })));
-    const ys = series.map((s) => s.net);
+    const incSeries = series.map((s) => s.inc);
+    const expSeries = series.map((s) => s.exp);
+    const nn = series.length;
     const sc = SCENARIOS.find((s) => s.id === scenario);
 
-    setStep('collect', 'run'); log(`Serie temporal do fluxo liquido: ${series.length} meses`); await delay(600);
-    log(`y = [${ys.map((v) => Math.round(v)).join(', ')}]`); setStep('collect', 'done');
+    setStep('collect', 'run'); log(`Serie de ${nn} meses · receita e despesa separadas`); await delay(500);
+    log(`receita = [${incSeries.map((x) => Math.round(x)).join(', ')}]`);
+    log(`despesa = [${expSeries.map((x) => Math.round(x)).join(', ')}]`); setStep('collect', 'done');
 
-    setStep('features', 'run'); log('Feature: indice temporal (t=0..n) + intercepto'); await delay(550); setStep('features', 'done');
+    setStep('features', 'run'); log('Feature: indice temporal + intercepto (por componente)'); await delay(500); setStep('features', 'done');
 
-    setStep('split', 'run'); log('Leave-One-Out CV: cada mes vira teste uma vez'); await delay(650); setStep('split', 'done');
+    setStep('split', 'run'); log('Leave-One-Out CV em cada serie (metrica honesta)'); await delay(550); setStep('split', 'done');
 
-    setStep('train', 'run'); log('Minimizando erro quadratico (OLS)...');
-    for (let p = 0; p <= 100; p += 10) { setProgress(p); await delay(60); }
-    const ev = evaluateModel(ys);
-    log(`Coeficientes: b1=${ev.slope.toFixed(1)}/mes, b0=${ev.intercept.toFixed(0)}`); setStep('train', 'done');
+    setStep('train', 'run'); log('Ajustando OLS para receita e despesa...');
+    for (let p = 0; p <= 100; p += 10) { setProgress(p); await delay(55); }
+    const incM = evaluateModel(incSeries);
+    const expM = evaluateModel(expSeries);
+    log(`Receita: b1=${incM.slope.toFixed(1)}/mes (${incM.trend}) · Despesa: b1=${expM.slope.toFixed(1)}/mes (${expM.trend})`); setStep('train', 'done');
 
-    setStep('eval', 'run'); await delay(600);
-    log(`R2=${(ev.r2 * 100).toFixed(0)}% · CV-MAE=${money(ev.cvMae)} · CV-RMSE=${money(ev.cvRmse)} · sigma=${money(ev.sigma)}`);
-    setModel(ev); setStep('eval', 'done');
+    setStep('eval', 'run'); await delay(500);
+    const combined = { model: 'Regressao dupla — receita & despesa (OLS)', n: nn, folds: incM.folds, r2: (incM.r2 + expM.r2) / 2, cvMae: incM.cvMae + expM.cvMae, cvRmse: Math.sqrt(incM.cvRmse ** 2 + expM.cvRmse ** 2), sigma: Math.sqrt(incM.sigma ** 2 + expM.sigma ** 2), slope: expM.slope, intercept: expM.intercept, trend: expM.trend };
+    log(`R2 receita=${(incM.r2 * 100).toFixed(0)}% · R2 despesa=${(expM.r2 * 100).toFixed(0)}% · CV-MAE total=${money(combined.cvMae)} · sigma=${money(combined.sigma)}`);
+    setModel(combined); setStep('eval', 'done');
 
-    setStep('predict', 'run'); log('Projetando 12 meses com intervalo de confianca 95%...'); await delay(600);
-    const baseNet = ev.predict(ys.length);
+    setStep('predict', 'run'); log('Projetando 12 meses com bandas de confianca 95%...'); await delay(500);
+
+    // limites historicos para nao extrapolar valores irreais
+    const incMax = Math.max(...incSeries, 1), expMax = Math.max(...expSeries, 1);
+    const clampInc = (x) => Math.max(0, Math.min(x, incMax * 1.8));
+    const clampExp = (x) => Math.max(0, Math.min(x, expMax * 1.8));
+
     const v = Number(value) || 0;
-    const isInvest = scenario === 'invest';
     const r = (Number(rateInput) || 0) / 100;
-
-    // Cenario "Nova Despesa": compra parcelada (total / n) ou gasto fixo mensal
     const nInst = Math.max(1, Number(installments) || 1);
     const parcela = scenario === 'expense' ? (expenseMode === 'parcelada' ? v / nInst : v) : 0;
-    const expenseMonths = expenseMode === 'parcelada' ? nInst : 12; // por quantos meses a despesa pesa
+    const expenseMonths = expenseMode === 'parcelada' ? nInst : 12;
+    const catCut = cat ? Math.min(v, catAvg) : Math.min(v, avgExp); // corte real limitado ao gasto
+    const isInvest = scenario === 'invest';
+    const isGoal = scenario === 'goal';
+    const surplus = Math.max(0, avgInc - avgExp);
 
-    // delta mensal constante para os demais cenarios
-    let delta = 0;
-    if (scenario === 'cut' || scenario === 'income') delta = v;
-    else if (scenario === 'goal') delta = -v;
-
-    // historico de saldo (reconstruido do saldo atual)
+    // historico de saldo reconstruido do saldo atual
     let running2 = totalBalance; const hist = [];
     for (let i = series.length - 1; i >= 0; i--) { hist.unshift({ name: series[i].name, actual: Math.round(running2) }); running2 -= series[i].net; }
 
-    // futuro com banda de confianca (incerteza cresce com sqrt(t))
-    const fut = []; let bal = totalBalance;
+    // baseline (tendencia) e cenario, mes a mes
+    let bal = totalBalance, baseBal = totalBalance, reserve = 0;
+    const fut = [];
     for (let i = 1; i <= 12; i++) {
-      let monthDelta = delta;
-      if (scenario === 'expense') monthDelta = i <= expenseMonths ? -parcela : 0; // parcela some depois de quitada
-      if (isInvest) bal = bal * (1 + r) + v; else bal += baseNet + monthDelta;
-      const band = 1.96 * ev.sigma * Math.sqrt(i);
-      const d = new Date(); d.setMonth(d.getMonth() + i);
-      fut.push({ name: `${MONTHS_PT[d.getMonth()].slice(0, 3)}/${String(d.getFullYear()).slice(2)}`, pred: Math.round(bal), lo: Math.round(bal - band), band: Math.round(2 * band) });
-    }
-    const projection = [
-      ...hist.map((h, i) => (i === hist.length - 1 ? { name: h.name, actual: h.actual, pred: h.actual, lo: h.actual, band: 0 } : { name: h.name, actual: h.actual })),
-      ...fut,
-    ];
-    const baseEnd = totalBalance + baseNet * 12;
-    const scenEnd = fut[11].pred;
+      const incP = clampInc(incM.predict(nn - 1 + i));
+      const expBase = clampExp(expM.predict(nn - 1 + i));
+      baseBal += incP - expBase;
 
-    // Impacto detalhado para "Nova Despesa"
+      let incAdj = 0, expScen = expBase;
+      if (scenario === 'cut') expScen = Math.max(0, expBase - catCut);
+      if (scenario === 'income') incAdj = v;
+      if (scenario === 'expense') expScen = expBase + (i <= expenseMonths ? parcela : 0);
+      const netP = (incP + incAdj) - expScen;
+
+      if (isInvest) bal = bal * (1 + r) + v;
+      else if (isGoal) { reserve += Math.min(v, Math.max(0, incP - expBase)); bal += netP; }
+      else bal += netP;
+
+      const band = 1.96 * combined.sigma * Math.sqrt(i);
+      const d = new Date(); d.setMonth(d.getMonth() + i);
+      const label = `${MONTHS_PT[d.getMonth()].slice(0, 3)}/${String(d.getFullYear()).slice(2)}`;
+      if (isGoal) fut.push({ name: label, pred: Math.round(reserve), lo: Math.round(reserve), band: 0 });
+      else fut.push({ name: label, pred: Math.round(bal), lo: Math.round(bal - band), band: Math.round(2 * band) });
+    }
+
+    const projection = isGoal
+      ? [{ name: 'hoje', pred: 0, lo: 0, band: 0 }, ...fut]
+      : [...hist.map((h, i) => (i === hist.length - 1 ? { name: h.name, actual: h.actual, pred: h.actual, lo: h.actual, band: 0 } : { name: h.name, actual: h.actual })), ...fut];
+
+    const scenEnd = fut[11].pred;
+    const baseEnd = baseBal;
+    const diff = scenEnd - baseEnd;
+
+    // impacto detalhado (Nova Despesa)
     let impact = null;
     if (scenario === 'expense') {
-      const surplusBefore = avgInc - avgExp;
-      const surplusAfter = surplusBefore - parcela;
+      const surplusAfter = surplus - parcela;
       const endD = new Date(); endD.setMonth(endD.getMonth() + nInst);
-      impact = {
-        mode: expenseMode, parcela, nInst, total: expenseMode === 'parcelada' ? v : null,
-        pctIncome: avgInc > 0 ? (parcela / avgInc) * 100 : 0,
-        pctSurplus: surplusBefore > 0 ? (parcela / surplusBefore) * 100 : null,
-        surplusBefore, surplusAfter,
-        savingsBefore: rate, savingsAfter: avgInc > 0 ? (surplusAfter / avgInc) * 100 : 0,
-        goesNegative: surplusAfter < 0,
-        endLabel: expenseMode === 'parcelada' ? `${MONTHS_PT[endD.getMonth()]}/${endD.getFullYear()}` : null,
-      };
-      log(`Nova despesa: ${money(parcela)}/mes${expenseMode === 'parcelada' ? ` x${nInst} (total ${money(v)})` : ' (fixo)'}`);
-      log(`Sobra mensal: ${money(surplusBefore)} -> ${money(surplusAfter)} · poupanca ${impact.savingsBefore.toFixed(0)}% -> ${impact.savingsAfter.toFixed(0)}%`);
+      impact = { mode: expenseMode, parcela, nInst, total: expenseMode === 'parcelada' ? v : null, pctIncome: avgInc > 0 ? (parcela / avgInc) * 100 : 0, pctSurplus: surplus > 0 ? (parcela / surplus) * 100 : null, surplusBefore: surplus, surplusAfter, savingsBefore: rate, savingsAfter: avgInc > 0 ? (surplusAfter / avgInc) * 100 : 0, goesNegative: surplusAfter < 0, endLabel: expenseMode === 'parcelada' ? `${MONTHS_PT[endD.getMonth()]}/${endD.getFullYear()}` : null };
+      log(`Nova despesa: ${money(parcela)}/mes${expenseMode === 'parcelada' ? ` x${nInst}` : ' (fixo)'} · sobra ${money(surplus)} -> ${money(surplusAfter)}`);
     }
 
+    const catName = categories.find((c) => c.id === cat)?.name;
     let summary;
-    if (isInvest) summary = `Investindo ${money(v)}/mes a ${rateInput}% a.m., projecao em 12 meses: ${money(scenEnd)} (±${money(1.96 * ev.sigma * Math.sqrt(12))}).`;
-    else if (scenario === 'goal') summary = `Guardando ${money(v)}/mes, voce reserva ${money(v * 12)} em 12 meses.`;
-    else if (scenario === 'expense') {
-      if (expenseMode === 'parcelada') summary = `Parcela de ${money(parcela)}/mes por ${nInst}x (compra de ${money(v)}). Consome ${impact.pctIncome.toFixed(0)}% da sua renda e ${impact.pctSurplus != null ? impact.pctSurplus.toFixed(0) + '% da sua sobra mensal' : 'mais do que voce sobra'}. Ultima parcela em ${impact.endLabel}.` + (impact.goesNegative ? ' Atencao: isso deixa seu mes no vermelho enquanto durar.' : ' Cabe no seu orcamento.');
-      else summary = `Gasto fixo de ${money(parcela)}/mes consome ${impact.pctIncome.toFixed(0)}% da renda. Sua taxa de poupanca cai de ${impact.savingsBefore.toFixed(0)}% para ${impact.savingsAfter.toFixed(0)}%.` + (impact.goesNegative ? ' Atencao: seu mes fica no vermelho.' : '');
+    if (scenario === 'cut') {
+      log(`Corte real: ${money(catCut)}/mes${cat ? ` em ${catName}` : ''} (voce gasta ~${money(cat ? catAvg : avgExp)}/mes)`);
+      summary = `Cortando ${money(catCut)}/mes${cat ? ` em ${catName}` : ' em despesas'}, seu saldo em 12 meses fica em ${money(scenEnd)} — ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia (${money(catCut * 12)} economizados no ano).` + (cat && v > catAvg ? ` Voce so gasta ~${money(catAvg)}/mes nessa categoria, entao o corte real foi limitado a esse valor.` : '');
+    } else if (scenario === 'income') {
+      summary = `Com +${money(v)}/mes de receita, seu saldo em 12 meses vai a ${money(scenEnd)} — ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia (${money(v * 12)} a mais no ano).`;
+    } else if (scenario === 'expense') {
+      if (expenseMode === 'parcelada') summary = `Parcela de ${money(parcela)}/mes por ${nInst}x (compra de ${money(v)}). Consome ${impact.pctIncome.toFixed(0)}% da renda e ${impact.pctSurplus != null ? impact.pctSurplus.toFixed(0) + '% da sua sobra' : 'mais do que voce sobra'}. Ultima parcela em ${impact.endLabel}.` + (impact.goesNegative ? ' Atencao: deixa o mes no vermelho enquanto durar.' : ' Cabe no orcamento.');
+      else summary = `Gasto fixo de ${money(parcela)}/mes consome ${impact.pctIncome.toFixed(0)}% da renda; a poupanca cai de ${impact.savingsBefore.toFixed(0)}% para ${impact.savingsAfter.toFixed(0)}%.` + (impact.goesNegative ? ' Atencao: o mes fica no vermelho.' : '');
+    } else if (isGoal) {
+      const feasible = v <= surplus;
+      summary = `Guardando ${money(v)}/mes, voce reserva ${money(scenEnd)} em 12 meses.` + (feasible ? ` Cabe na sua sobra media de ${money(surplus)}/mes.` : ` Atencao: e mais que sua sobra media (${money(surplus)}/mes) — para manter, precisaria cortar ${money(v - surplus)}/mes.`);
+    } else {
+      const rendimento = bal - totalBalance - v * 12;
+      summary = `Investindo ${money(v)}/mes a ${rateInput}% a.m.${cdi ? ' (CDI atual)' : ''}, em 12 meses: ${money(scenEnd)} — rendimento de ${money(rendimento)} sobre ${money(totalBalance + v * 12)} aportados.`;
     }
-    else { const diff = scenEnd - baseEnd; summary = `Impacto do cenario em 12 meses: ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia atual.`; }
 
-    log('Modelo pronto. Previsao gerada com sucesso.'); setStep('predict', 'done');
-    setResult({ projection, summary, color: sc.color, impact });
+    log('Modelo pronto. Previsao gerada.'); setStep('predict', 'done');
+    setResult({ projection, summary, color: sc.color, impact, mode: isGoal ? 'goal' : isInvest ? 'invest' : 'balance' });
     setPhase('done'); running.current = false;
 
-    try { const d = new Date(); d.setMonth(d.getMonth() + 1); Forecast.create({ forecast_date: d.toISOString().slice(0, 10), predicted_balance: scenEnd, lower_bound: fut[11].lo, upper_bound: fut[11].lo + fut[11].band, confidence_level: 0.95, mode: 'cash', generated_at: new Date().toISOString(), explanation: JSON.stringify({ genMonth: monthKey(new Date()), baseNet, r2: ev.r2, cvMae: ev.cvMae, model: ev.model }) }).catch(() => {}); } catch {}
+    try { const d = new Date(); d.setMonth(d.getMonth() + 1); Forecast.create({ forecast_date: d.toISOString().slice(0, 10), predicted_balance: scenEnd, lower_bound: fut[11].lo, upper_bound: fut[11].lo + fut[11].band, confidence_level: 0.95, mode: 'cash', generated_at: new Date().toISOString(), explanation: JSON.stringify({ genMonth: monthKey(new Date()), r2: combined.r2, cvMae: combined.cvMae, model: combined.model }) }).catch(() => {}); } catch {}
   }
 
   const sc = SCENARIOS.find((s) => s.id === scenario);
@@ -188,7 +225,7 @@ export default function Simulator() {
         <Card className="hover-lift">
           <h3 className="font-semibold flex items-center gap-2 mb-4"><sc.icon className="w-4 h-4" style={{ color: sc.color }} /> Configuracao — {sc.label}</h3>
           <div className="space-y-4">
-            {scenario === 'cut' && <Field label="Categoria para cortar"><Select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Selecione a categoria</option>{expenseCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
+            {scenario === 'cut' && <Field label="Categoria para cortar" hint={cat ? `Voce gasta ~${money(catAvg)}/mes nessa categoria` : 'Opcional — limita o corte ao gasto real da categoria'}><Select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Todas as despesas</option>{expenseCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
             {scenario === 'expense' && (
               <Field label="Tipo de despesa">
                 <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full">
@@ -206,7 +243,7 @@ export default function Simulator() {
                 <Input type="number" min="1" step="1" value={installments} onChange={(e) => setInstallments(e.target.value)} placeholder="10" />
               </Field>
             )}
-            {scenario === 'invest' && <Field label="Rendimento mensal (%)"><Input type="number" step="0.01" value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="0.8" /></Field>}
+            {scenario === 'invest' && <Field label="Rendimento mensal (%)" hint={cdiMonthly ? `CDI atual ~${cdiMonthly.toFixed(2)}% a.m. (${cdi.toFixed(2)}% a.a.)` : 'Ex: poupanca ~0,5% · CDI varia'}><Input type="number" step="0.01" value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="0.8" /></Field>}
             <Button onClick={run} className="w-full" style={{ background: sc.color }} disabled={phase === 'running' || !enoughData}>
               {phase === 'running' ? <><Spinner className="w-4 h-4" /> Treinando modelo...</> : <><Play className="w-4 h-4" /> Treinar & Simular</>}
             </Button>
@@ -265,7 +302,7 @@ export default function Simulator() {
       {result && (
         <Reveal>
           <Card className="hover-lift">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2"><h3 className="font-semibold flex items-center gap-2"><LineIcon className="w-4 h-4 text-emerald-500" /> Previsao de Saldo — historico + 12 meses</h3>{model && <Badge color="emerald">R2 {(model.r2 * 100).toFixed(0)}% · IC 95%</Badge>}</div>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2"><h3 className="font-semibold flex items-center gap-2"><LineIcon className="w-4 h-4 text-emerald-500" /> {result.mode === 'goal' ? 'Reserva acumulada — proximos 12 meses' : 'Previsao de Saldo — historico + 12 meses'}</h3>{model && <Badge color="emerald">R2 {(model.r2 * 100).toFixed(0)}% · IC 95%</Badge>}</div>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={result.projection}>
                 <defs><linearGradient id="ciBand" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={result.color} stopOpacity={0.18} /><stop offset="100%" stopColor={result.color} stopOpacity={0.05} /></linearGradient></defs>

@@ -17,19 +17,44 @@ export default async function handler(req, res) {
     const body = await readBody(req);
 
     if (body.action === 'pay') {
-      const inv = (await db().execute({ sql: 'SELECT * FROM CreditCardInvoice WHERE id = ? AND created_by_id = ?', args: [body.invoiceId, o] })).rows[0];
+      let inv;
+      if (body.invoiceId) {
+        inv = (await db().execute({ sql: 'SELECT * FROM CreditCardInvoice WHERE id = ? AND created_by_id = ?', args: [body.invoiceId, o] })).rows[0];
+      } else if (body.cardId && body.competence_month) {
+        // busca a fatura do mes; se nao existir, cria a partir da soma das compras
+        inv = (await db().execute({ sql: 'SELECT * FROM CreditCardInvoice WHERE card_id = ? AND competence_month = ? AND created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0)', args: [body.cardId, body.competence_month, o] })).rows[0];
+        if (!inv) {
+          const card0 = (await db().execute({ sql: 'SELECT closing_day, due_day FROM CreditCard WHERE id = ? AND created_by_id = ?', args: [body.cardId, o] })).rows[0];
+          if (!card0) return sendJson(res, 404, { error: 'Cartao nao encontrado' });
+          const sum = (await db().execute({ sql: `SELECT COALESCE(SUM(amount),0) AS total FROM CreditCardTransaction WHERE card_id = ? AND COALESCE(competence_month, substr(date,1,7)) = ? AND created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0)`, args: [body.cardId, body.competence_month, o] })).rows[0];
+          const cm = body.competence_month;
+          const closing = `${cm}-${pad(Math.min(28, card0.closing_day || 1))}`;
+          const dueMonth = (card0.due_day || 10) < (card0.closing_day || 1) ? addMonth(cm, 1) : cm;
+          const due = `${dueMonth}-${pad(Math.min(28, card0.due_day || 10))}`;
+          const today0 = nowIso().slice(0, 10);
+          const id = newId();
+          await db().execute({ sql: `INSERT INTO CreditCardInvoice (id,card_id,competence_month,total_amount,due_date,closing_date,status,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?)`, args: [id, body.cardId, cm, Number(sum.total), due, closing, due < today0 ? 'overdue' : 'open', o, nowIso(), nowIso()] });
+          inv = (await db().execute({ sql: 'SELECT * FROM CreditCardInvoice WHERE id = ?', args: [id] })).rows[0];
+        }
+      }
       if (!inv) return sendJson(res, 404, { error: 'Fatura nao encontrada' });
       if (inv.status === 'paid') return sendJson(res, 400, { error: 'Fatura ja paga' });
       const card = (await db().execute({ sql: 'SELECT name FROM CreditCard WHERE id = ?', args: [inv.card_id] })).rows[0];
       const total = Number(inv.total_amount || 0);
-      // pagamento vira um lancamento real (cash) que debita a conta
+      const already = Number(inv.paid_amount || 0);
+      // valor a pagar: total (padrao) ou parcial informado, nunca acima do restante
+      const amount = body.amount != null ? Math.max(0, Math.min(Number(body.amount), total - already)) : (total - already);
+      if (amount <= 0) return sendJson(res, 400, { error: 'Valor invalido' });
+      // pagamento vira um lancamento real (cash) que debita a conta -> conta a pagar "Fatura mes_x"
       const tx = await createRow('Transaction', o, {
-        date: nowIso().slice(0, 10), amount: total, type: 'expense', account_id: body.accountId,
+        date: nowIso().slice(0, 10), amount, type: 'expense', account_id: body.accountId,
         description: `Fatura ${inv.competence_month} - ${card?.name || 'cartao'}`, status: 'completed',
       });
-      await db().execute({ sql: `UPDATE CreditCardInvoice SET status='paid', paid_date=?, paid_amount=?, payment_transaction_id=?, updated_date=? WHERE id=?`, args: [nowIso().slice(0, 10), total, tx.id, nowIso(), inv.id] });
+      const newPaid = already + amount;
+      const fullyPaid = newPaid >= total - 0.005;
+      await db().execute({ sql: `UPDATE CreditCardInvoice SET status=?, paid_date=?, paid_amount=?, payment_transaction_id=?, updated_date=? WHERE id=?`, args: [fullyPaid ? 'paid' : inv.status, nowIso().slice(0, 10), newPaid, tx.id, nowIso(), inv.id] });
       await recalcAllAccounts(o);
-      return sendJson(res, 200, { ok: true });
+      return sendJson(res, 200, { ok: true, paid: amount, fullyPaid });
     }
 
     // generate: agrupa compras por cartao + competencia e faz upsert das faturas

@@ -48,7 +48,7 @@ export const Bootstrap = { load: () => api.get('/api/bootstrap') };
 export const Summary = { get: (month) => api.get(`/api/summary?month=${month}`) };
 export const Cards = {
   generateInvoices: () => api.post('/api/cards/invoices', { action: 'generate' }),
-  payInvoice: (invoiceId, accountId) => api.post('/api/cards/invoices', { action: 'pay', invoiceId, accountId }),
+  payInvoice: (payload) => api.post('/api/cards/invoices', { action: 'pay', ...payload }),
 };
 export const Reports = { email: (payload) => api.post('/api/reports/email', payload) };
 
