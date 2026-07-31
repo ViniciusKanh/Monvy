@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Transaction, Account, Category, Forecast } from '../api/entities.js';
+import { Transaction, Account, Category, Forecast, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Select, Input, Field, Spinner, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
@@ -26,17 +26,33 @@ const STEP_DEFS = [
 ];
 const money = (v) => formatCurrency(v);
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+// mediana: estimativa robusta (ignora picos e nao explode em series curtas)
+const median = (arr) => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
 export default function Simulator() {
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
+  const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
 
   const months = useMemo(() => lastMonths(6), []);
-  const series = useMemo(() => monthlySeries(transactions, months), [transactions, months]);
+  // despesa do cartao por competencia (o cartao e onde a maioria gasta)
+  const cardExpByMonth = useMemo(() => { const m = {}; for (const t of cardTxs) { const k = t.competence_month || String(t.date).slice(0, 7); m[k] = (m[k] || 0) + Number(t.amount || 0); } return m; }, [cardTxs]);
+  // serie mensal combinando lancamentos das contas + faturas do cartao
+  const series = useMemo(() => months.map((k) => {
+    let inc = 0, exp = 0;
+    for (const t of transactions) { if (String(t.date).slice(0, 7) !== k) continue; if (t.type === 'income') inc += Number(t.amount); else if (t.type === 'expense') exp += Number(t.amount); }
+    exp += cardExpByMonth[k] || 0;
+    const [y, m] = k.split('-').map(Number);
+    return { mk: k, name: `${MONTHS_PT[m - 1].slice(0, 3)}/${String(y).slice(2)}`, inc, exp, net: inc - exp };
+  }), [transactions, cardExpByMonth, months]);
+  // meses ativos (ignora meses zerados do periodo de adaptacao ao app)
+  const active = useMemo(() => series.filter((s) => s.inc > 0 || s.exp > 0), [series]);
+  const estIncome = useMemo(() => median(active.map((s) => s.inc)), [active]);
+  const estExpense = useMemo(() => median(active.map((s) => s.exp)), [active]);
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
-  const avgInc = series.reduce((a, s) => a + s.inc, 0) / (series.length || 1);
-  const avgExp = series.reduce((a, s) => a + s.exp, 0) / (series.length || 1);
+  const avgInc = active.length ? active.reduce((a, s) => a + s.inc, 0) / active.length : 0;
+  const avgExp = active.length ? active.reduce((a, s) => a + s.exp, 0) / active.length : 0;
   const rate = avgInc > 0 ? ((avgInc - avgExp) / avgInc) * 100 : 0;
 
   // CDI atual (para o cenario de investimento) via BrasilAPI
@@ -56,9 +72,11 @@ export default function Simulator() {
     if (!cat) return 0;
     const per = {};
     for (const t of transactions) { if (t.type !== 'expense' || t.category_id !== cat) continue; const k = String(t.date).slice(0, 7); per[k] = (per[k] || 0) + Number(t.amount); }
-    const vals = months.map((k) => per[k] || 0);
-    return vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
-  }, [cat, transactions, months]);
+    for (const t of cardTxs) { if (t.category_id !== cat) continue; const k = t.competence_month || String(t.date).slice(0, 7); per[k] = (per[k] || 0) + Number(t.amount); }
+    const keys = active.length ? active.map((s) => s.mk) : months;
+    const vals = keys.map((k) => per[k] || 0);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }, [cat, transactions, cardTxs, active, months]);
   // ao entrar no cenario de investimento, sugere a taxa do CDI atual
   useEffect(() => { if (scenario === 'invest' && cdiMonthly) setRateInput(cdiMonthly.toFixed(2)); }, [scenario, cdiMonthly]);
 
@@ -76,13 +94,13 @@ export default function Simulator() {
   const setStep = (id, status) => setSteps((s) => s.map((x) => (x.id === id ? { ...x, status } : x)));
 
   async function run() {
-    if (running.current || series.length < 2) return;
+    if (running.current || active.length < 2) return;
     running.current = true;
     setPhase('running'); setResult(null); setModel(null); setProgress(0); setLogs([]);
     setSteps(STEP_DEFS.map((s) => ({ ...s, status: 'pending' })));
-    const incSeries = series.map((s) => s.inc);
-    const expSeries = series.map((s) => s.exp);
-    const nn = series.length;
+    const incSeries = active.map((s) => s.inc);
+    const expSeries = active.map((s) => s.exp);
+    const nn = active.length;
     const sc = SCENARIOS.find((s) => s.id === scenario);
 
     setStep('collect', 'run'); log(`Serie de ${nn} meses · receita e despesa separadas`); await delay(500);
@@ -104,12 +122,7 @@ export default function Simulator() {
     log(`R2 receita=${(incM.r2 * 100).toFixed(0)}% · R2 despesa=${(expM.r2 * 100).toFixed(0)}% · CV-MAE total=${money(combined.cvMae)} · sigma=${money(combined.sigma)}`);
     setModel(combined); setStep('eval', 'done');
 
-    setStep('predict', 'run'); log('Projetando 12 meses com bandas de confianca 95%...'); await delay(500);
-
-    // limites historicos para nao extrapolar valores irreais
-    const incMax = Math.max(...incSeries, 1), expMax = Math.max(...expSeries, 1);
-    const clampInc = (x) => Math.max(0, Math.min(x, incMax * 1.8));
-    const clampExp = (x) => Math.max(0, Math.min(x, expMax * 1.8));
+    setStep('predict', 'run'); log(`Base robusta (mediana): receita ${money(estIncome)}/mes · despesa ${money(estExpense)}/mes`); await delay(500);
 
     const v = Number(value) || 0;
     const r = (Number(rateInput) || 0) / 100;
@@ -129,8 +142,8 @@ export default function Simulator() {
     let bal = totalBalance, baseBal = totalBalance, reserve = 0;
     const fut = [];
     for (let i = 1; i <= 12; i++) {
-      const incP = clampInc(incM.predict(nn - 1 + i));
-      const expBase = clampExp(expM.predict(nn - 1 + i));
+      const incP = estIncome; // projecao plana pela mediana (robusta em series curtas)
+      const expBase = estExpense;
       baseBal += incP - expBase;
 
       let incAdj = 0, expScen = expBase;

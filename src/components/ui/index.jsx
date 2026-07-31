@@ -1,6 +1,7 @@
 import { cn } from '../../lib/utils.js';
 import { X, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Button({ variant = 'primary', size = 'md', className, children, ...props }) {
   const variants = {
@@ -67,8 +68,10 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
     return () => window.removeEventListener('keydown', onEsc);
   }, [open, onClose]);
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+  // Portal para o body: garante que o modal fique centralizado na viewport
+  // mesmo em paginas muito longas ou com ancestrais que usam transform/animacao.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className={cn('relative w-full card p-0 rounded-2xl overflow-hidden animate-[fadeIn_.15s_ease] flex flex-col max-h-[90vh]', maxWidth)}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[hsl(var(--border))] shrink-0">
@@ -78,7 +81,8 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
         <div className="px-5 py-4 overflow-y-auto flex-1">{children}</div>
         {footer && <div className="px-5 py-4 border-t border-[hsl(var(--border))] flex justify-end gap-2 shrink-0">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
