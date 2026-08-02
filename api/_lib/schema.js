@@ -268,6 +268,11 @@ export const MIGRATIONS = [
     `ALTER TABLE users ADD COLUMN cep TEXT`,
     `ALTER TABLE users ADD COLUMN address TEXT`,
   ] },
+  { id: '009_ticket_meta', statements: [
+    `ALTER TABLE SupportTicket ADD COLUMN category TEXT DEFAULT 'Duvida'`,
+    `ALTER TABLE SupportTicket ADD COLUMN priority TEXT DEFAULT 'normal'`,
+    `ALTER TABLE SupportTicket ADD COLUMN resolved_date TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);
