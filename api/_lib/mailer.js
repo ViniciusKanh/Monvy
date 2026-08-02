@@ -10,11 +10,13 @@ function transporter(cfg) {
 }
 
 // Envia e-mail se configurado/habilitado. Nunca lanca (nao quebra o fluxo principal).
-export async function sendMail({ to, subject, html }) {
+export async function sendMail({ to, subject, html, replyTo }) {
   try {
     const cfg = await getMailConfig();
     if (!cfg.enabled || !cfg.from || !cfg.password) return { skipped: true };
-    await transporter(cfg).sendMail({ from: `Monvy <${cfg.from}>`, to, subject, html });
+    const msg = { from: `Monvy <${cfg.from}>`, to, subject, html };
+    if (replyTo) msg.replyTo = replyTo;
+    await transporter(cfg).sendMail(msg);
     return { sent: true };
   } catch (e) { return { error: e.message }; }
 }
@@ -34,12 +36,20 @@ export function tpl(title, bodyHtml, opts = {}) {
         <div style="color:#475569;font-size:14px;line-height:1.7">${bodyHtml}</div>
         ${cta}
         <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e2e8f0;color:#334155;font-size:13px;line-height:1.6">
-          Atenciosamente,<br/>
-          <b style="color:#0b1330">Vinicius Santos</b><br/>
-          <span style="color:#64748b">Desenvolvedor do Monvy</span>
+          Atenciosamente,
+          <table style="border-collapse:collapse;margin-top:12px"><tr>
+            <td style="vertical-align:middle;padding-right:14px">
+              <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#059669,#34d399);color:#ffffff;font-weight:800;font-size:24px;text-align:center;line-height:48px;font-family:Arial,sans-serif">M</div>
+            </td>
+            <td style="vertical-align:middle">
+              <div style="color:#0b1330;font-weight:800;font-size:15px">Vinicius Santos</div>
+              <div style="color:#059669;font-weight:700;font-size:12px">Desenvolvedor do Monvy</div>
+              <div style="color:#94a3b8;font-size:11px;margin-top:2px">Mon<span style="color:#10b981">vy</span> · Gestao Financeira Pessoal</div>
+            </td>
+          </tr></table>
         </div>
       </div>
-      <div style="padding:14px 28px;background:#f8fafc;color:#94a3b8;font-size:11px;text-align:center">Monvy — Gestao Financeira Pessoal · e-mail automatico, por favor nao responda.</div>
+      <div style="padding:14px 28px;background:#f8fafc;color:#94a3b8;font-size:11px;text-align:center">Monvy — Gestao Financeira Pessoal · ${opts.footerNote || 'e-mail automatico, por favor nao responda.'}</div>
     </div>
   </div>`;
 }

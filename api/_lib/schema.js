@@ -219,8 +219,11 @@ export const SCHEMA_STATEMENTS = [
     id TEXT PRIMARY KEY,
     subject TEXT NOT NULL,
     status TEXT DEFAULT 'open',
+    category TEXT DEFAULT 'Duvida',
+    priority TEXT DEFAULT 'normal',
     user_name TEXT, user_email TEXT,
     image_url TEXT,
+    resolved_date TEXT,
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,

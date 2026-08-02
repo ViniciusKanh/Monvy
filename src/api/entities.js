@@ -53,6 +53,7 @@ export const Support = {
   createTicket: (data) => api.post('/api/support/tickets', { op: 'create', ...data }),
   replyTicket: (data) => api.post('/api/support/tickets', { op: 'reply', ...data }),
   setTicketStatus: (id, status) => api.post('/api/support/tickets', { op: 'status', id, status }),
+  updateTicket: (id, data) => api.post('/api/support/tickets', { op: 'meta', id, ...data }),
 };
 
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
@@ -76,4 +77,6 @@ export const Admin = {
   getMail: () => api.get('/api/admin/mail'),
   saveMail: (data) => api.put('/api/admin/mail', data),
   testMail: (to) => api.post('/api/admin/mail', { to }),
+  getDefaultScreens: () => api.get('/api/admin/defaults'),
+  saveDefaultScreens: (screens) => api.put('/api/admin/defaults', { screens }),
 };

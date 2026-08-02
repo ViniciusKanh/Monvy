@@ -2,11 +2,18 @@ import { db, ensureSchema, newId, nowIso } from '../_lib/db.js';
 import { hashPassword, sendJson, readBody } from '../_lib/auth.js';
 import { sendMail, tpl } from '../_lib/mailer.js';
 import { seedDefaultCategories } from '../_lib/seed.js';
+import { getSetting } from '../_lib/settings.js';
 
 const DEFAULT_SCREENS = [
   'dashboard','accounts','cards','transactions','categories','budget',
   'goals','subscriptions','calendar','reports','settings',
 ];
+
+// telas padrao configuradas pelo admin (Setting), com fallback para a lista acima
+async function resolveDefaultScreens() {
+  try { const raw = await getSetting('default_allowed_screens'); const arr = raw ? JSON.parse(raw) : null; if (Array.isArray(arr) && arr.length) return arr; } catch {}
+  return DEFAULT_SCREENS;
+}
 
 function baseUrl(req) {
   const origin = req.headers.origin;
@@ -31,10 +38,11 @@ export default async function handler(req, res) {
     const now = nowIso();
     const id = newId();
     const token = newId() + newId();
+    const screens = await resolveDefaultScreens();
     await db().execute({
       sql: `INSERT INTO users (id,email,password_hash,full_name,role,allowed_screens,is_active,email_verified,verify_token,created_date,updated_date)
             VALUES (?,?,?,?, 'user', ?, 1, 0, ?, ?, ?)`,
-      args: [id, mail, hash, full_name || '', JSON.stringify(DEFAULT_SCREENS), token, now, now],
+      args: [id, mail, hash, full_name || '', JSON.stringify(screens), token, now, now],
     });
 
     try { await seedDefaultCategories(id); } catch {}

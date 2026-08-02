@@ -29,6 +29,7 @@ import Converter from './pages/Converter.jsx';
 import Holidays from './pages/Holidays.jsx';
 import Cnpj from './pages/Cnpj.jsx';
 import Help from './pages/Help.jsx';
+import OnboardingConfig from './pages/OnboardingConfig.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/feriados" element={<Protected screenKey="holidays"><Holidays /></Protected>} />
         <Route path="/cnpj" element={<Protected screenKey="cnpj"><Cnpj /></Protected>} />
         <Route path="/ajuda" element={<Protected screenKey="help"><Help /></Protected>} />
+        <Route path="/config-novos-usuarios" element={<Protected screenKey="newusers"><OnboardingConfig /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
         <Route path="/importar" element={<Protected screenKey="bankImport"><BankImport /></Protected>} />
         <Route path="/relatorios" element={<Protected screenKey="reports"><Reports /></Protected>} />

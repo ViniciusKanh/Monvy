@@ -20,6 +20,10 @@ const STATUS = {
 };
 const st = (s) => STATUS[s] || STATUS.open;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const CATS = ['Duvida', 'Problema tecnico', 'Financeiro', 'Sugestao', 'Outro'];
+const PRIO = { baixa: { label: 'Baixa', color: 'slate' }, normal: { label: 'Normal', color: 'blue' }, alta: { label: 'Alta', color: 'amber' }, urgente: { label: 'Urgente', color: 'rose' } };
+const pr = (p) => PRIO[p] || PRIO.normal;
+const FILTERS = [['all', 'Todos'], ['open', 'Abertos'], ['reopened', 'Reabertos'], ['answered', 'Respondidos'], ['resolved', 'Resolvidos']];
 
 // comprime imagem para dataURL leve
 function readImage(file, max = 1100) {
@@ -65,12 +69,14 @@ export default function Help() {
 
   // ---- chamados ----
   const [ticketModal, setTicketModal] = useState(false);
-  const [tForm, setTForm] = useState({ subject: '', description: '', image_url: '' });
+  const [tFilter, setTFilter] = useState('all');
+  const [tForm, setTForm] = useState({ subject: '', description: '', image_url: '', category: 'Duvida' });
+  const shownTickets = useMemo(() => tickets.filter((t) => tFilter === 'all' || t.status === tFilter), [tickets, tFilter]);
   const [tBusy, setTBusy] = useState(false);
   const tFileRef = useRef(null);
   const createTicket = useMutation({
     mutationFn: () => Support.createTicket(tForm),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); setTicketModal(false); setTForm({ subject: '', description: '', image_url: '' }); toast.success('Chamado aberto! Acompanhe em Meus chamados.'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); setTicketModal(false); setTForm({ subject: '', description: '', image_url: '', category: 'Duvida' }); toast.success('Chamado aberto! Acompanhe em Meus chamados.'); },
     onError: (e) => toast.error(e.message || 'Falha ao abrir chamado'),
   });
 
@@ -170,10 +176,16 @@ export default function Help() {
             <h3 className="font-semibold flex items-center gap-2"><Ticket className="w-4 h-4 text-indigo-500" /> {isAdmin ? 'Todos os chamados' : 'Meus chamados'}</h3>
             {isAdmin && <Badge color="violet"><Shield className="w-3 h-3" /> admin</Badge>}
           </div>
+          {isAdmin && tickets.length > 0 && (
+            <div className="flex flex-wrap gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5">
+              {FILTERS.map(([v, l]) => <button key={v} onClick={() => setTFilter(v)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${tFilter === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>)}
+            </div>
+          )}
           {ticketsQ.isLoading ? <div className="flex justify-center py-8"><Spinner className="w-6 h-6 text-emerald-500" /></div>
             : tickets.length === 0 ? <Card><EmptyState icon={Ticket} title="Nenhum chamado" subtitle="Abra um chamado se precisar de ajuda." /></Card>
+            : shownTickets.length === 0 ? <Card><EmptyState icon={Ticket} title="Nada neste filtro" /></Card>
             : <div className="space-y-2">
-              {tickets.map((t) => (
+              {shownTickets.map((t) => (
                 <Reveal key={t.id}>
                   <button onClick={() => setThreadId(t.id)} className="w-full text-left">
                     <Card className="py-3 hover-lift">
@@ -181,7 +193,11 @@ export default function Help() {
                         <p className="font-medium text-sm truncate flex-1">{t.subject}</p>
                         <Badge color={st(t.status).color}>{st(t.status).label}</Badge>
                       </div>
-                      <p className="text-xs text-muted mt-1">{isAdmin ? `${t.user_name || t.user_email} · ` : ''}{fmtDate(t.updated_date || t.created_date)}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {t.category && <Badge color="slate">{t.category}</Badge>}
+                        {isAdmin && t.priority && t.priority !== 'normal' && <Badge color={pr(t.priority).color}>{pr(t.priority).label}</Badge>}
+                        <span className="text-[11px] text-muted">{isAdmin ? `${t.user_name || t.user_email} · ` : ''}aberto {fmtDate(t.created_date)}{t.resolved_date ? ` · resolvido ${fmtDate(t.resolved_date)}` : ''}</span>
+                      </div>
                     </Card>
                   </button>
                 </Reveal>
@@ -194,7 +210,10 @@ export default function Help() {
       <Modal open={ticketModal} onClose={() => setTicketModal(false)} title="Abrir chamado" maxWidth="max-w-lg"
         footer={<><Button variant="outline" onClick={() => setTicketModal(false)}>Cancelar</Button><Button onClick={() => createTicket.mutate()} disabled={createTicket.isPending || !tForm.subject || !tForm.description}>{createTicket.isPending ? <Spinner className="w-4 h-4" /> : 'Enviar chamado'}</Button></>}>
         <div className="space-y-3">
-          <Field label="Assunto"><Input value={tForm.subject} onChange={(e) => setTForm((s) => ({ ...s, subject: e.target.value }))} placeholder="Resumo do problema" /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Assunto"><Input value={tForm.subject} onChange={(e) => setTForm((s) => ({ ...s, subject: e.target.value }))} placeholder="Resumo" /></Field>
+            <Field label="Categoria"><Select value={tForm.category} onChange={(e) => setTForm((s) => ({ ...s, category: e.target.value }))}>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+          </div>
           <Field label="Descricao"><Textarea rows={5} value={tForm.description} onChange={(e) => setTForm((s) => ({ ...s, description: e.target.value }))} placeholder="Descreva o que aconteceu, com o maximo de detalhes." /></Field>
           <Field label="Anexo (opcional)" hint="Imagem ou PDF ajudam a entender o problema">
             {tForm.image_url ? (
@@ -244,6 +263,7 @@ function TicketThread({ id, isAdmin, onClose }) {
 
   const sendReply = useMutation({ mutationFn: () => Support.replyTicket({ id, body: reply, image_url: img || undefined }), onSuccess: () => { setReply(''); setImg(''); refresh(); }, onError: (e) => toast.error(e.message || 'Falha') });
   const setStatus = useMutation({ mutationFn: (status) => Support.setTicketStatus(id, status), onSuccess: () => { refresh(); }, onError: (e) => toast.error(e.message || 'Falha') });
+  const updateMeta = useMutation({ mutationFn: (data) => Support.updateTicket(id, data), onSuccess: () => refresh(), onError: (e) => toast.error(e.message || 'Falha') });
   const onImg = async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; try { setImg(await readImage(f)); } catch {} };
 
   return (
@@ -260,7 +280,20 @@ function TicketThread({ id, isAdmin, onClose }) {
       }>
       {q.isLoading ? <div className="flex justify-center py-8"><Spinner className="w-6 h-6 text-emerald-500" /></div> : (
         <div className="space-y-3">
-          <div className="flex items-center gap-2"><Badge color={st(ticket?.status).color}>{st(ticket?.status).label}</Badge><span className="text-xs text-muted">aberto em {fmtDate(ticket?.created_date)}</span></div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge color={st(ticket?.status).color}>{st(ticket?.status).label}</Badge>
+              {ticket?.category && <Badge color="slate">{ticket.category}</Badge>}
+              {isAdmin && ticket?.priority && <Badge color={pr(ticket.priority).color}>Prioridade: {pr(ticket.priority).label}</Badge>}
+            </div>
+            <p className="text-xs text-muted">Aberto em {fmtDate(ticket?.created_date)}{ticket?.resolved_date ? ` · Resolvido em ${fmtDate(ticket.resolved_date)}` : ''}{isAdmin && ticket ? ` · ${ticket.user_name || ticket.user_email}` : ''}</p>
+            {isAdmin && ticket && (
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={ticket.category || 'Duvida'} onChange={(e) => updateMeta.mutate({ category: e.target.value })}>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
+                <Select value={ticket.priority || 'normal'} onChange={(e) => updateMeta.mutate({ priority: e.target.value })}>{Object.entries(PRIO).map(([v, o]) => <option key={v} value={v}>Prioridade: {o.label}</option>)}</Select>
+              </div>
+            )}
+          </div>
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {messages.map((m) => {
               const mine = m.author_role === (isAdmin ? 'admin' : 'user');
