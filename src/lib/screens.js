@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -58,6 +58,7 @@ export const NAV_GROUPS = [
     label: 'Sistema',
     items: [
       { key: 'reports', label: 'Relatorios', path: '/relatorios', icon: FileText },
+      { key: 'help', label: 'Ajuda & Suporte', path: '/ajuda', icon: LifeBuoy },
       { key: 'settings', label: 'Configuracoes', path: '/configuracoes', icon: Settings },
       { key: 'users', label: 'Usuarios & Acessos', path: '/usuarios', icon: Users, adminOnly: true },
     ],

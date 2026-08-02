@@ -7,7 +7,7 @@ import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, MONTHS_PT } from '../lib/utils.js';
 import { lastMonths, monthlySeries, evaluateModel } from '../lib/analytics.js';
 import { ComposedChart, Area, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Legend } from 'recharts';
-import { Calculator, Scissors, TrendingUp, TrendingDown, Target, LineChart as LineIcon, Wallet, PiggyBank, Sparkles, Database, Split, Cpu, Gauge, Check, Play, Brain } from 'lucide-react';
+import { Calculator, Scissors, TrendingUp, TrendingDown, Target, LineChart as LineIcon, Wallet, PiggyBank, Sparkles, Database, Split, Cpu, Gauge, Check, Play, Brain, Info } from 'lucide-react';
 
 const SCENARIOS = [
   { id: 'cut', label: 'Cortar Gastos', sub: 'Reduza despesas', icon: Scissors, color: '#f43f5e' },
@@ -213,6 +213,11 @@ export default function Simulator() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Calculator className="w-6 h-6 text-violet-500" /> Simulador Financeiro</span>}
         subtitle="Modelo de predicao que aprende com seu historico e projeta cenarios" />
+
+      <div className="flex items-start gap-2 text-xs p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+        <Info className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>Como funciona: o simulador aprende com o seu historico de receitas e despesas (incluindo o cartao) e projeta cenarios usando estatistica (regressao + validacao cruzada) com uma base robusta pelos meses ativos. Os valores sao <b>estimativas</b> baseadas no passado — <b>nao sao garantia do futuro</b> nem recomendacao de investimento. Use como apoio a decisao. Quanto mais meses de uso, mais precisa fica a analise.</span>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Reveal i={0}><Kpi icon={Wallet} label="Saldo atual" value={totalBalance} color="#6366f1" /></Reveal>

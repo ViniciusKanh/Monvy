@@ -44,6 +44,17 @@ export const Auth = {
   disable2fa: (data) => api.post('/api/auth/2fa', { op: 'disable', ...data }),
 };
 
+export const Support = {
+  articles: () => api.post('/api/support/articles', { op: 'list' }),
+  saveArticle: (data) => api.post('/api/support/articles', { op: 'save', ...data }),
+  deleteArticle: (id) => api.post('/api/support/articles', { op: 'delete', id }),
+  tickets: () => api.post('/api/support/tickets', { op: 'list' }),
+  ticket: (id) => api.post('/api/support/tickets', { op: 'get', id }),
+  createTicket: (data) => api.post('/api/support/tickets', { op: 'create', ...data }),
+  replyTicket: (data) => api.post('/api/support/tickets', { op: 'reply', ...data }),
+  setTicketStatus: (id, status) => api.post('/api/support/tickets', { op: 'status', id, status }),
+};
+
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
 export const Summary = { get: (month) => api.get(`/api/summary?month=${month}`) };
 export const Cards = {

@@ -205,6 +205,36 @@ export const SCHEMA_STATEMENTS = [
     value TEXT
   )`,
 
+  `CREATE TABLE IF NOT EXISTS HelpArticle (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT,
+    category TEXT DEFAULT 'Geral',
+    published INTEGER DEFAULT 1,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS SupportTicket (
+    id TEXT PRIMARY KEY,
+    subject TEXT NOT NULL,
+    status TEXT DEFAULT 'open',
+    user_name TEXT, user_email TEXT,
+    image_url TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS TicketMessage (
+    id TEXT PRIMARY KEY,
+    ticket_id TEXT,
+    author_id TEXT, author_role TEXT, author_name TEXT,
+    body TEXT, image_url TEXT,
+    created_date TEXT
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS idx_ticket_owner ON SupportTicket(created_by_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_tmsg_ticket ON TicketMessage(ticket_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tx_owner ON "Transaction"(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tx_date ON "Transaction"(date)`,
   `CREATE INDEX IF NOT EXISTS idx_cct_card ON CreditCardTransaction(card_id)`,
