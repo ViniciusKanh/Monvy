@@ -8,7 +8,7 @@ import { Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import {
   LifeBuoy, Search, ChevronDown, Sparkles, Plus, MessageSquarePlus, Ticket, Paperclip, X,
-  Send, CheckCircle2, RotateCcw, Pencil, Trash2, Shield, Image as ImageIcon,
+  Send, CheckCircle2, RotateCcw, Pencil, Trash2, Shield, Image as ImageIcon, UserCircle, Mail,
 } from 'lucide-react';
 
 const STATUS = {
@@ -196,8 +196,15 @@ export default function Help() {
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         {t.category && <Badge color="slate">{t.category}</Badge>}
                         {isAdmin && t.priority && t.priority !== 'normal' && <Badge color={pr(t.priority).color}>{pr(t.priority).label}</Badge>}
-                        <span className="text-[11px] text-muted">{isAdmin ? `${t.user_name || t.user_email} · ` : ''}aberto {fmtDate(t.created_date)}{t.resolved_date ? ` · resolvido ${fmtDate(t.resolved_date)}` : ''}</span>
+                        <span className="text-[11px] text-muted">aberto {fmtDate(t.created_date)}{t.resolved_date ? ` · resolvido ${fmtDate(t.resolved_date)}` : ''}</span>
                       </div>
+                      {isAdmin && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted border-t border-[hsl(var(--border))] pt-1.5">
+                          <UserCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span className="font-medium text-[hsl(var(--text))]">{t.user_name || 'Sem nome'}</span>
+                          <span className="truncate">· {t.user_email}</span>
+                        </div>
+                      )}
                     </Card>
                   </button>
                 </Reveal>
@@ -286,7 +293,13 @@ function TicketThread({ id, isAdmin, onClose }) {
               {ticket?.category && <Badge color="slate">{ticket.category}</Badge>}
               {isAdmin && ticket?.priority && <Badge color={pr(ticket.priority).color}>Prioridade: {pr(ticket.priority).label}</Badge>}
             </div>
-            <p className="text-xs text-muted">Aberto em {fmtDate(ticket?.created_date)}{ticket?.resolved_date ? ` · Resolvido em ${fmtDate(ticket.resolved_date)}` : ''}{isAdmin && ticket ? ` · ${ticket.user_name || ticket.user_email}` : ''}</p>
+            <p className="text-xs text-muted">Aberto em {fmtDate(ticket?.created_date)}{ticket?.resolved_date ? ` · Resolvido em ${fmtDate(ticket.resolved_date)}` : ''}</p>
+            {isAdmin && ticket && (
+              <div className="flex flex-col gap-0.5 text-xs rounded-lg bg-black/5 dark:bg-white/5 p-2.5">
+                <span className="flex items-center gap-1.5"><UserCircle className="w-3.5 h-3.5 text-emerald-500" /> <b className="text-[hsl(var(--text))]">{ticket.user_name || 'Sem nome'}</b></span>
+                <a href={`mailto:${ticket.user_email}`} className="flex items-center gap-1.5 text-sky-500 hover:underline"><Mail className="w-3.5 h-3.5" /> {ticket.user_email}</a>
+              </div>
+            )}
             {isAdmin && ticket && (
               <div className="grid grid-cols-2 gap-2">
                 <Select value={ticket.category || 'Duvida'} onChange={(e) => updateMeta.mutate({ category: e.target.value })}>{CATS.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
