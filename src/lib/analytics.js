@@ -324,6 +324,63 @@ export function detectSubscriptions(transactions, existing = []) {
   return out.sort((a, b) => b.months - a.months).slice(0, 8);
 }
 
+// Combina lancamentos das contas + compras do cartao (como despesas) para analises reais
+export function combineExpenses(transactions, cardTxs = []) {
+  const mapped = (cardTxs || []).map((t) => ({
+    id: 'cc-' + t.id, type: 'expense', amount: num(t.amount),
+    date: t.competence_month ? `${t.competence_month}-15` : String(t.date).slice(0, 10),
+    category_id: t.category_id || null, description: t.description || 'Cartao de credito', status: 'completed', _card: true,
+  }));
+  return [...(transactions || []), ...mapped];
+}
+
+// Tendencia de gasto por categoria (regressao + variacao 1a metade vs 2a metade do periodo)
+export function categoryTrends(transactions, months, catMap = {}) {
+  const cats = {};
+  for (const t of transactions) {
+    if (t.type !== 'expense' || !t.category_id) continue;
+    const mk = String(t.date).slice(0, 7);
+    if (!months.includes(mk)) continue;
+    (cats[t.category_id] = cats[t.category_id] || {});
+    cats[t.category_id][mk] = (cats[t.category_id][mk] || 0) + num(t.amount);
+  }
+  const out = [];
+  for (const [cid, byMonth] of Object.entries(cats)) {
+    const ys = months.map((m) => byMonth[m] || 0);
+    if (ys.filter((v) => v > 0).length < 2) continue;
+    const reg = regress(ys.map((_, i) => i), ys);
+    const half = Math.ceil(ys.length / 2);
+    const a1 = ys.slice(0, half); const a2 = ys.slice(half);
+    const m1 = a1.reduce((a, b) => a + b, 0) / (a1.length || 1);
+    const m2 = a2.reduce((a, b) => a + b, 0) / (a2.length || 1);
+    const change = m1 > 0 ? ((m2 - m1) / m1) * 100 : (m2 > 0 ? 100 : 0);
+    const total = ys.reduce((a, b) => a + b, 0);
+    const c = catMap[cid];
+    out.push({ id: cid, name: c?.name || 'Sem categoria', color: c?.color || '#64748b', slope: reg.slope, change, total, avg: total / ys.length, series: ys });
+  }
+  return out.sort((a, b) => b.total - a.total);
+}
+
+// Motor de recomendacoes (sistema especialista, 100% local — sem IA de terceiros)
+export function recommendations({ h, b, trends = [], subsCount = 0 } = {}) {
+  const recs = [];
+  const rate = h?.rate ?? 0;
+  const commit = h && h.avgInc > 0 ? h.avgExp / h.avgInc : 0;
+  if (rate <= 0) recs.push({ p: 0, type: 'warn', title: 'Gastando mais do que ganha', text: 'Suas despesas igualam ou superam a renda. Priorize cortar gastos variaveis ja neste mes.' });
+  else if (rate < 0.1) recs.push({ p: 1, type: 'tip', title: 'Eleve sua taxa de poupanca', text: `Voce poupa ${(rate * 100).toFixed(0)}% da renda. Mire 10 a 20% ajustando os maiores gastos.` });
+  if (commit > 0.9) recs.push({ p: 0, type: 'warn', title: 'Renda muito comprometida', text: `${(commit * 100).toFixed(0)}% da renda vai em despesas. Revise assinaturas e parcelamentos.` });
+  if ((h?.reserveMonths ?? 99) < 3) recs.push({ p: 1, type: 'tip', title: 'Monte sua reserva de emergencia', text: `Sua reserva cobre ${(h?.reserveMonths ?? 0).toFixed(1)} mes(es). Meta saudavel: 3 a 6 meses de despesa.` });
+  const rising = trends.filter((t) => t.change > 25 && t.total > (h?.avgExp || 0) * 0.1)[0];
+  if (rising) recs.push({ p: 1, type: 'warn', title: `Gasto crescente: ${rising.name}`, text: `Subiu ${rising.change.toFixed(0)}% na comparacao recente. Vale investigar o que aumentou.` });
+  const falling = trends.filter((t) => t.change < -25 && t.total > 0)[0];
+  if (falling) recs.push({ p: 3, type: 'ok', title: `Voce economizou em ${falling.name}`, text: `Caiu ${Math.abs(falling.change).toFixed(0)}% recentemente. Bom trabalho — mantenha o ritmo.` });
+  if ((b?.impulsivity ?? 0) >= 35) recs.push({ p: 2, type: 'tip', title: 'Compras por impulso', text: `${b.impulsivity}% das compras sao bem acima do seu ticket medio. Espere 24h antes de compras maiores.` });
+  if ((b?.weekendPct ?? 0) >= 60) recs.push({ p: 2, type: 'tip', title: 'Gasto concentrado no fim de semana', text: `Fins de semana somam ${b.weekendPct}% do gasto dos dias uteis. Defina um limite para lazer.` });
+  if (subsCount > 0) recs.push({ p: 2, type: 'tip', title: `${subsCount} assinatura(s) recorrente(s) detectada(s)`, text: 'Revise se ainda usa todas — cancelar as esquecidas gera economia todo mes.' });
+  if (!recs.length) recs.push({ p: 3, type: 'ok', title: 'Financas saudaveis', text: 'Seus indicadores estao bons. Considere investir o excedente para o dinheiro render acima da inflacao.' });
+  return recs.sort((a, b) => a.p - b.p);
+}
+
 // Previsao com sazonalidade (usa media do mes-calendario quando ha >=12 meses)
 export function seasonalForecast(transactions, targetDate) {
   const d = targetDate ? new Date(targetDate) : (() => { const x = new Date(); x.setMonth(x.getMonth() + 1); return x; })();

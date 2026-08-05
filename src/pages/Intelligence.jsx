@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Transaction, Account, Category } from '../api/entities.js';
+import { Transaction, Account, Category, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Badge, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey } from '../lib/utils.js';
-import { lastMonths, monthlySeries, monthTotals, categoryBreakdown, weekdaySpending, seasonalForecast, detectAnomalies, groupByDescription, colorAt } from '../lib/analytics.js';
+import { lastMonths, monthlySeries, monthTotals, categoryBreakdown, weekdaySpending, seasonalForecast, detectAnomalies, groupByDescription, colorAt, combineExpenses, categoryTrends } from '../lib/analytics.js';
 import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Brain, TrendingUp, TrendingDown, Wallet, Eye, AlertTriangle, CheckCircle2, Sparkles, ShoppingBag, CalendarDays, Lightbulb } from 'lucide-react';
 
@@ -14,17 +14,20 @@ export default function Intelligence() {
   const { data: transactions = [], isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
+  const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
   const months = useMemo(() => lastMonths(6), []);
-  const series = useMemo(() => monthlySeries(transactions, months), [transactions, months]);
-  const cur = useMemo(() => monthTotals(transactions, mk), [transactions, mk]);
+  const tx = useMemo(() => combineExpenses(transactions, cardTxs), [transactions, cardTxs]);
+  const series = useMemo(() => monthlySeries(tx, months), [tx, months]);
+  const cur = useMemo(() => monthTotals(tx, mk), [tx, mk]);
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
-  const forecast = useMemo(() => seasonalForecast(transactions), [transactions]);
-  const byCat = useMemo(() => categoryBreakdown(transactions, mk, catMap), [transactions, mk, catMap]);
-  const wd = useMemo(() => weekdaySpending(transactions, mk), [transactions, mk]);
-  const anomalies = useMemo(() => detectAnomalies(transactions, catMap), [transactions, catMap]);
-  const merchants = useMemo(() => groupByDescription(transactions, 'expense'), [transactions]);
+  const forecast = useMemo(() => seasonalForecast(tx), [tx]);
+  const byCat = useMemo(() => categoryBreakdown(tx, mk, catMap), [tx, mk, catMap]);
+  const wd = useMemo(() => weekdaySpending(tx, mk), [tx, mk]);
+  const anomalies = useMemo(() => detectAnomalies(tx, catMap), [tx, catMap]);
+  const trends = useMemo(() => categoryTrends(tx, months, catMap), [tx, months, catMap]);
+  const merchants = useMemo(() => groupByDescription(tx, 'expense'), [tx]);
   const incomeSources = useMemo(() => groupByDescription(transactions, 'income'), [transactions]);
 
   const insights = useMemo(() => {
@@ -34,16 +37,20 @@ export default function Intelligence() {
     const prev = series[series.length - 2];
     if (prev && cur.exp > prev.exp * 1.2) arr.push({ t: 'warn', m: `Despesas ${Math.round((cur.exp / (prev.exp || 1) - 1) * 100)}% acima do mes anterior.` });
     if (byCat[0]) arr.push({ t: 'info', m: `Maior gasto: ${byCat[0].name} (${formatCurrency(byCat[0].value)}).` });
+    const rising = trends.find((t) => t.change > 25 && t.total > 0);
+    if (rising) arr.push({ t: 'warn', m: `${rising.name} vem subindo: +${rising.change.toFixed(0)}% na comparacao recente.` });
+    const falling = trends.find((t) => t.change < -25 && t.total > 0);
+    if (falling) arr.push({ t: 'ok', m: `Voce reduziu ${falling.name} em ${Math.abs(falling.change).toFixed(0)}% — continue assim.` });
     if (!arr.length) arr.push({ t: 'ok', m: 'Financas equilibradas. Nenhum alerta significativo este mes.' });
     return arr;
-  }, [cur, series, byCat]);
+  }, [cur, series, byCat, trends]);
 
   if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
 
   return (
     <div className="space-y-4 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Brain className="w-6 h-6 text-indigo-500" /> Central de Inteligencia</span>}
-        subtitle="Insights automaticos, anomalias e previsoes com base nos seus dados" />
+        subtitle="Insights, anomalias e previsoes automaticas (contas + cartao) — 100% local" />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -92,6 +99,24 @@ export default function Intelligence() {
           </ResponsiveContainer>
         </Card>
       </div>
+
+      {trends.length > 0 && (
+        <Card>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-indigo-500" /> Tendencia por categoria <span className="text-xs text-muted font-normal">(media mensal e variacao no periodo)</span></h3>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+            {trends.slice(0, 8).map((t) => (
+              <div key={t.id} className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color }} />
+                <span className="text-sm flex-1 truncate">{t.name}</span>
+                <span className="text-xs text-muted">{formatCurrency(t.avg)}/mes</span>
+                <span className={`text-xs font-semibold flex items-center gap-0.5 w-14 justify-end ${Math.abs(t.change) < 5 ? 'text-muted' : t.change > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                  {Math.abs(t.change) < 5 ? '~' : <>{t.change > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}{Math.abs(t.change).toFixed(0)}%</>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
