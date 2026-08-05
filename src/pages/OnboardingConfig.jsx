@@ -8,7 +8,7 @@ import { toast } from '../lib/toast.js';
 import { UserPlus, Check, LayoutGrid, Rocket } from 'lucide-react';
 
 // telas configuraveis (exclui as exclusivas de admin)
-const GROUPS = NAV_GROUPS.map((g) => ({ label: g.label, items: g.items.filter((i) => !i.adminOnly && i.key !== 'help') })).filter((g) => g.items.length);
+const GROUPS = NAV_GROUPS.map((g) => ({ label: g.label, items: g.items.filter((i) => !i.adminOnly) })).filter((g) => g.items.length);
 const ALL_KEYS = GROUPS.flatMap((g) => g.items.map((i) => i.key));
 
 export default function OnboardingConfig() {

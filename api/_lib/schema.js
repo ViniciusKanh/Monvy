@@ -236,8 +236,20 @@ export const SCHEMA_STATEMENTS = [
     created_date TEXT
   )`,
 
+  `CREATE TABLE IF NOT EXISTS Trigger (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    type TEXT DEFAULT 'financial_summary',
+    frequency TEXT DEFAULT 'daily',
+    weekday INTEGER DEFAULT 1,
+    enabled INTEGER DEFAULT 1,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+
   `CREATE INDEX IF NOT EXISTS idx_ticket_owner ON SupportTicket(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tmsg_ticket ON TicketMessage(ticket_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_trigger_owner ON Trigger(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tx_owner ON "Transaction"(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tx_date ON "Transaction"(date)`,
   `CREATE INDEX IF NOT EXISTS idx_cct_card ON CreditCardTransaction(card_id)`,
@@ -291,6 +303,7 @@ export const ENTITIES = {
   Forecast: 'Forecast',
   AppSettings: 'AppSettings',
   Safe: 'Safe',
+  Trigger: 'Trigger',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)
@@ -310,4 +323,5 @@ export const BOOL_FIELDS = {
   Subscription: ['is_active'],
   Anomaly: ['is_acknowledged'],
   AppSettings: ['gemini_api_key_configured', 'notifications_enabled', 'auto_categorize'],
+  Trigger: ['enabled'],
 };

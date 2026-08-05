@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Goal } from '../api/entities.js';
+import { Goal, Transaction, Account } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { toast } from '../lib/toast.js';
 import { Button, Card, Input, Select, Field, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency, todayIso } from '../lib/utils.js';
@@ -34,24 +35,37 @@ function SafeRing({ pct }) {
 export default function VirtualSafes() {
   const qc = useQueryClient();
   const { data: goals = [], isLoading } = useQuery({ queryKey: ['goals'], queryFn: () => Goal.list() });
+  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
   const [move, setMove] = useState(null);
   const [moveVal, setMoveVal] = useState('');
+  const [moveAccount, setMoveAccount] = useState('');
 
-  const inval = () => qc.invalidateQueries({ queryKey: ['goals'] });
+  const inval = () => { qc.invalidateQueries({ queryKey: ['goals'] }); qc.invalidateQueries({ queryKey: ['accounts'] }); qc.invalidateQueries({ queryKey: ['transactions'] }); };
   const save = useMutation({ mutationFn: (p) => editing ? Goal.update(editing.id, p) : Goal.create(p), onSuccess: () => { inval(); setModal(false); } });
   const del = useMutation({ mutationFn: (id) => Goal.remove(id), onSuccess: inval });
   const doMove = useMutation({
-    mutationFn: ({ g, type, value }) => {
+    mutationFn: async ({ g, type, value, accountId }) => {
       const cur = Number(g.current_amount || 0);
+      if (!(value > 0)) throw new Error('Informe um valor valido');
+      if (type === 'out' && value > cur) throw new Error('Valor maior que o disponivel no cofre');
+      // guardar debita a conta; retirar credita a conta (via transferencia -> recalcula saldos)
+      await Transaction.create({
+        type: 'transfer', amount: value, status: 'completed', date: todayIso(),
+        account_id: type === 'in' ? accountId : null,
+        account_to_id: type === 'out' ? accountId : null,
+        description: type === 'in' ? `Guardado no cofre: ${g.name}` : `Retirado do cofre: ${g.name}`,
+      });
       const next = type === 'in' ? cur + value : Math.max(0, cur - value);
       const status = next >= Number(g.target_amount || Infinity) && Number(g.target_amount) > 0 ? 'completed' : 'active';
-      return Goal.update(g.id, { current_amount: next, status });
+      await Goal.update(g.id, { current_amount: next, status });
     },
-    onSuccess: () => { inval(); setMove(null); setMoveVal(''); },
+    onSuccess: () => { inval(); setMove(null); setMoveVal(''); setMoveAccount(''); toast.success('Movimentacao registrada'); },
+    onError: (e) => toast.error(e.message || 'Falha na movimentacao'),
   });
+  const openMove = (g, type) => { setMove({ g, type }); setMoveVal(''); setMoveAccount(g.account_id || accounts[0]?.id || ''); };
 
   const openNew = () => { setEditing(null); setForm({ ...empty, start_date: todayIso() }); setModal(true); };
   const openEdit = (g) => { setEditing(g); setForm({ name: g.name, target_amount: g.target_amount ?? '', current_amount: g.current_amount ?? 0, category: g.category || 'other', color: g.color }); setModal(true); };
@@ -110,8 +124,8 @@ export default function VirtualSafes() {
                       <p className="text-xs text-muted mt-1">{pct}% de {formatCurrency(g.target_amount)}</p>
                     </>)}
                     <div className="flex gap-2 mt-3">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setMove({ g, type: 'in' }); setMoveVal(''); }}><ArrowDownToLine className="w-4 h-4" /> Guardar</Button>
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setMove({ g, type: 'out' }); setMoveVal(''); }}><ArrowUpFromLine className="w-4 h-4" /> Retirar</Button>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => openMove(g, 'in')}><ArrowDownToLine className="w-4 h-4" /> Guardar</Button>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => openMove(g, 'out')}><ArrowUpFromLine className="w-4 h-4" /> Retirar</Button>
                     </div>
                   </Card>
                 </Reveal>
@@ -134,8 +148,18 @@ export default function VirtualSafes() {
       </Modal>
 
       <Modal open={!!move} onClose={() => setMove(null)} title={move?.type === 'in' ? 'Guardar no cofre' : 'Retirar do cofre'} maxWidth="max-w-md"
-        footer={<><Button variant="outline" onClick={() => setMove(null)}>Cancelar</Button><Button onClick={() => doMove.mutate({ g: move.g, type: move.type, value: Number(moveVal) })} disabled={!moveVal || doMove.isPending}>{doMove.isPending ? <Spinner className="w-4 h-4" /> : 'Confirmar'}</Button></>}>
-        <Field label="Valor"><Input type="number" step="0.01" value={moveVal} onChange={(e) => setMoveVal(e.target.value)} placeholder="0,00" autoFocus /></Field>
+        footer={<><Button variant="outline" onClick={() => setMove(null)}>Cancelar</Button><Button onClick={() => doMove.mutate({ g: move.g, type: move.type, value: Number(String(moveVal).replace(',', '.')), accountId: moveAccount })} disabled={!moveVal || !moveAccount || doMove.isPending}>{doMove.isPending ? <Spinner className="w-4 h-4" /> : 'Confirmar'}</Button></>}>
+        {accounts.length === 0 ? (
+          <p className="text-sm text-muted">Cadastre uma conta primeiro — o dinheiro do cofre entra e sai de uma conta.</p>
+        ) : (
+          <div className="space-y-3">
+            <Field label="Valor"><Input type="number" step="0.01" value={moveVal} onChange={(e) => setMoveVal(e.target.value)} placeholder="0,00" autoFocus /></Field>
+            <Field label={move?.type === 'in' ? 'Debitar da conta' : 'Creditar na conta'} hint={move?.type === 'in' ? 'O valor sai desta conta e vai para o cofre' : 'O valor sai do cofre e entra nesta conta'}>
+              <Select value={moveAccount} onChange={(e) => setMoveAccount(e.target.value)}><option value="">Selecione a conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {formatCurrency(a.current_balance || 0)}</option>)}</Select>
+            </Field>
+            {move?.type === 'out' && <p className="text-xs text-muted">Disponivel no cofre: {formatCurrency(move.g.current_amount || 0)}</p>}
+          </div>
+        )}
       </Modal>
     </div>
   );

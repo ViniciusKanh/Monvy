@@ -87,6 +87,12 @@ export default function Market() {
     return { poder, perda: totalBalance - poder };
   }, [ipca, totalBalance]);
 
+  // metricas de apoio (validadas): taxa mensal do CDI, ganho real vs inflacao e exemplo de R$1.000
+  const cdiM = cdi != null ? (Math.pow(1 + cdi / 100, 1 / 12) - 1) * 100 : null; // % ao mes
+  const realRate = (cdi != null && ipca != null) ? (((1 + cdi / 100) / (1 + ipca / 100)) - 1) * 100 : null; // ganho real anual
+  const ex1000 = ipca != null ? 1000 / (1 + ipca / 100) : null; // poder de compra de R$1.000 em 1 ano
+  const poupYear = 6.17; // rendimento aproximado da poupanca a.a. (referencia)
+
   const loading = quotesQ.isLoading && ratesQ.isLoading;
   const refetchAll = () => { quotesQ.refetch(); ratesQ.refetch(); histQ.refetch(); };
 
@@ -183,13 +189,20 @@ export default function Market() {
       {/* O que isso significa para voce */}
       <div>
         <h3 className="font-semibold mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500" /> O que isso significa para voce</h3>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           <Card className="hover-lift">
             <div className="flex items-center gap-2 mb-2"><span className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center"><PiggyBank className="w-4 h-4" /></span><h4 className="font-semibold">Rendimento potencial</h4></div>
             {cdiFut ? (
-              <p className="text-sm text-muted leading-relaxed">
-                Guardando sua sobra media de <b className="text-[hsl(var(--fg))]">{fmt(surplus)}/mes</b> rendendo o CDI ({cdi?.toFixed(2)}% a.a.), em 12 meses voce teria <b className="text-emerald-500">{fmt(cdiFut.bal)}</b> — sendo <b className="text-emerald-500">{fmt(cdiFut.rendimento)}</b> de rendimento sobre os {fmt(cdiFut.aportado)} aportados.
-              </p>
+              <>
+                <p className="text-sm text-muted leading-relaxed">
+                  Guardando sua sobra media de <b className="text-[hsl(var(--text))]">{fmt(surplus)}/mes</b> num investimento que rende o CDI ({cdi?.toFixed(2)}% ao ano, ou <b>{cdiM?.toFixed(2)}% ao mes</b>), em 12 meses voce teria <b className="text-emerald-500">{fmt(cdiFut.bal)}</b>.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-black/5 dark:bg-white/5 p-2"><p className="text-[11px] text-muted">Voce aporta</p><p className="font-bold text-sm">{fmt(cdiFut.aportado)}</p></div>
+                  <div className="rounded-lg bg-emerald-500/10 p-2"><p className="text-[11px] text-muted">So de rendimento</p><p className="font-bold text-sm text-emerald-500">+{fmt(cdiFut.rendimento)}</p></div>
+                </div>
+                <p className="text-[11px] text-muted mt-2">Calculo: cada aporte rende juros compostos mes a mes ate o 12º mes. Referencia, sem impostos.</p>
+              </>
             ) : (
               <p className="text-sm text-muted">Registre receitas e despesas para o Monvy estimar quanto sua sobra mensal renderia no CDI.</p>
             )}
@@ -199,11 +212,32 @@ export default function Market() {
           <Card className="hover-lift">
             <div className="flex items-center gap-2 mb-2"><span className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-500 flex items-center justify-center"><TrendingDown className="w-4 h-4" /></span><h4 className="font-semibold">Impacto da inflacao</h4></div>
             {inflaLoss ? (
-              <p className="text-sm text-muted leading-relaxed">
-                Com o IPCA em {ipca?.toFixed(2)}% ao ano, o seu saldo parado de <b className="text-[hsl(var(--fg))]">{fmt(totalBalance)}</b> perde cerca de <b className="text-rose-500">{fmt(inflaLoss.perda)}</b> de poder de compra em 12 meses (equivaleria a {fmt(inflaLoss.poder)} de hoje). Manter o dinheiro rendendo ajuda a proteger seu patrimonio.
-              </p>
+              <>
+                <p className="text-sm text-muted leading-relaxed">
+                  Com o IPCA em {ipca?.toFixed(2)}% ao ano, seu saldo parado de <b className="text-[hsl(var(--text))]">{fmt(totalBalance)}</b> perde cerca de <b className="text-rose-500">{fmt(inflaLoss.perda)}</b> de poder de compra em 12 meses.
+                </p>
+                <p className="text-sm text-muted mt-1">Ou seja: daqui a 1 ano, esse dinheiro compraria o equivalente a <b className="text-[hsl(var(--text))]">{fmt(inflaLoss.poder)}</b> de hoje.</p>
+                {ex1000 != null && <div className="mt-2 rounded-lg bg-black/5 dark:bg-white/5 p-2 text-xs">Exemplo simples: <b>R$ 1.000</b> hoje valeriam <b>{fmt(ex1000)}</b> em 1 ano se ficarem parados.</div>}
+              </>
             ) : (
               <p className="text-sm text-muted">Cadastre suas contas para ver quanto a inflacao corroe o dinheiro parado.</p>
+            )}
+          </Card>
+
+          <Card className="hover-lift">
+            <div className="flex items-center gap-2 mb-2"><span className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center"><Percent className="w-4 h-4" /></span><h4 className="font-semibold">Ganho real & comparacao</h4></div>
+            {realRate != null ? (
+              <>
+                <p className="text-sm text-muted leading-relaxed">O que importa e o <b className="text-[hsl(var(--text))]">ganho real</b> (acima da inflacao). Rendendo o CDI ({cdi?.toFixed(2)}%) com IPCA de {ipca?.toFixed(2)}%, seu ganho real e de <b className={realRate >= 0 ? 'text-emerald-500' : 'text-rose-500'}>{realRate >= 0 ? '+' : ''}{realRate.toFixed(2)}% ao ano</b>.</p>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  <div className="flex justify-between"><span className="text-muted">CDI (renda fixa)</span><b>{cdi?.toFixed(2)}% a.a.</b></div>
+                  <div className="flex justify-between"><span className="text-muted">Poupanca (ref.)</span><b>~{poupYear.toFixed(2)}% a.a.</b></div>
+                  <div className="flex justify-between"><span className="text-muted">Inflacao (IPCA)</span><b className="text-rose-500">{ipca?.toFixed(2)}% a.a.</b></div>
+                </div>
+                <p className="text-[11px] text-muted mt-2">Ganho real = ((1+CDI) / (1+IPCA)) − 1. Acima de zero, seu dinheiro cresce de verdade.</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted">Carregando indicadores para calcular o ganho real...</p>
             )}
           </Card>
         </div>
