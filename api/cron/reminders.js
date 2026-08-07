@@ -59,6 +59,22 @@ async function invoicesDue(uid, tN) {
   return rows.map((r) => itemRow(`Fatura ${r.competence_month || ''}`, `vence ${fmtDate(r.due_date)}`, brl(r.total_amount), '#6d28d9'));
 }
 
+// ---- motor de regras (condicoes) ----
+const opTest = (op, a, b) => ({ lt: a < b, lte: a <= b, gt: a > b, gte: a >= b, eq: Math.abs(a - b) < 0.005 }[op] ?? false);
+const OP_LABEL = { lt: 'menor que', lte: 'menor ou igual a', gt: 'maior que', gte: 'maior ou igual a', eq: 'igual a' };
+const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos' };
+const METRIC_UNIT = { savings_rate: '%', pending_count: 'un' };
+const fmtMetric = (metric, v) => { const u = METRIC_UNIT[metric]; if (u === '%') return `${Number(v).toFixed(0)}%`; if (u === 'un') return String(Math.round(v)); return brl(v); };
+async function categorySpend(uid, ym, catId) {
+  if (!catId) return 0;
+  const a = Number((await db().execute({ sql: `SELECT COALESCE(SUM(amount),0) t FROM "Transaction" WHERE created_by_id=? AND type='expense' AND (is_deleted IS NULL OR is_deleted=0) AND category_id=? AND substr(date,1,7)=?`, args: [uid, catId, ym] })).rows[0]?.t || 0);
+  const c = Number((await db().execute({ sql: `SELECT COALESCE(SUM(amount),0) t FROM CreditCardTransaction WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) AND category_id=? AND COALESCE(competence_month,substr(date,1,7))=?`, args: [uid, catId, ym] })).rows[0]?.t || 0);
+  return a + c;
+}
+async function pendingCount(uid, t0) {
+  return Number((await db().execute({ sql: `SELECT COUNT(*) n FROM "Transaction" WHERE created_by_id=? AND type!='transfer' AND (is_deleted IS NULL OR is_deleted=0) AND status='pending' AND substr(date,1,10)<=?`, args: [uid, t0] })).rows[0]?.n || 0);
+}
+
 // panorama financeiro do mes (para gatilho de resumo)
 async function summaryBody(u, ym) {
   const bal = Number((await db().execute({ sql: `SELECT COALESCE(SUM(current_balance),0) t FROM Account WHERE created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0)`, args: [u.id] })).rows[0]?.t || 0);
@@ -117,38 +133,43 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2) gatilhos personalizados (cada usuario cria os seus)
+    // 2) automacoes personalizadas (regras QUANDO -> SE -> ENTAO)
     for (const u of users) {
       const trigs = (await db().execute({ sql: `SELECT * FROM Trigger WHERE created_by_id = ? AND enabled = 1 AND (is_deleted IS NULL OR is_deleted=0)`, args: [u.id] })).rows;
-      for (const tr of trigs) {
-        const runToday = tr.frequency === 'daily' || (tr.frequency === 'weekly' && Number(tr.weekday) === dow) || (tr.frequency === 'monthly' && dom === 1);
-        if (!runToday) continue;
-        let cfg = {}; try { cfg = tr.config ? JSON.parse(tr.config) : {}; } catch { cfg = {}; }
-        const greet = `Ola${u.full_name ? ' ' + u.full_name : ''}`;
+      if (!trigs.length) continue;
+      const dueToday = trigs.filter((tr) => tr.frequency === 'daily' || (tr.frequency === 'weekly' && Number(tr.weekday) === dow) || (tr.frequency === 'monthly' && dom === 1));
+      if (!dueToday.length) continue;
+
+      // contexto do usuario (calculado uma vez)
+      const rr = await monthRate(u.id, ym);
+      const ctx = { total_balance: await totalBalanceOf(u.id), month_income: rr.inc, month_expense: rr.exp, month_balance: rr.inc - rr.exp, savings_rate: rr.rate, pending_count: await pendingCount(u.id, t0) };
+      const greet = `Ola${u.full_name ? ' ' + u.full_name : ''}`;
+
+      for (const tr of dueToday) {
+        let c = null;
+        try { c = tr.config ? (typeof tr.config === 'string' ? JSON.parse(tr.config) : tr.config) : null; } catch { c = null; }
+        if (!c || !c.action) continue; // ignora gatilhos antigos sem regra
+        const conditions = Array.isArray(c.conditions) ? c.conditions : [];
         try {
-          if (tr.type === 'financial_summary') {
+          // avalia condicoes
+          const evals = [];
+          for (const cond of conditions) {
+            const val = cond.metric === 'category_spend' ? await categorySpend(u.id, ym, cond.categoryId) : (ctx[cond.metric] ?? 0);
+            evals.push({ cond, val, ok: opTest(cond.op, val, Number(cond.value)) });
+          }
+          const pass = conditions.length === 0 ? true : (c.match === 'any' ? evals.some((e) => e.ok) : evals.every((e) => e.ok));
+          if (!pass) continue;
+
+          if (c.action === 'email_summary') {
             await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) }); trig++;
-          } else if (tr.type === 'upcoming_bills') {
-            const days = Number(cfg.days ?? 3); const tN = new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
-            const venc = await vencData(u.id, t0, tN);
-            if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos vencem nos proximos ${days} dia(s):${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
-          } else if (tr.type === 'budget_alert') {
-            const pct = Number(cfg.pct ?? 90); const budget = await budgetRows(u.id, ym, pct);
-            if (budget.length) { await sendMail({ to: u.email, subject: 'Monvy — orcamento do mes', html: tpl('Orcamento do mes 📉', `${greet}, categorias que atingiram ${pct}% do limite:${itemsTable(budget)}`) }); trig++; }
-          } else if (tr.type === 'low_balance') {
-            const amount = Number(cfg.amount ?? 0); const bal = await totalBalanceOf(u.id);
-            if (amount > 0 && bal < amount) { await sendMail({ to: u.email, subject: 'Monvy — saldo baixo', html: tpl('Atencao: saldo baixo 🔻', `${greet}, seu saldo total nas contas esta em <b>${brl(bal)}</b>, abaixo do limite que voce definiu (${brl(amount)}). Vale revisar os gastos.`) }); trig++; }
-          } else if (tr.type === 'savings_below') {
-            const pct = Number(cfg.pct ?? 10); const r = await monthRate(u.id, ym);
-            if (r.inc > 0 && r.rate < pct) { await sendMail({ to: u.email, subject: 'Monvy — poupanca abaixo da meta', html: tpl('Poupanca abaixo da meta 🎯', `${greet}, sua taxa de poupanca do mes esta em <b>${r.rate.toFixed(0)}%</b>, abaixo da sua meta de ${pct}%. Receitas ${brl(r.inc)} · despesas ${brl(r.exp)}.`) }); trig++; }
-          } else if (tr.type === 'big_expense') {
-            const amount = Number(cfg.amount ?? 0); const since = new Date(today.getTime() - 2 * 86400000).toISOString().slice(0, 10);
-            const rows = await bigExpenses(u.id, amount, since);
-            if (amount > 0 && rows.length) { await sendMail({ to: u.email, subject: 'Monvy — gasto elevado', html: tpl('Gasto elevado detectado 💳', `${greet}, registramos gasto(s) acima de ${brl(amount)} nos ultimos dias:${itemsTable(rows)}`) }); trig++; }
-          } else if (tr.type === 'invoice_due') {
-            const days = Number(cfg.days ?? 5); const tN = new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
-            const rows = await invoicesDue(u.id, tN);
-            if (rows.length) { await sendMail({ to: u.email, subject: 'Monvy — fatura a vencer', html: tpl('Fatura de cartao a vencer 🧾', `${greet}, fatura(s) a vencer nos proximos ${days} dia(s):${itemsTable(rows)}`) }); trig++; }
+          } else if (c.action === 'email_bills') {
+            const venc = await vencData(u.id, t0, t3);
+            if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
+          } else { // email_alert
+            const subject = (c.subject && c.subject.trim()) || tr.name || 'Alerta Monvy';
+            const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
+            const body = `${greet},${c.message ? `<br/><br/>${String(c.message).replace(/</g, '&lt;')}` : ''}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
+            await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) }); trig++;
           }
         } catch { /* nao quebra os demais */ }
       }
