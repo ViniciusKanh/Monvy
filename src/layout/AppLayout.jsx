@@ -11,8 +11,9 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { NAV_GROUPS } from '../lib/screens.js';
 import { Logo } from '../components/Logo.jsx';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X, Sun, Moon, Search } from 'lucide-react';
 import { AlertsBell } from '../components/AlertsBell.jsx';
+import { GlobalSearch, openGlobalSearch } from '../components/GlobalSearch.jsx';
 import { OnboardingWizard } from '../components/OnboardingWizard.jsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { LayoutDashboard, Wallet, CreditCard, ArrowLeftRight, Tags } from 'lucide-react';
@@ -76,6 +77,7 @@ export function AppLayout() {
       {showOnboarding && <Onboarding name={user?.full_name} onDone={() => setOnboarded(true)} />}
       {!!user && !showOnboarding && <WhatsNew />}
       {!!user && !showOnboarding && <QuickAdd />}
+      {!!user && <GlobalSearch />}
       {/* Sidebar desktop */}
       <aside className="hidden lg:block fixed inset-y-0 left-0 z-30"><Sidebar /></aside>
 
@@ -107,7 +109,9 @@ export function AppLayout() {
               <span className="hidden xl:flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-300 bg-emerald-500/10 px-3 py-1.5 rounded-full ring-1 ring-emerald-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sistema Online
               </span>
+              <button onClick={openGlobalSearch} className="hidden md:flex items-center gap-2 text-sm text-muted bg-black/5 dark:bg-white/5 rounded-xl pl-3 pr-2 py-2 hover:bg-black/10 dark:hover:bg-white/10" title="Buscar (Ctrl+K)"><Search className="w-4 h-4" /> Buscar <kbd className="text-[10px] font-mono bg-black/10 dark:bg-white/10 rounded px-1 py-0.5 ml-1">Ctrl K</kbd></button>
               <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 rounded-xl px-1 py-1">
+                <button onClick={openGlobalSearch} className="md:hidden p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10" title="Buscar"><Search className="w-5 h-5" /></button>
                 <button onClick={toggle} className="p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10" title="Tema">{theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
                 <AlertsBell />
               </div>

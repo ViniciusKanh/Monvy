@@ -11,10 +11,24 @@ import { ComposedChart, Bar, Line, Area, AreaChart, PieChart, Pie, Cell, Respons
 import {
   TrendingUp, TrendingDown, Wallet, Target, CreditCard as CardIcon, PiggyBank, Eye, EyeOff,
   ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, Plus, Sparkles, AlertTriangle,
-  CalendarClock, Flame, Trophy, Zap, ArrowRight,
+  CalendarClock, Flame, Trophy, Zap, ArrowRight, SlidersHorizontal, ChevronUp, ChevronDown,
 } from 'lucide-react';
 
 const money = (v) => formatCurrency(v);
+
+const WIDGET_DEFS = [
+  { id: 'charts', label: 'Fluxo de caixa & categorias' },
+  { id: 'cardcat', label: 'Gastos no cartao por categoria' },
+  { id: 'projection', label: 'Projecao de saldo & acoes' },
+  { id: 'overview', label: 'Visao geral & comparativo' },
+  { id: 'recent', label: 'Recentes & a vencer' },
+];
+const LAYOUT_KEY = 'monvy_dash_layout';
+function loadLayout() {
+  const ids = WIDGET_DEFS.map((w) => w.id);
+  try { const s = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); if (s && Array.isArray(s.order)) { const order = s.order.filter((id) => ids.includes(id)); for (const id of ids) if (!order.includes(id)) order.push(id); return { order, hidden: s.hidden || {} }; } } catch {}
+  return { order: ids, hidden: {} };
+}
 
 async function fetchFx() {
   const r = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL');
@@ -27,6 +41,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [mk, setMk] = useState(monthKey(new Date()));
   const [hide, setHide] = useState(false);
+  const [layout, setLayout] = useState(loadLayout);
+  const [customize, setCustomize] = useState(false);
+  const persist = (l) => { setLayout(l); try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(l)); } catch {} };
+  const ordOf = (id) => { const i = layout.order.indexOf(id); return i < 0 ? 99 : i + 1; };
+  const vis = (id) => !layout.hidden[id];
+  const toggleVis = (id) => persist({ ...layout, hidden: { ...layout.hidden, [id]: !layout.hidden[id] } });
+  const moveWidget = (id, dir) => { const order = [...layout.order]; const i = order.indexOf(id); const j = i + dir; if (j < 0 || j >= order.length) return; [order[i], order[j]] = [order[j], order[i]]; persist({ ...layout, order }); };
 
   const { data: accounts = [], isLoading: la } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: transactions = [], isLoading: lt } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
@@ -129,7 +150,7 @@ export default function Dashboard() {
   const savedGoals = goals.reduce((s, g) => s + Number(g.current_amount || 0), 0);
 
   return (
-    <div className="space-y-5 animate-fadeIn">
+    <div className="flex flex-col gap-5 animate-fadeIn">
       {/* Header */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
@@ -142,9 +163,27 @@ export default function Dashboard() {
             <select value={mk} onChange={(e) => setMk(e.target.value)} className="bg-transparent text-sm font-semibold outline-none cursor-pointer px-1 capitalize">{months.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select>
             <button onClick={() => shift(1)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronRight className="w-4 h-4" /></button>
           </div>
+          <button onClick={() => setCustomize((c) => !c)} className={`p-2.5 rounded-xl card hover:bg-black/5 dark:hover:bg-white/10 ${customize ? 'text-emerald-500' : ''}`} title="Personalizar painel"><SlidersHorizontal className="w-5 h-5" /></button>
           <button onClick={() => setHide((h) => !h)} className="p-2.5 rounded-xl card hover:bg-black/5 dark:hover:bg-white/10">{hide ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
         </div>
       </div>
+
+      {customize && (
+        <Card>
+          <div className="flex items-center justify-between mb-2"><h3 className="font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4 text-emerald-500" /> Personalizar painel</h3><button onClick={() => setCustomize(false)} className="text-sm text-emerald-600 font-semibold">Concluir</button></div>
+          <div className="space-y-1.5">
+            {layout.order.map((id, idx) => { const w = WIDGET_DEFS.find((x) => x.id === id); return (
+              <div key={id} className="flex items-center gap-2 p-2 rounded-lg bg-black/5 dark:bg-white/5">
+                <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={vis(id)} onChange={() => toggleVis(id)} />
+                <span className="flex-1 text-sm">{w?.label || id}</span>
+                <button onClick={() => moveWidget(id, -1)} disabled={idx === 0} className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
+                <button onClick={() => moveWidget(id, 1)} disabled={idx === layout.order.length - 1} className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
+              </div>
+            ); })}
+          </div>
+          <p className="text-xs text-muted mt-2">Marque para exibir e use as setas para reordenar. Fica salvo neste dispositivo.</p>
+        </Card>
+      )}
 
       {/* Hero + acoes */}
       <div className="grid lg:grid-cols-3 gap-5">
@@ -239,6 +278,7 @@ export default function Dashboard() {
         <Reveal i={3}><Kpi label="Taxa de poupanca" amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
       </div>
 
+      <div style={{ order: ordOf('charts') }} className={vis('charts') ? '' : 'hidden'}>
       {/* Charts */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2 hover-lift">
@@ -273,6 +313,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      </div>
+
+      <div style={{ order: ordOf('cardcat') }} className={vis('cardcat') ? '' : 'hidden'}>
       {/* Gastos no cartao de credito por categoria */}
       <Card className="hover-lift">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -298,6 +341,9 @@ export default function Dashboard() {
         )}
       </Card>
 
+      </div>
+
+      <div style={{ order: ordOf('projection') }} className={vis('projection') ? '' : 'hidden'}>
       {/* Projecao + acoes rapidas */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2 hover-lift">
@@ -314,6 +360,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      </div>
+
+      <div style={{ order: ordOf('overview') }} className={vis('overview') ? '' : 'hidden'}>
       {/* Visao geral de gastos + comparativo por categoria */}
       {byCategory.length > 0 && (
         <div className="grid md:grid-cols-2 gap-5">
@@ -350,6 +399,9 @@ export default function Dashboard() {
         </div>
       )}
 
+      </div>
+
+      <div style={{ order: ordOf('recent') }} className={vis('recent') ? '' : 'hidden'}>
       {/* Recentes + A vencer */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
@@ -397,6 +449,7 @@ export default function Dashboard() {
             </div>
           )}
         </Card>
+      </div>
       </div>
     </div>
   );
