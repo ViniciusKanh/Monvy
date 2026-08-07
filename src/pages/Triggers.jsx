@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trigger, Category } from '../api/entities.js';
+import { Trigger, Category, Support } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge, Textarea } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
@@ -23,6 +23,7 @@ const OPS = [{ k: 'lt', label: 'menor que' }, { k: 'lte', label: 'menor ou igual
 const opLabel = (k) => (OPS.find((o) => o.k === k) || OPS[0]).label;
 const ACTIONS = [
   { k: 'email_alert', label: 'Enviar alerta por e-mail', desc: 'Manda um e-mail com sua mensagem e os valores avaliados.' },
+  { k: 'open_ticket', label: 'Abrir um chamado', desc: 'Cria um chamado (ticket) pra voce resolver, na categoria escolhida.' },
   { k: 'email_summary', label: 'Enviar resumo financeiro', desc: 'Panorama completo: saldo, receitas, despesas e poupanca.' },
   { k: 'email_bills', label: 'Enviar vencimentos proximos', desc: 'Lista as contas e faturas a vencer nos proximos dias.' },
 ];
@@ -41,7 +42,7 @@ const TEMPLATES = [
 ];
 
 const emptyForm = () => ({ name: '', frequency: 'daily', weekday: 1, enabled: true, config: { match: 'all', conditions: [], action: 'email_alert', subject: '', message: '' } });
-const normConfig = (c) => ({ match: c?.match || 'all', conditions: Array.isArray(c?.conditions) ? c.conditions : [], action: c?.action || 'email_alert', subject: c?.subject || '', message: c?.message || '' });
+const normConfig = (c) => ({ match: c?.match || 'all', conditions: Array.isArray(c?.conditions) ? c.conditions : [], action: c?.action || 'email_alert', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '' });
 
 function fmtVal(metric, v) { const u = mInfo(metric).unit; if (u === 'R$') return formatCurrency(v); if (u === '%') return `${v}%`; return String(v); }
 function condText(c, catMap) {
@@ -54,6 +55,8 @@ export default function Triggers() {
   const qc = useQueryClient();
   const { data: triggers = [], isLoading } = useQuery({ queryKey: ['triggers'], queryFn: () => Trigger.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
+  const { data: sup } = useQuery({ queryKey: ['support-config'], queryFn: () => Support.config() });
+  const ticketCats = sup?.categories || [];
   const expenseCats = categories.filter((c) => c.type === 'expense');
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c]));
   const [modal, setModal] = useState(false);
@@ -187,10 +190,16 @@ export default function Triggers() {
             <div className="flex items-center gap-2 mb-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-sm font-medium flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Acao</span></div>
             <Select value={cfg.action} onChange={(e) => setC('action', e.target.value)}>{ACTIONS.map((a) => <option key={a.k} value={a.k}>{a.label}</option>)}</Select>
             <p className="text-xs text-muted mt-1">{ACTIONS.find((a) => a.k === cfg.action)?.desc}</p>
-            {cfg.action === 'email_alert' && (
+            {(cfg.action === 'email_alert' || cfg.action === 'open_ticket') && (
               <div className="mt-2 space-y-2">
-                <Input value={cfg.subject} onChange={(e) => setC('subject', e.target.value)} placeholder="Assunto do e-mail (opcional)" />
-                <Textarea rows={2} value={cfg.message} onChange={(e) => setC('message', e.target.value)} placeholder="Mensagem do alerta (os valores avaliados sao incluidos automaticamente)" />
+                {cfg.action === 'open_ticket' && (
+                  <Select value={cfg.ticketCategory || ''} onChange={(e) => setC('ticketCategory', e.target.value)}>
+                    <option value="">Categoria do chamado</option>
+                    {ticketCats.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </Select>
+                )}
+                <Input value={cfg.subject} onChange={(e) => setC('subject', e.target.value)} placeholder={cfg.action === 'open_ticket' ? 'Assunto do chamado' : 'Assunto do e-mail (opcional)'} />
+                <Textarea rows={2} value={cfg.message} onChange={(e) => setC('message', e.target.value)} placeholder={cfg.action === 'open_ticket' ? 'Descricao do chamado (a situacao avaliada e incluida)' : 'Mensagem do alerta (os valores avaliados sao incluidos)'} />
               </div>
             )}
           </div>

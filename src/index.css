@@ -9,6 +9,7 @@
   --muted: 215 16% 47%;
   --border: 220 13% 91%;
   --primary: 158 64% 32%;
+  --acc: 16 185 129; /* cor de destaque (accent) em R G B — trocada pela paleta escolhida */
 }
 .dark {
   --bg: 222 47% 7%;
@@ -18,6 +19,24 @@
   --border: 217 33% 20%;
   --primary: 158 64% 42%;
 }
+
+/* ===== Accent personalizavel: remapeia o emerald (cor tema do app) para --acc =====
+   Assim, trocar a paleta em Configuracoes recolore o app inteiro de forma coerente. */
+.text-emerald-300, .text-emerald-400, .text-emerald-500, .text-emerald-600,
+.dark .dark\:text-emerald-200, .dark .dark\:text-emerald-300 { color: rgb(var(--acc)) !important; }
+.bg-emerald-400, .bg-emerald-500, .bg-emerald-600 { background-color: rgb(var(--acc)) !important; }
+.hover\:bg-emerald-600:hover, .hover\:bg-emerald-500:hover { background-color: rgb(var(--acc)) !important; }
+.bg-emerald-50 { background-color: rgb(var(--acc) / .10) !important; }
+.bg-emerald-500\/5 { background-color: rgb(var(--acc) / .05) !important; }
+.bg-emerald-500\/10, .dark .dark\:bg-emerald-500\/10 { background-color: rgb(var(--acc) / .10) !important; }
+.bg-emerald-500\/15 { background-color: rgb(var(--acc) / .15) !important; }
+.bg-emerald-500\/20, .dark .dark\:bg-emerald-500\/20 { background-color: rgb(var(--acc) / .20) !important; }
+.border-emerald-400, .border-emerald-500 { border-color: rgb(var(--acc)) !important; }
+.border-emerald-500\/20, .border-emerald-500\/30, .border-emerald-500\/40 { border-color: rgb(var(--acc) / .35) !important; }
+.ring-emerald-400, .ring-emerald-500 { --tw-ring-color: rgb(var(--acc)) !important; }
+.accent-emerald-500 { accent-color: rgb(var(--acc)) !important; }
+.from-emerald-400, .from-emerald-500, .from-emerald-600 { --tw-gradient-from: rgb(var(--acc)) var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(var(--acc) / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.to-emerald-500, .to-emerald-600 { --tw-gradient-to: rgb(var(--acc)) var(--tw-gradient-to-position) !important; }
 
 html, body, #root { height: 100%; }
 body {
@@ -78,11 +97,16 @@ body {
 
 /* Impressao (Exportar PDF do Relatorio) */
 @media print {
-  aside, header, nav { display: none !important; }
+  aside, header, nav, .aurora, .print\:hidden { display: none !important; }
   .lg\:ml-72 { margin-left: 0 !important; }
   main { padding: 0 !important; }
-  .print\:hidden { display: none !important; }
-  .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+  html, body { background: #fff !important; }
+  body { background-image: none !important; }
+  .card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; page-break-inside: avoid; }
+  .hover-lift:hover { transform: none !important; box-shadow: none !important; }
+  .print-break { break-before: page; page-break-before: always; }
+  .animate-fadeIn { animation: none !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 
 /* ===== Animacoes "vivas" ===== */

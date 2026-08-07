@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
 
   const canAccess = (screenKey) => {
     if (!user) return false;
-    if (screenKey === 'help' || screenKey === 'triggers') return true; // Ajuda e Gatilhos disponiveis a todos
+    if (screenKey === 'help' || screenKey === 'triggers' || screenKey === 'tickets') return true; // Ajuda, Gatilhos e Tickets disponiveis a todos
     if (user.role === 'admin') return true;
     return (user.allowed_screens || []).includes(screenKey);
   };

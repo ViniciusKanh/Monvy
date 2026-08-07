@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -60,6 +60,7 @@ export const NAV_GROUPS = [
       { key: 'reports', label: 'Relatorios', path: '/relatorios', icon: FileText },
       { key: 'triggers', label: 'Gatilhos & Automacoes', path: '/gatilhos', icon: Zap },
       { key: 'help', label: 'Ajuda & Suporte', path: '/ajuda', icon: LifeBuoy },
+      { key: 'tickets', label: 'Central de Tickets', path: '/chamados', icon: Ticket },
       { key: 'settings', label: 'Configuracoes', path: '/configuracoes', icon: Settings },
       { key: 'users', label: 'Usuarios & Acessos', path: '/usuarios', icon: Users, adminOnly: true },
       { key: 'newusers', label: 'Onboarding (novos users)', path: '/config-novos-usuarios', icon: UserPlus, adminOnly: true },

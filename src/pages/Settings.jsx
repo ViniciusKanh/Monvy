@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppSettings, Auth, Admin } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useTheme } from '../context/ThemeContext.jsx';
+import { useTheme, ACCENTS } from '../context/ThemeContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Spinner, Badge } from '../components/ui';
 import { toast } from '../lib/toast.js';
@@ -29,7 +29,7 @@ function resizeImage(file, max = 256) {
 export default function Settings() {
   const qc = useQueryClient();
   const { user, logout, updateProfile, refreshUser } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, accent, setAccent } = useTheme();
   const { data: list = [], isLoading } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
   const settings = list[0];
   const fileRef = useRef(null);
@@ -157,6 +157,19 @@ export default function Settings() {
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => setTheme('light')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 ${theme !== 'dark' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'border-[hsl(var(--border))]'}`}><Sun className="w-6 h-6" /><span className="text-sm font-medium">Claro</span>{theme !== 'dark' && <Check className="w-4 h-4 text-emerald-500" />}</button>
             <button onClick={() => setTheme('dark')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 ${theme === 'dark' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'border-[hsl(var(--border))]'}`}><Moon className="w-6 h-6" /><span className="text-sm font-medium">Escuro</span>{theme === 'dark' && <Check className="w-4 h-4 text-emerald-500" />}</button>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-sm font-medium mb-1">Cor de destaque</p>
+            <p className="text-xs text-muted mb-3">Aplica em botoes, graficos e destaques de todo o app.</p>
+            <div className="flex flex-wrap gap-2.5">
+              {ACCENTS.map((a) => (
+                <button key={a.k} onClick={() => setAccent(a.k)} title={a.label} className={`relative w-10 h-10 rounded-full transition hover:scale-110 ${accent === a.k ? 'ring-2 ring-offset-2 ring-offset-[hsl(var(--card))]' : ''}`} style={{ background: a.hex, boxShadow: accent === a.k ? `0 0 0 2px ${a.hex}` : 'none' }}>
+                  {accent === a.k && <Check className="w-5 h-5 text-white absolute inset-0 m-auto" strokeWidth={3} />}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted mt-3">Paleta atual: <b className="text-[hsl(var(--text))]">{ACCENTS.find((a) => a.k === accent)?.label || 'Esmeralda'}</b>. A escolha fica salva neste dispositivo.</p>
           </div>
         </Card>
 

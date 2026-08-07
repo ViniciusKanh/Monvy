@@ -83,7 +83,8 @@ export default async function handler(req, res) {
         const { subject, description, image_url, category } = body;
         if (!subject || !description) return sendJson(res, 400, { error: 'Assunto e descricao sao obrigatorios' });
         const id = newId();
-        await db().execute({ sql: `INSERT INTO SupportTicket (id,subject,status,category,priority,user_name,user_email,image_url,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, subject, 'open', category || 'Duvida', 'normal', u.full_name || '', u.email, image_url || null, u.id, nowIso(), nowIso()] });
+        const number = Number((await db().execute(`SELECT COALESCE(MAX(number),1000) n FROM SupportTicket`)).rows[0]?.n || 1000) + 1;
+        await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,image_url,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subject, 'open', category || 'Duvida', 'normal', u.full_name || '', u.email, image_url || null, u.id, nowIso(), nowIso()] });
         await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [newId(), id, u.id, 'user', u.full_name || u.email, description, image_url || null, nowIso()] });
         // notifica os admins (podem responder por e-mail direto ao usuario via Reply-To, ou no app)
         const admins = await adminEmails();
@@ -113,7 +114,7 @@ export default async function handler(req, res) {
         if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
         if (!body.body) return sendJson(res, 400, { error: 'Mensagem vazia' });
         await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [newId(), body.id, u.id, isAdmin ? 'admin' : 'user', u.full_name || u.email, body.body, body.image_url || null, nowIso()] });
-        const newStatus = isAdmin ? 'answered' : 'open';
+        const newStatus = isAdmin ? 'answered' : 'pending';
         await db().execute({ sql: `UPDATE SupportTicket SET status=?, updated_date=? WHERE id=?`, args: [newStatus, nowIso(), body.id] });
         if (isAdmin) {
           // resposta do suporte -> avisa o usuario
@@ -138,17 +139,42 @@ export default async function handler(req, res) {
       if (op === 'status') {
         const t = (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE id=?`, args: [body.id] })).rows[0];
         if (!t) return sendJson(res, 404, { error: 'Chamado nao encontrado' });
-        const s = body.status;
-        const adminStatuses = ['answered', 'resolved', 'closed', 'open'];
-        const userStatuses = ['reopened', 'closed'];
-        if (isAdmin ? !adminStatuses.includes(s) : (t.created_by_id !== u.id || !userStatuses.includes(s))) return sendJson(res, 403, { error: 'Operacao nao permitida' });
-        const resolvedDate = s === 'resolved' ? nowIso() : t.resolved_date;
+        if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
+        const s = body.status || 'open';
+        const label = body.statusLabel || s;
+        const final = !!body.final;
+        const wasFinal = !!t.resolved_date;
+        const resolvedDate = final ? nowIso() : (wasFinal ? null : t.resolved_date);
         await db().execute({ sql: `UPDATE SupportTicket SET status=?, resolved_date=?, updated_date=? WHERE id=?`, args: [s, resolvedDate, nowIso(), body.id] });
-        const msg = s === 'resolved' ? 'Chamado marcado como resolvido.' : s === 'reopened' ? 'Chamado reaberto pelo usuario.' : s === 'closed' ? 'Chamado encerrado.' : null;
-        if (msg) await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), body.id, u.id, isAdmin ? 'admin' : 'user', u.full_name || u.email, msg, nowIso()] });
-        // avisos por e-mail
-        if (s === 'resolved' && t.user_email) sendMail({ to: t.user_email, subject: `Chamado resolvido: ${t.subject}`, html: tpl('Seu chamado foi resolvido ✅', `O chamado <b>${t.subject}</b> foi marcado como resolvido. Se a solucao nao te atender, voce pode reabri-lo no app.`, { ctaText: 'Ver no app', ctaUrl: appLink }) }).catch(() => {});
-        if (s === 'reopened') { const admins = await adminEmails(); if (admins.length) sendMail({ to: admins.join(','), replyTo: t.user_email, subject: `Chamado reaberto: ${t.subject}`, html: tpl('Um chamado foi reaberto 🔁', `O usuario <b>${t.user_name || t.user_email}</b> reabriu o chamado <b>${t.subject}</b>.`, { ctaText: 'Ver no app', ctaUrl: appLink }) }).catch(() => {}); }
+        const evt = final ? `Chamado finalizado (${label}).` : (wasFinal ? `Chamado reaberto (${label}).` : `Status alterado para "${label}".`);
+        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), body.id, u.id, isAdmin ? 'admin' : 'user', u.full_name || u.email, evt, nowIso()] });
+        if (final && isAdmin && t.user_email) sendMail({ to: t.user_email, subject: `Chamado #${t.number || ''} finalizado: ${t.subject}`, html: tpl('Seu chamado foi finalizado ✅', `O chamado <b>#${t.number || ''} — ${t.subject}</b> foi finalizado (${label}). Se a solucao nao te atender, voce pode reabri-lo no app.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
+        if (!final && wasFinal && !isAdmin) { const admins = await adminEmails(); if (admins.length) sendMail({ to: admins.join(','), replyTo: t.user_email, subject: `Chamado #${t.number || ''} reaberto: ${t.subject}`, html: tpl('Um chamado foi reaberto 🔁', `O usuario <b>${t.user_name || t.user_email}</b> reabriu o chamado <b>#${t.number || ''} — ${t.subject}</b>.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {}); }
+        return sendJson(res, 200, { ok: true });
+      }
+      return sendJson(res, 400, { error: 'Operacao invalida' });
+    }
+
+    // ---------- CONFIG (categorias e status dos chamados) ----------
+    if (action === 'config') {
+      const DEF_CATS = ['Duvida', 'Problema tecnico', 'Financeiro', 'Bug', 'Sugestao', 'Outro'];
+      const DEF_STATUS = [
+        { key: 'open', label: 'Novo', color: 'amber' },
+        { key: 'pending', label: 'Pendente', color: 'blue' },
+        { key: 'answered', label: 'Aguardando resposta', color: 'violet' },
+        { key: 'resolved', label: 'Resolvido', color: 'emerald', final: true },
+        { key: 'closed', label: 'Finalizado', color: 'slate', final: true },
+      ];
+      if (op === 'get') {
+        let cats = null, sts = null;
+        try { cats = JSON.parse((await getSetting('ticket_categories')) || 'null'); } catch {}
+        try { sts = JSON.parse((await getSetting('ticket_statuses')) || 'null'); } catch {}
+        return sendJson(res, 200, { categories: Array.isArray(cats) && cats.length ? cats : DEF_CATS, statuses: Array.isArray(sts) && sts.length ? sts : DEF_STATUS });
+      }
+      if (op === 'save') {
+        if (!isAdmin) return sendJson(res, 403, { error: 'Apenas administradores' });
+        if (Array.isArray(body.categories)) await setSetting('ticket_categories', JSON.stringify(body.categories));
+        if (Array.isArray(body.statuses)) await setSetting('ticket_statuses', JSON.stringify(body.statuses));
         return sendJson(res, 200, { ok: true });
       }
       return sendJson(res, 400, { error: 'Operacao invalida' });

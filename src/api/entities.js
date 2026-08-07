@@ -53,8 +53,10 @@ export const Support = {
   ticket: (id) => api.post('/api/support/tickets', { op: 'get', id }),
   createTicket: (data) => api.post('/api/support/tickets', { op: 'create', ...data }),
   replyTicket: (data) => api.post('/api/support/tickets', { op: 'reply', ...data }),
-  setTicketStatus: (id, status) => api.post('/api/support/tickets', { op: 'status', id, status }),
+  setTicketStatus: (id, data) => api.post('/api/support/tickets', { op: 'status', id, ...data }),
   updateTicket: (id, data) => api.post('/api/support/tickets', { op: 'meta', id, ...data }),
+  config: () => api.post('/api/support/config', { op: 'get' }),
+  saveConfig: (data) => api.post('/api/support/config', { op: 'save', ...data }),
 };
 
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };

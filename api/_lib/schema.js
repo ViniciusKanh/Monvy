@@ -217,6 +217,7 @@ export const SCHEMA_STATEMENTS = [
 
   `CREATE TABLE IF NOT EXISTS SupportTicket (
     id TEXT PRIMARY KEY,
+    number INTEGER,
     subject TEXT NOT NULL,
     status TEXT DEFAULT 'open',
     category TEXT DEFAULT 'Duvida',
@@ -288,6 +289,7 @@ export const MIGRATIONS = [
   ] },
   { id: '010_trigger_config', statements: [`ALTER TABLE Trigger ADD COLUMN config TEXT`] },
   { id: '011_tx_reconciled', statements: [`ALTER TABLE "Transaction" ADD COLUMN reconciled INTEGER DEFAULT 0`] },
+  { id: '012_ticket_number', statements: [`ALTER TABLE SupportTicket ADD COLUMN number INTEGER`] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);

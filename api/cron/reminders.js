@@ -1,10 +1,14 @@
-import { db, ensureSchema } from '../_lib/db.js';
+import { db, ensureSchema, newId, nowIso } from '../_lib/db.js';
 import { sendJson } from '../_lib/auth.js';
 import { getMailConfig } from '../_lib/settings.js';
 import { sendMail, tpl, itemsTable, itemRow } from '../_lib/mailer.js';
 
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
 const fmtDate = (d) => new Date(String(d).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+function baseUrl(req) {
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return host ? `${req.headers['x-forwarded-proto'] || 'https'}://${host}` : '';
+}
 
 // vencimentos (lancamentos pendentes + faturas) ate t3
 async function vencData(uid, t0, t3) {
@@ -165,6 +169,22 @@ export default async function handler(req, res) {
           } else if (c.action === 'email_bills') {
             const venc = await vencData(u.id, t0, t3);
             if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
+          } else if (c.action === 'open_ticket') {
+            const subj = (c.subject && c.subject.trim()) || tr.name || 'Automacao financeira';
+            // evita duplicar: nao reabre se ja existe um chamado aberto (nao finalizado) com mesmo assunto
+            const exists = (await db().execute({ sql: `SELECT id FROM SupportTicket WHERE created_by_id=? AND subject=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [u.id, subj] })).rows[0];
+            if (!exists) {
+              const situ = evals.map((e) => `- ${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)} (condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))})`).join('\n');
+              const desc = `${c.message || 'Automacao acionada pelo gatilho.'}\n\nSituacao atual:\n${situ}`;
+              const id = newId();
+              const number = Number((await db().execute(`SELECT COALESCE(MAX(number),1000) n FROM SupportTicket`)).rows[0]?.n || 1000) + 1;
+              await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subj, 'open', c.ticketCategory || 'Financeiro', 'alta', u.full_name || '', u.email, u.id, nowIso(), nowIso()] });
+              await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), id, u.id, 'user', 'Automacao Monvy', desc, nowIso()] });
+              const admins = (await db().execute(`SELECT email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`)).rows.map((r) => r.email).filter(Boolean);
+              if (admins.length) sendMail({ to: admins.join(','), replyTo: u.email, subject: `Chamado automatico #${number}: ${subj}`, html: tpl('Chamado aberto por automacao 🤖', `Uma automacao de <b>${u.full_name || u.email}</b> abriu o chamado <b>#${number} — ${subj}</b>.<br/><br/>${desc.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}`) }).catch(() => {});
+              await sendMail({ to: u.email, subject: `Monvy abriu um chamado pra voce: ${subj}`, html: tpl('Abrimos um chamado pra voce 🎫', `${greet}, uma automacao sua identificou algo que merece atencao e abriu o chamado <b>#${number} — ${subj}</b>. Acompanhe e resolva na Central de Tickets.`, { ctaText: 'Ver chamado', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
+              trig++;
+            }
           } else { // email_alert
             const subject = (c.subject && c.subject.trim()) || tr.name || 'Alerta Monvy';
             const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));

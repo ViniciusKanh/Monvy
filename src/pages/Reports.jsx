@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Transaction, Account, Category } from '../api/entities.js';
+import { Transaction, Account, Category, CreditCardTransaction } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Button, Select, Badge, Spinner } from '../components/ui';
 import { formatCurrency, monthKey, monthLabel, monthRange, MONTHS_PT } from '../lib/utils.js';
+import { combineExpenses, categoryTrends } from '../lib/analytics.js';
 import { BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { FileText, Download, Printer, TrendingUp } from 'lucide-react';
+import { FileText, Download, Printer, TrendingUp, TrendingDown, Lightbulb, Sparkles } from 'lucide-react';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { Reports as ReportsApi } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
@@ -21,11 +22,13 @@ export default function Reports() {
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
+  const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
+  const tx = useMemo(() => combineExpenses(transactions, cardTxs), [transactions, cardTxs]);
   const months = useMemo(() => { const [y, m] = endMk.split('-').map(Number); const arr = []; for (let i = period - 1; i >= 0; i--) arr.push(monthKey(new Date(y, m - 1 - i, 1))); return arr; }, [period, endMk]);
   const inPeriod = (d) => months.includes(String(d).slice(0, 7));
-  const periodTx = useMemo(() => transactions.filter((t) => inPeriod(t.date)), [transactions, months]);
+  const periodTx = useMemo(() => tx.filter((t) => inPeriod(t.date)), [tx, months]);
 
   const totals = useMemo(() => {
     let inc = 0, exp = 0;
@@ -37,10 +40,10 @@ export default function Reports() {
 
   const monthly = useMemo(() => months.map((k) => {
     let inc = 0, exp = 0;
-    for (const t of transactions) { if (String(t.date).slice(0, 7) !== k) continue; if (t.type === 'income') inc += +t.amount; if (t.type === 'expense') exp += +t.amount; }
+    for (const t of tx) { if (String(t.date).slice(0, 7) !== k) continue; if (t.type === 'income') inc += +t.amount; if (t.type === 'expense') exp += +t.amount; }
     const [y, m] = k.split('-').map(Number);
     return { name: `${MONTHS_PT[m - 1].slice(0, 3)}/${String(y).slice(2)}`, Receita: inc, Despesa: exp, net: inc - exp };
-  }), [transactions, months]);
+  }), [tx, months]);
 
   const evolution = useMemo(() => { let acc = 0; return monthly.map((r) => { acc += r.net; return { name: r.name, Saldo: acc }; }); }, [monthly]);
 
@@ -53,6 +56,24 @@ export default function Reports() {
   const totalExp = byCategory.reduce((s, c) => s + c.value, 0) || 1;
   const topExpenses = useMemo(() => periodTx.filter((t) => t.type === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5), [periodTx]);
   const statement = useMemo(() => [...periodTx].sort((a, b) => (a.date < b.date ? 1 : -1)), [periodTx]);
+  const trends = useMemo(() => categoryTrends(periodTx, months, catMap), [periodTx, months, catMap]);
+  const rising = trends.find((x) => x.change > 25 && x.total > 0);
+
+  const insights = useMemo(() => {
+    const arr = [];
+    if (monthly.length >= 2) {
+      const last = monthly[monthly.length - 1], prev = monthly[monthly.length - 2];
+      if (prev.Despesa > 0) { const d = ((last.Despesa - prev.Despesa) / prev.Despesa) * 100; if (Math.abs(d) >= 8) arr.push({ t: d > 0 ? 'warn' : 'ok', m: `Despesas ${d > 0 ? 'subiram' : 'cairam'} ${Math.abs(d).toFixed(0)}% em ${last.name} vs ${prev.name}.` }); }
+    }
+    if (totals.rate >= 20) arr.push({ t: 'ok', m: `Otima taxa de poupanca no periodo: ${totals.rate.toFixed(0)}% da renda.` });
+    else if (totals.bal < 0) arr.push({ t: 'warn', m: `No periodo voce gastou ${formatCurrency(-totals.bal)} a mais do que ganhou.` });
+    else if (totals.inc > 0) arr.push({ t: 'info', m: `Taxa de poupanca do periodo: ${totals.rate.toFixed(0)}%.` });
+    if (byCategory[0]) arr.push({ t: 'info', m: `Maior gasto: ${byCategory[0].name} — ${formatCurrency(byCategory[0].value)} (${Math.round((byCategory[0].value / totalExp) * 100)}% das despesas).` });
+    if (rising) arr.push({ t: 'warn', m: `${rising.name} vem crescendo (+${rising.change.toFixed(0)}% no periodo). Vale acompanhar.` });
+    if (topExpenses[0]) arr.push({ t: 'info', m: `Maior lancamento unico: ${topExpenses[0].description || catMap[topExpenses[0].category_id]?.name || 'Despesa'} (${formatCurrency(topExpenses[0].amount)}).` });
+    if (!arr.length) arr.push({ t: 'ok', m: 'Periodo equilibrado, sem destaques negativos.' });
+    return arr;
+  }, [monthly, totals, byCategory, totalExp, rising, topExpenses, catMap]);
 
   const exportCsv = () => {
     const rows = [['Data', 'Tipo', 'Descricao', 'Categoria', 'Valor', 'Status']];
@@ -70,6 +91,8 @@ export default function Reports() {
         name: user?.full_name, periodLabel: period === 1 ? monthLabel(endMk) : `${period} meses ate ${monthLabel(endMk)}`,
         inc: totals.inc, exp: totals.exp, bal: totals.bal, rate: totals.rate, totalBalance,
         categories: byCategory.map((c) => ({ name: c.name, value: c.value })),
+        topExpenses: topExpenses.map((t) => ({ name: t.description || catMap[t.category_id]?.name || 'Despesa', value: Number(t.amount) })),
+        insight: rising ? `${rising.name} cresceu ${rising.change.toFixed(0)}% no periodo — vale acompanhar.` : (totals.rate >= 20 ? `Otima taxa de poupanca: ${totals.rate.toFixed(0)}%.` : null),
       } });
       toast.success('Relatorio enviado para o seu e-mail!');
     } catch (e) { toast.error(e.message || 'Falha ao enviar. Verifique a config de e-mail.'); }
@@ -115,6 +138,19 @@ export default function Reports() {
         <Reveal i={2}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Saldo do periodo</p><p className={`font-display text-xl font-bold ${totals.bal < 0 ? 'text-rose-500' : ''}`}><AnimatedValue value={totals.bal} format={formatCurrency} /></p></Card></Reveal>
         <Reveal i={3}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Taxa de poupanca</p><p className="font-display text-xl font-bold text-violet-500"><AnimatedValue value={totals.rate} format={(v) => `${v.toFixed(1)}%`} /></p></Card></Reveal>
       </div>
+
+      {/* Resumo inteligente */}
+      <Card>
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Resumo inteligente do periodo</h3>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {insights.map((i, k) => (
+            <div key={k} className={`flex items-start gap-2 p-3 rounded-xl text-sm ${i.t === 'warn' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300' : i.t === 'ok' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'}`}>
+              {i.t === 'warn' ? <TrendingUp className="w-4 h-4 mt-0.5 shrink-0" /> : i.t === 'ok' ? <TrendingDown className="w-4 h-4 mt-0.5 shrink-0" /> : <Lightbulb className="w-4 h-4 mt-0.5 shrink-0" />}
+              <span>{i.m}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* charts */}
       <div className="grid lg:grid-cols-2 gap-4">

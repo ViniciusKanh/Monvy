@@ -35,12 +35,17 @@ export default async function handler(req, res) {
         <td style="padding:10px;background:#f5f3ff;border-radius:10px"><div style="font-size:11px;color:#64748b">Taxa de poupanca</div><div style="font-weight:800;color:#7c3aed">${Number(summary.rate || 0).toFixed(1)}%</div></td>
       </tr></table>`;
 
+    const topEx = (summary.topExpenses || []).slice(0, 5).map((t) => itemRow(t.name || 'Despesa', '', brl(t.value), '#e11d48')).join('');
+    const insightBox = summary.insight ? `<div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:#eef2ff;color:#3730a3;font-size:13px;line-height:1.5">💡 ${String(summary.insight).replace(/</g, '&lt;')}</div>` : '';
+
     const html = tpl(`Seu relatorio financeiro — ${summary.periodLabel || ''}`,
-      `Ola${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas financas.<br/>
+      `Ola${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas financas (contas + cartao).<br/>
        <div style="margin-top:6px;color:#0b1330;font-weight:700">Patrimonio total: ${brl(summary.totalBalance)}</div>
        ${kpis}
-       <div style="font-weight:700;color:#0b1330;margin:14px 0 6px">Despesas por categoria</div>
-       ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no periodo.</div>'}`);
+       ${insightBox}
+       <div style="font-weight:700;color:#0b1330;margin:16px 0 6px">Despesas por categoria</div>
+       ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no periodo.</div>'}
+       ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:16px 0 4px">Maiores despesas</div>${itemsTable([topEx].join(''))}` : ''}`);
 
     const r = await sendMail({ to: dest, subject: `Monvy — Relatorio ${summary.periodLabel || ''}`, html });
     if (r.sent) return sendJson(res, 200, { ok: true, to: dest });
