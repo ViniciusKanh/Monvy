@@ -25,9 +25,10 @@ const WEEKDAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'S
 const defaultsFor = (type) => Object.fromEntries(tInfo(type).params.map((p) => [p.k, p.def]));
 const empty = () => ({ name: '', type: 'financial_summary', frequency: 'daily', weekday: 1, enabled: true, config: {} });
 
-function configSummary(type, config = {}) {
+function configSummary(type, config) {
+  const cfg = config || {};
   return tInfo(type).params.map((p) => {
-    const v = config[p.k] ?? p.def;
+    const v = cfg[p.k] ?? p.def;
     if (p.money) return `${p.label.includes('acima') ? 'acima de ' : 'abaixo de '}${formatCurrency(v)}`;
     if (p.suffix === '%') return `${v}%`;
     if (p.k === 'days') return `${v} dia(s) antes`;
