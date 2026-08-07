@@ -4,6 +4,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Account } from '../api/entities.js';
 import { Onboarding } from '../components/Onboarding.jsx';
 import { WhatsNew } from '../components/WhatsNew.jsx';
+import { QuickAdd } from '../components/QuickAdd.jsx';
 import { Bootstrap } from '../api/entities.js';
 import { Sidebar } from './Sidebar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -74,6 +75,7 @@ export function AppLayout() {
       <div className="aurora"><b className="b1" /><b className="b2" /><b className="b3" /><b className="b4" /></div>
       {showOnboarding && <Onboarding name={user?.full_name} onDone={() => setOnboarded(true)} />}
       {!!user && !showOnboarding && <WhatsNew />}
+      {!!user && !showOnboarding && <QuickAdd />}
       {/* Sidebar desktop */}
       <aside className="hidden lg:block fixed inset-y-0 left-0 z-30"><Sidebar /></aside>
 

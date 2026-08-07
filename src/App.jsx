@@ -32,6 +32,9 @@ import Help from './pages/Help.jsx';
 import OnboardingConfig from './pages/OnboardingConfig.jsx';
 import Triggers from './pages/Triggers.jsx';
 import TicketsCenter from './pages/TicketsCenter.jsx';
+import Investments from './pages/Investments.jsx';
+import Debts from './pages/Debts.jsx';
+import CashFlow from './pages/CashFlow.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
@@ -76,6 +79,9 @@ export default function App() {
         <Route path="/orcamento" element={<Protected screenKey="budget"><Budget /></Protected>} />
         <Route path="/pagamentos" element={<Protected screenKey="payments"><Payments /></Protected>} />
         <Route path="/metas" element={<Protected screenKey="goals"><Goals /></Protected>} />
+        <Route path="/investimentos" element={<Protected screenKey="investments"><Investments /></Protected>} />
+        <Route path="/dividas" element={<Protected screenKey="debts"><Debts /></Protected>} />
+        <Route path="/fluxo" element={<Protected screenKey="cashflow"><CashFlow /></Protected>} />
         <Route path="/assinaturas" element={<Protected screenKey="subscriptions"><Subscriptions /></Protected>} />
         <Route path="/cofres" element={<Protected screenKey="safes"><VirtualSafes /></Protected>} />
         <Route path="/calendario" element={<Protected screenKey="calendar"><FinancialCalendar /></Protected>} />

@@ -45,7 +45,7 @@ export default async function handler(req, res) {
        ${insightBox}
        <div style="font-weight:700;color:#0b1330;margin:16px 0 6px">Despesas por categoria</div>
        ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no periodo.</div>'}
-       ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:16px 0 4px">Maiores despesas</div>${itemsTable([topEx].join(''))}` : ''}`);
+       ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:16px 0 4px">Maiores despesas</div>${itemsTable([topEx])}` : ''}`);
 
     const r = await sendMail({ to: dest, subject: `Monvy — Relatorio ${summary.periodLabel || ''}`, html });
     if (r.sent) return sendJson(res, 200, { ok: true, to: dest });

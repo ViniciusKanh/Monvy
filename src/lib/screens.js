@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -24,6 +24,9 @@ export const NAV_GROUPS = [
       { key: 'budget', label: 'Orçamento', path: '/orcamento', icon: PiggyBank },
       { key: 'goals', label: 'Metas', path: '/metas', icon: Target },
       { key: 'payments', label: 'Pagar & Receber', path: '/pagamentos', icon: CircleDollarSign },
+      { key: 'investments', label: 'Investimentos', path: '/investimentos', icon: LineChart },
+      { key: 'debts', label: 'Dividas', path: '/dividas', icon: Landmark },
+      { key: 'cashflow', label: 'Fluxo Projetado', path: '/fluxo', icon: Activity },
       { key: 'subscriptions', label: 'Assinaturas', path: '/assinaturas', icon: RefreshCw },
       { key: 'safes', label: 'Cofres Virtuais', path: '/cofres', icon: Vault },
       { key: 'calendar', label: 'Calendario', path: '/calendario', icon: Calendar },

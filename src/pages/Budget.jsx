@@ -49,6 +49,21 @@ export default function Budget() {
     : spentPct < dayPct - 10 ? { t: 'ok', m: `Otimo ritmo! ${spentPct}% do orçamento usado com o mes em ${dayPct}%. Voce esta economizando.` }
     : { t: 'ok', m: `No ritmo: ${spentPct}% do orçamento usado, mes em ${dayPct}%.` };
 
+  // Metodo 50/30/20 (necessidades / desejos / poupanca) sobre a renda do mes
+  const ESSENTIAL = ['aluguel', 'moradia', 'casa', 'agua', 'água', 'luz', 'energia', 'internet', 'mercado', 'aliment', 'saude', 'saúde', 'transporte', 'educa', 'conta', 'financ', 'condominio', 'condomínio', 'gas', 'gás', 'farmac', 'plano'];
+  const catName = (id) => (categories.find((c) => c.id === id)?.name || '').toLowerCase();
+  const method = useMemo(() => {
+    let income = 0, needs = 0, wants = 0;
+    for (const t of transactions) {
+      if (!inMonth(t.date, mk)) continue;
+      if (t.type === 'income') income += Number(t.amount);
+      else if (t.type === 'expense') { const isEss = ESSENTIAL.some((k) => catName(t.category_id).includes(k)); if (isEss) needs += Number(t.amount); else wants += Number(t.amount); }
+    }
+    const savings = Math.max(0, income - needs - wants);
+    const pct = (v) => income > 0 ? Math.round((v / income) * 100) : 0;
+    return { income, needs, wants, savings, needsPct: pct(needs), wantsPct: pct(wants), savingsPct: pct(savings) };
+  }, [transactions, mk, categories]);
+
   return (
     <div className="animate-fadeIn">
       <PageHeader title="Orçamento" subtitle="Limites de gasto por categoria"
@@ -59,6 +74,37 @@ export default function Budget() {
             <button onClick={() => shiftMonth(1)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronRight className="w-4 h-4" /></button>
           </div>
         } />
+
+      {/* Metodo 50/30/20 */}
+      <Card className="mb-4 hover-lift">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="font-semibold flex items-center gap-2"><PiggyBank className="w-4 h-4 text-emerald-500" /> Metodo 50/30/20</h3>
+          <span className="text-xs text-muted">sobre a renda de {monthLabel(mk)}: {formatCurrency(method.income)}</span>
+        </div>
+        {method.income === 0 ? <p className="text-sm text-muted">Registre receitas no mes para ver a divisao ideal do seu dinheiro.</p>
+          : (
+            <div className="grid sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Necessidades', sub: 'essenciais', got: method.needsPct, gotV: method.needs, target: 50, color: '#0ea5e9' },
+                { label: 'Desejos', sub: 'variaveis/lazer', got: method.wantsPct, gotV: method.wants, target: 30, color: '#8b5cf6' },
+                { label: 'Poupanca/Investir', sub: 'o que sobra', got: method.savingsPct, gotV: method.savings, target: 20, color: '#10b981' },
+              ].map((x) => {
+                const ok = x.label === 'Poupanca/Investir' ? x.got >= x.target : x.got <= x.target;
+                return (
+                  <div key={x.label} className="rounded-xl border border-[hsl(var(--border))] p-3">
+                    <div className="flex items-center justify-between"><p className="font-medium text-sm">{x.label}</p><span className={`text-xs font-bold ${ok ? 'text-emerald-500' : 'text-amber-500'}`}>{x.got}% <span className="text-muted font-normal">/ {x.target}%</span></span></div>
+                    <p className="text-[11px] text-muted">{x.sub} · {formatCurrency(x.gotV)}</p>
+                    <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden mt-2 relative">
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, x.got)}%`, background: x.color }} />
+                      <span className="absolute top-0 bottom-0" style={{ left: `${x.target}%`, borderLeft: '2px dashed rgba(120,130,150,.6)' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        <p className="text-xs text-muted mt-3">Guia: ate <b>50%</b> em necessidades, ate <b>30%</b> em desejos e ao menos <b>20%</b> para poupar/investir. A linha tracejada marca a meta.</p>
+      </Card>
 
       {/* Hero: medidor geral do orçamento */}
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>

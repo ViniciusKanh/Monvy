@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AppSettings, Auth, Admin } from '../api/entities.js';
+import { AppSettings, Auth, Admin, Account, Category, Transaction, CreditCard, CreditCardTransaction, Goal, Subscription, Investment, Debt } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme, ACCENTS } from '../context/ThemeContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Spinner, Badge } from '../components/ui';
 import { toast } from '../lib/toast.js';
-import { Sun, Moon, ShieldCheck, KeyRound, Bell, Palette, User, Sparkles, ExternalLink, Eye, EyeOff, Check, Camera, Lock, Mail, Send, Smartphone } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, KeyRound, Bell, Palette, User, Sparkles, ExternalLink, Eye, EyeOff, Check, Camera, Lock, Mail, Send, Smartphone, Download, Upload } from 'lucide-react';
 
 // redimensiona a imagem para ~256px e devolve dataURL (evita foto gigante no banco)
 function resizeImage(file, max = 256) {
@@ -58,6 +58,32 @@ export default function Settings() {
   useEffect(() => { if (settings) setForm((f) => ({ ...f, ...settings, gemini_api_key: settings.gemini_api_key || '' })); }, [settings]);
 
   const saveProfile = useMutation({ mutationFn: (p) => updateProfile(p), onSuccess: () => toast.success('Perfil atualizado') });
+
+  const backupRef = useRef(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const exportData = async () => {
+    setBackupBusy(true);
+    try {
+      const [acc, cat, txs, cards, cardtx, goals, subs, inv, debts] = await Promise.all([Account.list(), Category.list(), Transaction.list(), CreditCard.list(), CreditCardTransaction.list(), Goal.list(), Subscription.list(), Investment.list(), Debt.list()]);
+      const data = { app: 'Monvy', version: 1, exported_at: new Date().toISOString(), accounts: acc, categories: cat, transactions: txs, cards, cardtx, goals, subscriptions: subs, investments: inv, debts };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = url; a.download = `monvy-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
+      toast.success('Backup exportado');
+    } catch { toast.error('Falha ao exportar'); } finally { setBackupBusy(false); }
+  };
+  const importData = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
+    if (!window.confirm('Importar vai CRIAR novos registros a partir do arquivo (nao substitui os atuais). Continuar?')) return;
+    setBackupBusy(true);
+    try {
+      const d = JSON.parse(await file.text());
+      const strip = (arr) => (arr || []).map(({ id, created_by_id, created_date, updated_date, ...rest }) => rest);
+      const map = [['categories', Category], ['accounts', Account], ['transactions', Transaction], ['cards', CreditCard], ['cardtx', CreditCardTransaction], ['goals', Goal], ['subscriptions', Subscription], ['investments', Investment], ['debts', Debt]];
+      for (const [key, Ent] of map) { const arr = strip(d[key]); if (arr.length && Ent.bulkCreate) await Ent.bulkCreate(arr); }
+      qc.invalidateQueries();
+      toast.success('Dados importados! Recarregue a pagina para ver tudo.');
+    } catch { toast.error('Arquivo invalido ou falha na importacao'); } finally { setBackupBusy(false); }
+  };
   const saveSettings = useMutation({
     mutationFn: (patch) => { const payload = { ...patch, gemini_api_key_configured: !!patch.gemini_api_key }; return settings ? AppSettings.update(settings.id, payload) : AppSettings.create(payload); },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['appsettings'] }); toast.success('Preferencias salvas'); },
@@ -171,6 +197,18 @@ export default function Settings() {
             </div>
             <p className="text-xs text-muted mt-3">Paleta atual: <b className="text-[hsl(var(--text))]">{ACCENTS.find((a) => a.k === accent)?.label || 'Esmeralda'}</b>. A escolha fica salva neste dispositivo.</p>
           </div>
+        </Card>
+
+        {/* Backup & Dados */}
+        <Card className="hover-lift">
+          <h3 className="font-semibold mb-1 flex items-center gap-2"><Download className="w-4 h-4 text-sky-500" /> Backup & Dados</h3>
+          <p className="text-xs text-muted mb-3">Exporte todos os seus dados (contas, lancamentos, cartoes, metas, investimentos, dividas...) em um arquivo, ou importe de um backup.</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={exportData} disabled={backupBusy} className="flex-1">{backupBusy ? <Spinner className="w-4 h-4" /> : <><Download className="w-4 h-4" /> Exportar dados</>}</Button>
+            <input ref={backupRef} type="file" accept="application/json" className="hidden" onChange={importData} />
+            <Button variant="outline" onClick={() => backupRef.current?.click()} disabled={backupBusy} className="flex-1"><Upload className="w-4 h-4" /> Importar backup</Button>
+          </div>
+          <p className="text-[11px] text-muted mt-2">A importacao cria novos registros (nao substitui). Ideal para portabilidade e para guardar uma copia dos seus dados.</p>
         </Card>
 
         {/* Preferencias */}

@@ -29,6 +29,8 @@ export const Forecast = makeEntity('Forecast');
 export const AppSettings = makeEntity('AppSettings');
 export const Safe = makeEntity('Safe');
 export const Trigger = makeEntity('Trigger');
+export const Investment = makeEntity('Investment');
+export const Debt = makeEntity('Debt');
 
 export const Auth = {
   login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),

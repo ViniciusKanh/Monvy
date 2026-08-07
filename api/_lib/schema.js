@@ -255,6 +255,41 @@ export const SCHEMA_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_tx_owner ON "Transaction"(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tx_date ON "Transaction"(date)`,
   `CREATE INDEX IF NOT EXISTS idx_cct_card ON CreditCardTransaction(card_id)`,
+  `CREATE TABLE IF NOT EXISTS Investment (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'renda_fixa',
+    ticker TEXT,
+    quantity REAL,
+    invested_amount REAL DEFAULT 0,
+    current_value REAL DEFAULT 0,
+    institution TEXT,
+    date TEXT,
+    notes TEXT,
+    color TEXT DEFAULT '#6366f1',
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS Debt (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'emprestimo',
+    total_amount REAL DEFAULT 0,
+    principal REAL DEFAULT 0,
+    interest_rate REAL DEFAULT 0,
+    installments INTEGER DEFAULT 1,
+    paid_installments INTEGER DEFAULT 0,
+    installment_amount REAL DEFAULT 0,
+    start_date TEXT,
+    due_day INTEGER DEFAULT 10,
+    institution TEXT,
+    notes TEXT,
+    color TEXT DEFAULT '#f43f5e',
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_inv_owner2 ON Investment(created_by_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_debt_owner ON Debt(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_acc_owner ON Account(created_by_id)`,
 ];
 
@@ -309,6 +344,8 @@ export const ENTITIES = {
   AppSettings: 'AppSettings',
   Safe: 'Safe',
   Trigger: 'Trigger',
+  Investment: 'Investment',
+  Debt: 'Debt',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)
