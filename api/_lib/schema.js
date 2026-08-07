@@ -242,6 +242,7 @@ export const SCHEMA_STATEMENTS = [
     type TEXT DEFAULT 'financial_summary',
     frequency TEXT DEFAULT 'daily',
     weekday INTEGER DEFAULT 1,
+    config TEXT,
     enabled INTEGER DEFAULT 1,
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
@@ -285,6 +286,8 @@ export const MIGRATIONS = [
     `ALTER TABLE SupportTicket ADD COLUMN priority TEXT DEFAULT 'normal'`,
     `ALTER TABLE SupportTicket ADD COLUMN resolved_date TEXT`,
   ] },
+  { id: '010_trigger_config', statements: [`ALTER TABLE Trigger ADD COLUMN config TEXT`] },
+  { id: '011_tx_reconciled', statements: [`ALTER TABLE "Transaction" ADD COLUMN reconciled INTEGER DEFAULT 0`] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);
@@ -310,13 +313,14 @@ export const ENTITIES = {
 export const JSON_FIELDS = {
   Transaction: ['tags'],
   Forecast: ['features_importance'],
+  Trigger: ['config'],
 };
 
 // Colunas boolean (armazenadas como 0/1)
 export const BOOL_FIELDS = {
   Account: ['is_active'],
   Category: ['is_active'],
-  Transaction: ['is_fixed'],
+  Transaction: ['is_fixed', 'reconciled'],
   CreditCard: ['is_active'],
   CreditCardTransaction: ['is_recurring', 'imported_from_pdf'],
   Goal: [],

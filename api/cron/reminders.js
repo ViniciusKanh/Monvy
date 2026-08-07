@@ -25,15 +25,38 @@ async function vencData(uid, t0, t3) {
   return { rows, total, count: tx.length + inv.length };
 }
 
-// categorias com orcamento estourado no mes
-async function budgetRows(uid, ym) {
+// categorias que passaram de um % do limite no mes (pct=100 => estourado)
+async function budgetRows(uid, ym, pct = 100) {
   const cats = (await db().execute({ sql: `SELECT id, name, budget_limit FROM Category WHERE created_by_id = ? AND budget_limit IS NOT NULL AND budget_limit > 0`, args: [uid] })).rows;
   if (!cats.length) return [];
   const spend = (await db().execute({ sql: `SELECT category_id, SUM(amount) AS total FROM "Transaction" WHERE created_by_id = ? AND type = 'expense' AND (is_deleted IS NULL OR is_deleted = 0) AND substr(date,1,7) = ? GROUP BY category_id`, args: [uid, ym] })).rows;
   const sm = Object.fromEntries(spend.map((r) => [r.category_id, Number(r.total) || 0]));
   const rows = [];
-  for (const c of cats) { const sp = sm[c.id] || 0; if (sp > Number(c.budget_limit)) rows.push(itemRow(`Orcamento estourado: ${c.name}`, `limite ${brl(c.budget_limit)}`, brl(sp), '#e11d48')); }
+  for (const c of cats) { const lim = Number(c.budget_limit); const sp = sm[c.id] || 0; const used = Math.round((sp / lim) * 100); if (used >= pct) rows.push(itemRow(`${used >= 100 ? 'Orcamento estourado' : 'Orcamento em alerta'}: ${c.name}`, `${used}% do limite (${brl(lim)})`, brl(sp), used >= 100 ? '#e11d48' : '#f59e0b')); }
   return rows;
+}
+
+// saldo total das contas
+async function totalBalanceOf(uid) {
+  return Number((await db().execute({ sql: `SELECT COALESCE(SUM(current_balance),0) t FROM Account WHERE created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0)`, args: [uid] })).rows[0]?.t || 0);
+}
+// receita/despesa/taxa de poupanca do mes (inclui cartao)
+async function monthRate(uid, ym) {
+  const agg = (await db().execute({ sql: `SELECT type, SUM(amount) tot FROM "Transaction" WHERE created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0) AND type != 'transfer' AND substr(date,1,7)=? GROUP BY type`, args: [uid, ym] })).rows;
+  const m = Object.fromEntries(agg.map((r) => [r.type, Number(r.tot) || 0]));
+  const cardExp = Number((await db().execute({ sql: `SELECT COALESCE(SUM(amount),0) t FROM CreditCardTransaction WHERE created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0) AND COALESCE(competence_month,substr(date,1,7))=?`, args: [uid, ym] })).rows[0]?.t || 0);
+  const inc = m.income || 0; const exp = (m.expense || 0) + cardExp;
+  return { inc, exp, rate: inc > 0 ? ((inc - exp) / inc) * 100 : 0 };
+}
+// gastos elevados recentes (ultimas 48h) acima de um valor
+async function bigExpenses(uid, amount, since) {
+  const rows = (await db().execute({ sql: `SELECT date, amount, description FROM "Transaction" WHERE created_by_id = ? AND type='expense' AND (is_deleted IS NULL OR is_deleted=0) AND amount >= ? AND substr(date,1,10) >= ? ORDER BY amount DESC`, args: [uid, amount, since] })).rows;
+  return rows.map((r) => itemRow(r.description || 'Gasto', fmtDate(r.date), brl(r.amount), '#e11d48'));
+}
+// faturas de cartao a vencer em ate N dias
+async function invoicesDue(uid, tN) {
+  const rows = (await db().execute({ sql: `SELECT due_date, total_amount, competence_month FROM CreditCardInvoice WHERE created_by_id = ? AND (is_deleted IS NULL OR is_deleted=0) AND status IN ('open','overdue') AND due_date IS NOT NULL AND substr(due_date,1,10) <= ? ORDER BY due_date ASC`, args: [uid, tN] })).rows;
+  return rows.map((r) => itemRow(`Fatura ${r.competence_month || ''}`, `vence ${fmtDate(r.due_date)}`, brl(r.total_amount), '#6d28d9'));
 }
 
 // panorama financeiro do mes (para gatilho de resumo)
@@ -100,16 +123,32 @@ export default async function handler(req, res) {
       for (const tr of trigs) {
         const runToday = tr.frequency === 'daily' || (tr.frequency === 'weekly' && Number(tr.weekday) === dow) || (tr.frequency === 'monthly' && dom === 1);
         if (!runToday) continue;
+        let cfg = {}; try { cfg = tr.config ? JSON.parse(tr.config) : {}; } catch { cfg = {}; }
+        const greet = `Ola${u.full_name ? ' ' + u.full_name : ''}`;
         try {
           if (tr.type === 'financial_summary') {
-            await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) });
-            trig++;
+            await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) }); trig++;
           } else if (tr.type === 'upcoming_bills') {
-            const venc = await vencData(u.id, t0, t3);
-            if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `Ola${u.full_name ? ' ' + u.full_name : ''}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
+            const days = Number(cfg.days ?? 3); const tN = new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
+            const venc = await vencData(u.id, t0, tN);
+            if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos vencem nos proximos ${days} dia(s):${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
           } else if (tr.type === 'budget_alert') {
-            const budget = await budgetRows(u.id, ym);
-            if (budget.length) { await sendMail({ to: u.email, subject: 'Monvy — orcamento do mes', html: tpl('Orcamento do mes 📉', `Ola${u.full_name ? ' ' + u.full_name : ''}, categorias que passaram do limite:${itemsTable(budget)}`) }); trig++; }
+            const pct = Number(cfg.pct ?? 90); const budget = await budgetRows(u.id, ym, pct);
+            if (budget.length) { await sendMail({ to: u.email, subject: 'Monvy — orcamento do mes', html: tpl('Orcamento do mes 📉', `${greet}, categorias que atingiram ${pct}% do limite:${itemsTable(budget)}`) }); trig++; }
+          } else if (tr.type === 'low_balance') {
+            const amount = Number(cfg.amount ?? 0); const bal = await totalBalanceOf(u.id);
+            if (amount > 0 && bal < amount) { await sendMail({ to: u.email, subject: 'Monvy — saldo baixo', html: tpl('Atencao: saldo baixo 🔻', `${greet}, seu saldo total nas contas esta em <b>${brl(bal)}</b>, abaixo do limite que voce definiu (${brl(amount)}). Vale revisar os gastos.`) }); trig++; }
+          } else if (tr.type === 'savings_below') {
+            const pct = Number(cfg.pct ?? 10); const r = await monthRate(u.id, ym);
+            if (r.inc > 0 && r.rate < pct) { await sendMail({ to: u.email, subject: 'Monvy — poupanca abaixo da meta', html: tpl('Poupanca abaixo da meta 🎯', `${greet}, sua taxa de poupanca do mes esta em <b>${r.rate.toFixed(0)}%</b>, abaixo da sua meta de ${pct}%. Receitas ${brl(r.inc)} · despesas ${brl(r.exp)}.`) }); trig++; }
+          } else if (tr.type === 'big_expense') {
+            const amount = Number(cfg.amount ?? 0); const since = new Date(today.getTime() - 2 * 86400000).toISOString().slice(0, 10);
+            const rows = await bigExpenses(u.id, amount, since);
+            if (amount > 0 && rows.length) { await sendMail({ to: u.email, subject: 'Monvy — gasto elevado', html: tpl('Gasto elevado detectado 💳', `${greet}, registramos gasto(s) acima de ${brl(amount)} nos ultimos dias:${itemsTable(rows)}`) }); trig++; }
+          } else if (tr.type === 'invoice_due') {
+            const days = Number(cfg.days ?? 5); const tN = new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
+            const rows = await invoicesDue(u.id, tN);
+            if (rows.length) { await sendMail({ to: u.email, subject: 'Monvy — fatura a vencer', html: tpl('Fatura de cartao a vencer 🧾', `${greet}, fatura(s) a vencer nos proximos ${days} dia(s):${itemsTable(rows)}`) }); trig++; }
           }
         } catch { /* nao quebra os demais */ }
       }
