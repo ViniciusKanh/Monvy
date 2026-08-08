@@ -37,6 +37,7 @@ import Debts from './pages/Debts.jsx';
 import CashFlow from './pages/CashFlow.jsx';
 import CategoryRules from './pages/CategoryRules.jsx';
 import Fire from './pages/Fire.jsx';
+import IncomeTax from './pages/IncomeTax.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
@@ -87,6 +88,7 @@ export default function App() {
         <Route path="/fluxo" element={<Protected screenKey="cashflow"><CashFlow /></Protected>} />
         <Route path="/regras" element={<Protected screenKey="catrules"><CategoryRules /></Protected>} />
         <Route path="/fire" element={<Protected screenKey="fire"><Fire /></Protected>} />
+        <Route path="/imposto-de-renda" element={<Protected screenKey="tax"><IncomeTax /></Protected>} />
         <Route path="/notificacoes" element={<Protected screenKey="notifications"><Notifications /></Protected>} />
         <Route path="/assinaturas" element={<Protected screenKey="subscriptions"><Subscriptions /></Protected>} />
         <Route path="/cofres" element={<Protected screenKey="safes"><VirtualSafes /></Protected>} />

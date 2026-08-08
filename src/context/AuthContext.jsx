@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
 
   const canAccess = (screenKey) => {
     if (!user) return false;
-    if (['help', 'triggers', 'tickets', 'notifications'].includes(screenKey)) return true; // disponiveis a todos
+    if (['help', 'triggers', 'tickets', 'notifications', 'tax'].includes(screenKey)) return true; // disponiveis a todos
     if (user.role === 'admin') return true;
     return (user.allowed_screens || []).includes(screenKey);
   };

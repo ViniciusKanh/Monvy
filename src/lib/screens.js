@@ -46,6 +46,7 @@ export const NAV_GROUPS = [
     items: [
       { key: 'simulator', label: 'Simulador', path: '/simulador', icon: Calculator },
       { key: 'fire', label: 'Independencia (FIRE)', path: '/fire', icon: Flame },
+      { key: 'tax', label: 'Imposto de Renda', path: '/imposto-de-renda', icon: Landmark },
       { key: 'market', label: 'Mercado & Indicadores', path: '/mercado', icon: TrendingUp },
       { key: 'reconciliation', label: 'Conciliacao', path: '/conciliacao', icon: GitCompare },
       { key: 'bankImport', label: 'Importar Extrato', path: '/importar', icon: Upload },
