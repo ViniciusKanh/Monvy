@@ -5,9 +5,9 @@ import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Badge, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey } from '../lib/utils.js';
-import { lastMonths, monthlySeries, monthTotals, categoryBreakdown, weekdaySpending, seasonalForecast, detectAnomalies, groupByDescription, colorAt, combineExpenses, categoryTrends } from '../lib/analytics.js';
+import { lastMonths, monthlySeries, monthTotals, categoryBreakdown, weekdaySpending, seasonalForecast, detectAnomalies, detectPriceHikes, groupByDescription, colorAt, combineExpenses, categoryTrends } from '../lib/analytics.js';
 import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Brain, TrendingUp, TrendingDown, Wallet, Eye, AlertTriangle, CheckCircle2, Sparkles, ShoppingBag, CalendarDays, Lightbulb } from 'lucide-react';
+import { Brain, TrendingUp, TrendingDown, Wallet, Eye, AlertTriangle, CheckCircle2, Sparkles, ShoppingBag, CalendarDays, Lightbulb, ArrowUpRight } from 'lucide-react';
 
 export default function Intelligence() {
   const mk = monthKey(new Date());
@@ -26,6 +26,7 @@ export default function Intelligence() {
   const byCat = useMemo(() => categoryBreakdown(tx, mk, catMap), [tx, mk, catMap]);
   const wd = useMemo(() => weekdaySpending(tx, mk), [tx, mk]);
   const anomalies = useMemo(() => detectAnomalies(tx, catMap), [tx, catMap]);
+  const hikes = useMemo(() => detectPriceHikes(tx), [tx]);
   const trends = useMemo(() => categoryTrends(tx, months, catMap), [tx, months, catMap]);
   const merchants = useMemo(() => groupByDescription(tx, 'expense'), [tx]);
   const incomeSources = useMemo(() => groupByDescription(transactions, 'income'), [transactions]);
@@ -82,6 +83,17 @@ export default function Intelligence() {
                   <span className="font-semibold text-rose-500">{formatCurrency(a.amount)}</span>
                 </div>
               ))}</div>}
+        </Card>
+        <Card>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><ArrowUpRight className="w-4 h-4 text-amber-500" /> Cobrancas que subiram de preco</h3>
+          {hikes.length === 0 ? <div className="flex flex-col items-center py-8 text-muted"><CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" /><p className="text-sm">Nenhum aumento recorrente detectado</p></div>
+            : <div className="space-y-2">{hikes.map((h, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10">
+                  <span className="flex-1 truncate">{h.name} <span className="text-muted">· {formatCurrency(h.from)} → {formatCurrency(h.to)}</span></span>
+                  <Badge color="amber">+{h.changePct}%</Badge>
+                </div>
+              ))}</div>}
+          <p className="text-xs text-muted mt-2">Compara o ultimo valor com a mediana do historico (min. 3 meses). Tudo calculado localmente.</p>
         </Card>
       </div>
 

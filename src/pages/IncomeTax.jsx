@@ -4,8 +4,8 @@ import { Transaction, Account, Category, Investment, Debt } from '../api/entitie
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Select, Input, Badge, Spinner } from '../components/ui';
 import { formatCurrency } from '../lib/utils.js';
-import { DEFAULT_TAX, calcAnual, calcMensal } from '../lib/tax.js';
-import { Landmark, FileText, Calculator, CalendarClock, ClipboardList, Wallet, TrendingUp, Printer, Settings2, Info, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { DEFAULT_TAX, calcAnual, calcMensal, calcRendaVariavel } from '../lib/tax.js';
+import { Landmark, FileText, Calculator, CalendarClock, ClipboardList, Wallet, TrendingUp, Printer, Settings2, Info, CheckCircle2, ArrowUpRight, LineChart, Paperclip } from 'lucide-react';
 
 const LS_KEY = 'monvy_tax_v1';
 const load = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; } };
@@ -17,6 +17,7 @@ const TABS = [
   { id: 'org', label: 'Organizador', icon: ClipboardList },
   { id: 'anual', label: 'Estimativa anual', icon: Calculator },
   { id: 'mensal', label: 'Carnê-Leão', icon: CalendarClock },
+  { id: 'rv', label: 'Renda variável', icon: LineChart },
   { id: 'rel', label: 'Relatório', icon: FileText },
 ];
 
@@ -49,6 +50,7 @@ export default function IncomeTax() {
   const [showCfg, setShowCfg] = useState(false);
   const [anual, setAnual] = useState(saved.anual || { tributavel: '', inss: '', dependentes: 0, saude: '', educacao: '', previdencia: '', pensao: '', outras: '' });
   const [mensal, setMensal] = useState(saved.mensal || { rendimento: '', inss: '', dependentes: 0, despesas: '' });
+  const [rv, setRv] = useState(saved.rv || { acoesVendas: '', acoesGanho: '', acoesPrejuizo: '', daytradeGanho: '', daytradePrejuizo: '', fiiGanho: '', fiiPrejuizo: '', criptoVendas: '', criptoGanho: '' });
 
   const { data: transactions = [], isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
@@ -57,7 +59,7 @@ export default function IncomeTax() {
   const { data: debts = [] } = useQuery({ queryKey: ['debts'], queryFn: () => Debt.list() });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
-  useEffect(() => { save({ year, cfg, anual, mensal }); }, [year, cfg, anual, mensal]);
+  useEffect(() => { save({ year, cfg, anual, mensal, rv }); }, [year, cfg, anual, mensal, rv]);
 
   const years = useMemo(() => {
     const cy = new Date().getFullYear();
@@ -71,21 +73,24 @@ export default function IncomeTax() {
     const rendPorCat = {};
     for (const t of yTx.filter((t) => t.type === 'income')) { const k = catMap[t.category_id]?.name || 'Outros rendimentos'; rendPorCat[k] = (rendPorCat[k] || 0) + Number(t.amount || 0); }
     const ded = { saude: 0, educacao: 0, previdencia: 0, outras: 0 };
+    const dedTx = [];
     for (const t of yTx.filter((t) => t.type === 'expense')) {
       const cat = catMap[t.category_id];
       const marked = cat && cat.ir_deductible; // marcacao manual na categoria tem prioridade
-      if (marked && ded[marked] != null) { ded[marked] += Number(t.amount || 0); continue; }
+      if (marked && ded[marked] != null) { ded[marked] += Number(t.amount || 0); dedTx.push({ ...t, bucket: marked }); continue; }
       if (marked) continue; // categoria explicitamente marcada como algo fora dos buckets
       const name = (cat?.name || '') + ' ' + (t.description || '');
-      for (const k of Object.keys(DEDUCTIBLE)) if (DEDUCTIBLE[k].test(name)) { ded[k] += Number(t.amount || 0); break; }
+      for (const k of Object.keys(DEDUCTIBLE)) if (DEDUCTIBLE[k].test(name)) { ded[k] += Number(t.amount || 0); dedTx.push({ ...t, bucket: k }); break; }
     }
+    const comComprovante = dedTx.filter((t) => t.receipt_url).length;
     const bens = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0) + investments.reduce((s, i) => s + Number(i.current_value || i.invested_amount || 0), 0);
     const dividas = debts.reduce((s, d) => { const rest = Number(d.installment_amount || 0) * Math.max(0, Number(d.installments || 0) - Number(d.paid_installments || 0)); return s + (rest || Number(d.total_amount || 0)); }, 0);
-    return { rendimentos, rendPorCat, ded, bens, dividas, contas: accounts, investimentos: investments };
+    return { rendimentos, rendPorCat, ded, dedTx, comComprovante, bens, dividas, contas: accounts, investimentos: investments };
   }, [transactions, accounts, investments, debts, catMap, year]);
 
   const rAnual = useMemo(() => calcAnual(anual, cfg), [anual, cfg]);
   const rMensal = useMemo(() => calcMensal(mensal, cfg), [mensal, cfg]);
+  const rRv = useMemo(() => calcRendaVariavel(rv, cfg), [rv, cfg]);
 
   const usarDados = () => setAnual((a) => ({ ...a, tributavel: org.rendimentos.toFixed(2), saude: org.ded.saude.toFixed(2), educacao: org.ded.educacao.toFixed(2), previdencia: org.ded.previdencia.toFixed(2), outras: org.ded.outras.toFixed(2) }));
   const setCfgTabela = (key, i, field, val) => setCfg((c) => ({ ...c, [key]: c[key].map((f, j) => j === i ? { ...f, [field]: Number(val) } : f) }));
@@ -169,6 +174,27 @@ export default function IncomeTax() {
             </div>
             <p className="text-xs text-muted mt-3">Marque a dedutibilidade em <b>Categorias</b> (campo "Dedutivel no IR") para precisao total; sem marcacao, o Monvy estima por palavra-chave. Confira os comprovantes antes de declarar.</p>
           </Card>
+          {org.dedTx.length > 0 && (
+            <Card>
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h3 className="font-semibold flex items-center gap-2"><Paperclip className="w-4 h-4 text-sky-500" /> Comprovantes das despesas dedutiveis</h3>
+                <Badge color={org.comComprovante === org.dedTx.length ? 'emerald' : 'amber'}>{org.comComprovante}/{org.dedTx.length} anexados</Badge>
+              </div>
+              <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden mb-3"><div className="h-full rounded-full transition-all bg-sky-500" style={{ width: `${org.dedTx.length ? Math.round(org.comComprovante / org.dedTx.length * 100) : 0}%` }} /></div>
+              <div className="divide-y divide-[hsl(var(--border))] max-h-72 overflow-y-auto">
+                {org.dedTx.sort((a, b) => (a.receipt_url ? 1 : 0) - (b.receipt_url ? 1 : 0)).map((t) => (
+                  <div key={t.id} className="flex items-center gap-2 py-2 text-sm">
+                    <span className="flex-1 min-w-0 truncate">{t.description || catMap[t.category_id]?.name || 'Despesa'} <span className="text-muted text-xs">· {new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')}</span></span>
+                    <span className="font-medium shrink-0">{formatCurrency(t.amount)}</span>
+                    {t.receipt_url
+                      ? <button onClick={() => window.open(t.receipt_url, '_blank')} className="shrink-0 inline-flex items-center gap-1 text-xs text-sky-500 hover:underline"><Paperclip className="w-3 h-3" /> ver</button>
+                      : <Badge color="amber">sem comprovante</Badge>}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted mt-2">Anexe fotos/PDFs de notas e recibos ao editar cada lancamento. A Receita pode pedi-los na malha fina.</p>
+            </Card>
+          )}
         </div>
       )}
 
@@ -230,6 +256,53 @@ export default function IncomeTax() {
             <Stat label="IR do mes (DARF)" value={formatCurrency(rMensal.imposto)} color="text-rose-500" />
             <Stat label="Aliquota efetiva" value={`${rMensal.aliquotaEfetiva.toFixed(2)}%`} />
           </div>
+        </div>
+      )}
+
+      {tab === 'rv' && (
+        <div className="space-y-4">
+          <Card>
+            <h3 className="font-semibold mb-1">Renda variavel — apuracao mensal</h3>
+            <p className="text-xs text-muted mb-3">Informe os resultados do mes por tipo. DARF codigo 6015, ate o ultimo dia util do mes seguinte. Prejuizos acumulados podem compensar ganhos do mesmo tipo.</p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2"><LineChart className="w-4 h-4 text-emerald-500" /> Acoes (mercado a vista)</p>
+                <Field label="Total de vendas no mes" value={rv.acoesVendas} onChange={(v) => setRv((s) => ({ ...s, acoesVendas: v }))} hint={`isento se <= R$ ${cfg.rv.tetoAcoesMensal.toLocaleString('pt-BR')}`} />
+                <Field label="Ganho liquido" value={rv.acoesGanho} onChange={(v) => setRv((s) => ({ ...s, acoesGanho: v }))} />
+                <Field label="Prejuizo acumulado a compensar" value={rv.acoesPrejuizo} onChange={(v) => setRv((s) => ({ ...s, acoesPrejuizo: v }))} />
+              </div>
+              <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2"><TrendingUp className="w-4 h-4 text-rose-500" /> Day-trade ({cfg.rv.aliqDaytrade}%)</p>
+                <Field label="Ganho liquido" value={rv.daytradeGanho} onChange={(v) => setRv((s) => ({ ...s, daytradeGanho: v }))} />
+                <Field label="Prejuizo acumulado a compensar" value={rv.daytradePrejuizo} onChange={(v) => setRv((s) => ({ ...s, daytradePrejuizo: v }))} />
+              </div>
+              <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2"><Wallet className="w-4 h-4 text-indigo-500" /> Fundos imobiliarios ({cfg.rv.aliqFII}%)</p>
+                <Field label="Ganho liquido" value={rv.fiiGanho} onChange={(v) => setRv((s) => ({ ...s, fiiGanho: v }))} />
+                <Field label="Prejuizo acumulado a compensar" value={rv.fiiPrejuizo} onChange={(v) => setRv((s) => ({ ...s, fiiPrejuizo: v }))} />
+              </div>
+              <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2"><ArrowUpRight className="w-4 h-4 text-amber-500" /> Criptoativos</p>
+                <Field label="Total de vendas no mes" value={rv.criptoVendas} onChange={(v) => setRv((s) => ({ ...s, criptoVendas: v }))} hint={`isento se <= R$ ${cfg.rv.tetoCriptoMensal.toLocaleString('pt-BR')}`} />
+                <Field label="Ganho liquido" value={rv.criptoGanho} onChange={(v) => setRv((s) => ({ ...s, criptoGanho: v }))} />
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <h3 className="font-semibold mb-3">Imposto por tipo</h3>
+            <div className="divide-y divide-[hsl(var(--border))]">
+              {rRv.itens.map((it) => (
+                <div key={it.chave} className="flex items-center gap-3 py-2.5 text-sm">
+                  <span className="flex-1">{it.label} <span className="text-muted">· {it.aliq}%</span></span>
+                  {it.isento ? <Badge color="emerald">isento</Badge> : <span className="text-muted">base {formatCurrency(it.base)}</span>}
+                  <span className="font-semibold text-rose-500 w-28 text-right">{formatCurrency(it.imposto)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card className="bg-emerald-500/5 border-emerald-500/30">
+            <div className="flex items-center justify-between"><div><p className="text-xs text-muted">DARF do mes (codigo 6015)</p><p className="font-display text-2xl font-bold text-rose-500">{formatCurrency(rRv.total)}</p></div><Badge color={rRv.total > 0 ? 'rose' : 'emerald'}>{rRv.total > 0 ? 'ha imposto a recolher' : 'nada a recolher'}</Badge></div>
+          </Card>
         </div>
       )}
 

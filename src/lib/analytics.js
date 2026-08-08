@@ -247,6 +247,9 @@ export function computeAlerts({ transactions = [], invoices = [], subscriptions 
   const anomalies = detectAnomalies(transactions, catMap);
   if (anomalies.length) out.push({ id: 'anom', severity: 'warn', kind: 'anomaly', title: `${anomalies.length} gasto(s) atipico(s)`, text: 'Cobrancas fora do padrao detectadas.', path: '/inteligencia' });
 
+  const hikes = detectPriceHikes(transactions);
+  if (hikes.length) out.push({ id: 'hike', severity: 'warn', kind: 'anomaly', title: `${hikes.length} cobranca(s) subiram de preco`, text: `Ex.: ${hikes[0].name} +${hikes[0].changePct}%.`, path: '/inteligencia' });
+
   accounts.forEach((a) => { if (Number(a.current_balance) < 0) out.push({ id: 'neg-' + a.id, severity: 'danger', kind: 'balance', title: `Saldo negativo: ${a.name}`, text: `${num(a.current_balance).toFixed(2)}`, path: '/contas' }); });
 
   const tot = monthTotals(transactions, mk);
@@ -322,6 +325,32 @@ export function detectSubscriptions(transactions, existing = []) {
     }
   }
   return out.sort((a, b) => b.months - a.months).slice(0, 8);
+}
+
+// Detecta cobrancas recorrentes que AUMENTARAM de valor (assinatura/servico que subiu)
+export function detectPriceHikes(transactions) {
+  const norm = (d) => String(d || '').toLowerCase().trim();
+  const median = (arr) => { const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : 0; };
+  const groups = {};
+  for (const t of transactions) {
+    if (t.type !== 'expense' || !t.description) continue;
+    (groups[norm(t.description)] = groups[norm(t.description)] || []).push(t);
+  }
+  const out = [];
+  for (const list of Object.values(groups)) {
+    const sorted = list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const months = new Set(sorted.map((t) => String(t.date).slice(0, 7)));
+    if (months.size < 3) continue; // precisa de historico recorrente
+    const vals = sorted.map((t) => num(t.amount));
+    const last = vals[vals.length - 1];
+    const med = median(vals.slice(0, -1));
+    if (med <= 0) continue;
+    const change = (last - med) / med;
+    if (change >= 0.10 && (last - med) >= 5) { // subiu >=10% e ao menos R$5
+      out.push({ name: sorted[sorted.length - 1].description, from: Math.round(med * 100) / 100, to: Math.round(last * 100) / 100, changePct: Math.round(change * 100), date: String(sorted[sorted.length - 1].date).slice(0, 10), occurrences: sorted.length });
+    }
+  }
+  return out.sort((a, b) => b.changePct - a.changePct).slice(0, 8);
 }
 
 // Combina lancamentos das contas + compras do cartao (como despesas) para analises reais
