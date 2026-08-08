@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button, Input, Select, Field, Modal, Textarea, Spinner } from './ui';
 import { Paperclip, X, FileText, Eye, Building2 } from 'lucide-react';
 import { todayIso } from '../lib/utils.js';
-import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
+import { CategoryRule } from '../api/entities.js';
+import { buildCategoryIndex, predictCategory, matchRule } from '../lib/categoryPredictor.js';
 
 const TYPES = [
   { v: 'expense', label: 'Despesa', cls: 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-500/10' },
@@ -35,6 +37,7 @@ const empty = {
 
 export function TransactionModal({ open, onClose, onSubmit, saving, accounts, categories, transactions = [], initial, defaultType }) {
   const catIndex = useMemo(() => buildCategoryIndex(transactions), [transactions]);
+  const { data: rules = [] } = useQuery({ queryKey: ['catrules'], queryFn: () => CategoryRule.list() });
   const [form, setForm] = useState(empty);
   const [busyReceipt, setBusyReceipt] = useState(false);
   const receiptRef = useRef(null);
@@ -85,7 +88,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
     const v = e.target.value;
     setForm((f) => {
       let cat = f.category_id;
-      if (f.type !== 'transfer' && !cat) { const p = predictCategory(v, catIndex); if (p && categories.some((c) => c.id === p && c.type === f.type)) cat = p; }
+      if (f.type !== 'transfer' && !cat) { const p = matchRule(v, rules, f.type) || predictCategory(v, catIndex); if (p && categories.some((c) => c.id === p && c.type === f.type)) cat = p; }
       return { ...f, description: v, category_id: cat };
     });
   };

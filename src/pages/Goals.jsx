@@ -19,6 +19,25 @@ const CATS = [
 const iconFor = (c) => CATS.find((x) => x.v === c)?.icon || Target;
 const empty = { name: '', category: 'other', target_amount: '', current_amount: 0, monthly_target: '', target_date: '', color: '#10b981' };
 
+// planejamento da meta: quanto guardar/mes e projecao da data no ritmo atual
+function goalPlan(g) {
+  const target = Number(g.target_amount || 0), current = Number(g.current_amount || 0);
+  const remaining = Math.max(0, target - current);
+  const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00');
+  let monthsLeft = null, neededPerMonth = null;
+  if (g.target_date) {
+    const d = new Date(String(g.target_date).slice(0, 10) + 'T00:00');
+    monthsLeft = Math.max(0, (d.getFullYear() - today.getFullYear()) * 12 + (d.getMonth() - today.getMonth()));
+    neededPerMonth = monthsLeft > 0 ? remaining / monthsLeft : remaining;
+  }
+  const monthly = Number(g.monthly_target || 0);
+  let projDate = null;
+  if (monthly > 0 && remaining > 0) { const m = Math.ceil(remaining / monthly); const pd = new Date(today); pd.setMonth(pd.getMonth() + m); projDate = pd; }
+  const onTrack = (neededPerMonth != null && monthly > 0) ? monthly >= neededPerMonth - 0.01 : null;
+  return { remaining, monthsLeft, neededPerMonth, monthly, projDate, onTrack };
+}
+const monthsBetween = (dateStr) => { if (!dateStr) return null; const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00'); const d = new Date(String(dateStr).slice(0, 10) + 'T00:00'); return Math.max(0, (d.getFullYear() - today.getFullYear()) * 12 + (d.getMonth() - today.getMonth())); };
+
 function Ring({ pct, size = 128, stroke = 11 }) {
   const p = Math.min(100, Math.max(0, pct)); const r = (size - stroke) / 2 - 2; const c = 2 * Math.PI * r; const off = c - (p / 100) * c;
   return (
@@ -84,6 +103,7 @@ export default function Goals() {
               const Icon = iconFor(g.category);
               const p = Math.min(100, Math.round((Number(g.current_amount) / Number(g.target_amount || 1)) * 100));
               const completed = g.status === 'completed' || p >= 100;
+              const plan = goalPlan(g);
               return (
                 <Reveal key={g.id} i={i}>
                   <Card className="hover-lift h-full relative overflow-hidden">
@@ -101,6 +121,12 @@ export default function Goals() {
                       <div className="h-2.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${p}%`, background: g.color }} /></div>
                       <p className="text-xs text-muted mt-1">{p}% concluido{g.target_date ? ` · ate ${new Date(g.target_date + 'T00:00').toLocaleDateString('pt-BR')}` : ''}</p>
                     </div>
+                    {!completed && (plan.neededPerMonth != null || plan.projDate) && (
+                      <div className="mt-2 text-[11px] rounded-lg bg-black/5 dark:bg-white/5 p-2 space-y-0.5">
+                        {plan.neededPerMonth != null && <p>Guarde <b className="text-[hsl(var(--text))]">{formatCurrency(plan.neededPerMonth)}/mes</b> para bater{plan.monthsLeft ? ` em ${plan.monthsLeft} mes(es)` : ' ainda este mes'}.</p>}
+                        {plan.projDate && <p className={plan.onTrack === false ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>No ritmo de {formatCurrency(plan.monthly)}/mes: conclui em {plan.projDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}{plan.onTrack === false ? ' (apos o prazo)' : ''}.</p>}
+                      </div>
+                    )}
                     {!completed && <Button size="sm" variant="outline" className="w-full mt-3" onClick={() => { setDeposit(g); setDepValue(''); }}><PiggyBank className="w-4 h-4" /> Depositar</Button>}
                   </Card>
                 </Reveal>
@@ -119,9 +145,18 @@ export default function Goals() {
             <Field label="Ja guardado"><Input type="number" step="0.01" value={form.current_amount} onChange={set('current_amount')} /></Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Meta mensal"><Input type="number" step="0.01" value={form.monthly_target} onChange={set('monthly_target')} /></Field>
+            <Field label="Meta mensal"><Input type="number" step="0.01" value={form.monthly_target} onChange={set('monthly_target')} placeholder="quanto guardar/mes" /></Field>
             <Field label="Data alvo"><Input type="date" value={form.target_date} onChange={set('target_date')} /></Field>
           </div>
+          {form.target_date && Number(form.target_amount) > 0 && (() => {
+            const m = monthsBetween(form.target_date); const rem = Math.max(0, Number(form.target_amount) - Number(form.current_amount || 0)); const need = m > 0 ? rem / m : rem;
+            return (
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-2">
+                <span>Para bater ate {new Date(form.target_date + 'T00:00').toLocaleDateString('pt-BR')} ({m} mes(es)): guarde ~<b>{formatCurrency(need)}/mes</b></span>
+                <button type="button" onClick={() => setForm((f) => ({ ...f, monthly_target: need.toFixed(2) }))} className="text-xs font-semibold underline shrink-0">usar</button>
+              </div>
+            );
+          })()}
         </form>
       </Modal>
 

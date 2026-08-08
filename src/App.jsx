@@ -35,6 +35,9 @@ import TicketsCenter from './pages/TicketsCenter.jsx';
 import Investments from './pages/Investments.jsx';
 import Debts from './pages/Debts.jsx';
 import CashFlow from './pages/CashFlow.jsx';
+import CategoryRules from './pages/CategoryRules.jsx';
+import Fire from './pages/Fire.jsx';
+import Notifications from './pages/Notifications.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
@@ -82,6 +85,9 @@ export default function App() {
         <Route path="/investimentos" element={<Protected screenKey="investments"><Investments /></Protected>} />
         <Route path="/dividas" element={<Protected screenKey="debts"><Debts /></Protected>} />
         <Route path="/fluxo" element={<Protected screenKey="cashflow"><CashFlow /></Protected>} />
+        <Route path="/regras" element={<Protected screenKey="catrules"><CategoryRules /></Protected>} />
+        <Route path="/fire" element={<Protected screenKey="fire"><Fire /></Protected>} />
+        <Route path="/notificacoes" element={<Protected screenKey="notifications"><Notifications /></Protected>} />
         <Route path="/assinaturas" element={<Protected screenKey="subscriptions"><Subscriptions /></Protected>} />
         <Route path="/cofres" element={<Protected screenKey="safes"><VirtualSafes /></Protected>} />
         <Route path="/calendario" element={<Protected screenKey="calendar"><FinancialCalendar /></Protected>} />

@@ -288,6 +288,27 @@ export const SCHEMA_STATEMENTS = [
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS CategoryRule (
+    id TEXT PRIMARY KEY,
+    pattern TEXT NOT NULL,
+    category_id TEXT,
+    tx_type TEXT DEFAULT 'expense',
+    priority INTEGER DEFAULT 0,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS Notification (
+    id TEXT PRIMARY KEY,
+    kind TEXT DEFAULT 'info',
+    title TEXT,
+    text TEXT,
+    path TEXT,
+    read INTEGER DEFAULT 0,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_notif_owner ON Notification(created_by_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_catrule_owner ON CategoryRule(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_inv_owner2 ON Investment(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_debt_owner ON Debt(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_acc_owner ON Account(created_by_id)`,
@@ -346,6 +367,8 @@ export const ENTITIES = {
   Trigger: 'Trigger',
   Investment: 'Investment',
   Debt: 'Debt',
+  CategoryRule: 'CategoryRule',
+  Notification: 'Notification',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)
@@ -367,4 +390,5 @@ export const BOOL_FIELDS = {
   Anomaly: ['is_acknowledged'],
   AppSettings: ['gemini_api_key_configured', 'notifications_enabled', 'auto_categorize'],
   Trigger: ['enabled'],
+  Notification: ['read'],
 };

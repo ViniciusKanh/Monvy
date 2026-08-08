@@ -9,6 +9,9 @@ function baseUrl(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return host ? `${req.headers['x-forwarded-proto'] || 'https'}://${host}` : '';
 }
+async function notify(uid, { kind = 'info', title, text = '', path = '' }) {
+  try { await db().execute({ sql: `INSERT INTO Notification (id,kind,title,text,path,read,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,0,?,?,?)`, args: [newId(), kind, title, text, path, uid, nowIso(), nowIso()] }); } catch {}
+}
 
 // vencimentos (lancamentos pendentes + faturas) ate t3
 async function vencData(uid, t0, t3) {
@@ -133,6 +136,7 @@ export default async function handler(req, res) {
         if (budget.length) body += `<div style="margin-top:16px;font-weight:700;color:#0b1330">Orcamento do mes</div>${itemsTable(budget)}`;
         body += `<div style="margin-top:12px">Acesse o Monvy para conciliar e manter tudo em dia.</div>`;
         await sendMail({ to: u.email, subject: `Monvy — voce tem ${venc.count + budget.length} alerta(s)`, html: tpl('Seus alertas do Monvy ⏰', body) });
+        await notify(u.id, { kind: 'reminder', title: `Voce tem ${venc.count + budget.length} alerta(s) financeiro(s)`, text: 'Vencimentos proximos e/ou orcamento do mes.', path: '/pagamentos' });
         sent++;
       }
     }
@@ -165,7 +169,8 @@ export default async function handler(req, res) {
           if (!pass) continue;
 
           if (c.action === 'email_summary') {
-            await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) }); trig++;
+            await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) });
+            await notify(u.id, { kind: 'summary', title: 'Resumo financeiro disponivel', text: `Gerado pela automacao "${tr.name}".`, path: '/relatorios' }); trig++;
           } else if (c.action === 'email_bills') {
             const venc = await vencData(u.id, t0, t3);
             if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
@@ -183,13 +188,15 @@ export default async function handler(req, res) {
               const admins = (await db().execute(`SELECT email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`)).rows.map((r) => r.email).filter(Boolean);
               if (admins.length) sendMail({ to: admins.join(','), replyTo: u.email, subject: `Chamado automatico #${number}: ${subj}`, html: tpl('Chamado aberto por automacao 🤖', `Uma automacao de <b>${u.full_name || u.email}</b> abriu o chamado <b>#${number} — ${subj}</b>.<br/><br/>${desc.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}`) }).catch(() => {});
               await sendMail({ to: u.email, subject: `Monvy abriu um chamado pra voce: ${subj}`, html: tpl('Abrimos um chamado pra voce 🎫', `${greet}, uma automacao sua identificou algo que merece atencao e abriu o chamado <b>#${number} — ${subj}</b>. Acompanhe e resolva na Central de Tickets.`, { ctaText: 'Ver chamado', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
+              await notify(u.id, { kind: 'ticket', title: `Chamado #${number} aberto por automacao`, text: subj, path: '/chamados' });
               trig++;
             }
           } else { // email_alert
             const subject = (c.subject && c.subject.trim()) || tr.name || 'Alerta Monvy';
             const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
             const body = `${greet},${c.message ? `<br/><br/>${String(c.message).replace(/</g, '&lt;')}` : ''}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
-            await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) }); trig++;
+            await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) });
+            await notify(u.id, { kind: 'alert', title: subject, text: c.message || 'Automacao acionada.', path: '/gatilhos' }); trig++;
           }
         } catch { /* nao quebra os demais */ }
       }

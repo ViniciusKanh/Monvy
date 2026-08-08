@@ -25,3 +25,12 @@ export function predictCategory(desc, idx) {
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
   return best ? best[0] : null;
 }
+
+// Regras deterministicas: "se a descricao contem X -> categoria Y" (prioridade maior primeiro)
+export function matchRule(description, rules, type = 'expense') {
+  const d = String(description || '').toLowerCase();
+  if (!d) return null;
+  const applicable = (rules || []).filter((r) => !r.tx_type || r.tx_type === type).sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  for (const r of applicable) { const p = String(r.pattern || '').toLowerCase().trim(); if (p && d.includes(p)) return r.category_id; }
+  return null;
+}

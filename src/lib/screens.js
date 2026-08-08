@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -21,6 +21,7 @@ export const NAV_GROUPS = [
     label: 'Planejamento',
     items: [
       { key: 'categories', label: 'Categorias', path: '/categorias', icon: Tags },
+      { key: 'catrules', label: 'Regras de Categoria', path: '/regras', icon: Wand2 },
       { key: 'budget', label: 'Orçamento', path: '/orcamento', icon: PiggyBank },
       { key: 'goals', label: 'Metas', path: '/metas', icon: Target },
       { key: 'payments', label: 'Pagar & Receber', path: '/pagamentos', icon: CircleDollarSign },
@@ -44,6 +45,7 @@ export const NAV_GROUPS = [
     label: 'Ferramentas',
     items: [
       { key: 'simulator', label: 'Simulador', path: '/simulador', icon: Calculator },
+      { key: 'fire', label: 'Independencia (FIRE)', path: '/fire', icon: Flame },
       { key: 'market', label: 'Mercado & Indicadores', path: '/mercado', icon: TrendingUp },
       { key: 'reconciliation', label: 'Conciliacao', path: '/conciliacao', icon: GitCompare },
       { key: 'bankImport', label: 'Importar Extrato', path: '/importar', icon: Upload },
@@ -61,6 +63,7 @@ export const NAV_GROUPS = [
     label: 'Sistema',
     items: [
       { key: 'reports', label: 'Relatorios', path: '/relatorios', icon: FileText },
+      { key: 'notifications', label: 'Notificacoes', path: '/notificacoes', icon: Bell },
       { key: 'triggers', label: 'Gatilhos & Automacoes', path: '/gatilhos', icon: Zap },
       { key: 'help', label: 'Ajuda & Suporte', path: '/ajuda', icon: LifeBuoy },
       { key: 'tickets', label: 'Central de Tickets', path: '/chamados', icon: Ticket },

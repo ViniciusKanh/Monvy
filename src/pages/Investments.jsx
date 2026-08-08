@@ -5,8 +5,12 @@ import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency, todayIso } from '../lib/utils.js';
+import { toast } from '../lib/toast.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, LineChart, Landmark, Wallet, Coins, Building2, Bitcoin } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, LineChart, Wallet, Coins, RefreshCw } from 'lucide-react';
+
+// mapa de simbolos cripto -> id CoinGecko (para cotacao automatica, gratis e sem chave)
+const CG = { btc: 'bitcoin', eth: 'ethereum', usdt: 'tether', bnb: 'binancecoin', sol: 'solana', xrp: 'ripple', ada: 'cardano', doge: 'dogecoin', usdc: 'usd-coin', matic: 'matic-network', dot: 'polkadot', ltc: 'litecoin', link: 'chainlink', avax: 'avalanche-2', trx: 'tron', shib: 'shiba-inu', ton: 'the-open-network', bch: 'bitcoin-cash', xlm: 'stellar', near: 'near' };
 
 const TYPES = [
   { v: 'renda_fixa', label: 'Renda fixa', color: '#10b981' },
@@ -33,6 +37,30 @@ export default function Investments() {
   const save = useMutation({ mutationFn: (p) => editing ? Investment.update(editing.id, p) : Investment.create(p), onSuccess: () => { inval(); setModal(false); } });
   const del = useMutation({ mutationFn: (id) => Investment.remove(id), onSuccess: inval });
 
+  const [quoting, setQuoting] = useState(false);
+  const updateQuotes = async () => {
+    const crypto = items.filter((i) => i.type === 'cripto' && Number(i.quantity) > 0 && i.ticker);
+    const stocks = items.filter((i) => (i.type === 'acao' || i.type === 'fii') && Number(i.quantity) > 0 && i.ticker);
+    if (!crypto.length && !stocks.length) { toast.info('Informe tipo (cripto/acao/FII), ticker e quantidade nas aplicacoes para atualizar automaticamente.'); return; }
+    setQuoting(true); let updated = 0, failed = 0;
+    try {
+      if (crypto.length) {
+        const idFor = (t) => CG[String(t).toLowerCase()] || String(t).toLowerCase();
+        const ids = [...new Set(crypto.map((i) => idFor(i.ticker)))];
+        const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=brl`);
+        if (r.ok) { const px = await r.json(); for (const i of crypto) { const price = px[idFor(i.ticker)]?.brl; if (price) { await Investment.update(i.id, { current_value: Number(i.quantity) * price }); updated++; } else failed++; } } else failed += crypto.length;
+      }
+      if (stocks.length) {
+        try {
+          const r = await fetch(`https://brapi.dev/api/quote/${stocks.map((i) => i.ticker).join(',')}`);
+          if (r.ok) { const d = await r.json(); const map = Object.fromEntries((d.results || []).map((x) => [String(x.symbol).toUpperCase(), x.regularMarketPrice])); for (const i of stocks) { const price = map[String(i.ticker).toUpperCase()]; if (price) { await Investment.update(i.id, { current_value: Number(i.quantity) * price }); updated++; } else failed++; } } else failed += stocks.length;
+        } catch { failed += stocks.length; }
+      }
+      inval();
+      toast.success(`${updated} cotacao(oes) atualizada(s)${failed ? `. ${failed} nao encontrada(s) — confira o ticker.` : '.'}`);
+    } catch { toast.error('Falha ao buscar cotacoes'); } finally { setQuoting(false); }
+  };
+
   const invested = items.reduce((s, i) => s + Number(i.invested_amount || 0), 0);
   const current = items.reduce((s, i) => s + Number(i.current_value || 0), 0);
   const profit = current - invested;
@@ -58,7 +86,7 @@ export default function Investments() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><LineChart className="w-6 h-6 text-indigo-500" /> Investimentos & Patrimonio</span>}
         subtitle="Acompanhe suas aplicacoes e o seu patrimonio liquido"
-        actions={<Button onClick={openNew}><Plus className="w-4 h-4" /> Novo investimento</Button>} />
+        actions={<div className="flex gap-2"><Button variant="outline" onClick={updateQuotes} disabled={quoting}>{quoting ? <Spinner className="w-4 h-4" /> : <><RefreshCw className="w-4 h-4" /> Atualizar cotacoes</>}</Button><Button onClick={openNew}><Plus className="w-4 h-4" /> Novo investimento</Button></div>} />
 
       {/* Patrimonio liquido */}
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10" style={{ background: 'linear-gradient(135deg,#0b1330 0%,#1e1b4b 55%,#312e81 100%)' }}>
@@ -133,10 +161,12 @@ export default function Investments() {
             <Field label="Valor investido (R$)"><Input type="number" step="0.01" value={form.invested_amount} onChange={(e) => set('invested_amount', e.target.value)} placeholder="0,00" /></Field>
             <Field label="Valor atual (R$)" hint="Deixe vazio = igual ao investido"><Input type="number" step="0.01" value={form.current_value} onChange={(e) => set('current_value', e.target.value)} placeholder="0,00" /></Field>
           </div>
+          <Field label="Instituicao"><Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Ex: Nubank, XP..." /></Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Instituicao"><Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Ex: Nubank, XP..." /></Field>
-            <Field label="Ticker / codigo (opcional)"><Input value={form.ticker} onChange={(e) => set('ticker', e.target.value)} placeholder="Ex: PETR4, MXRF11" /></Field>
+            <Field label="Ticker / simbolo"><Input value={form.ticker} onChange={(e) => set('ticker', e.target.value)} placeholder="Ex: BTC, PETR4, MXRF11" /></Field>
+            <Field label="Quantidade"><Input type="number" step="0.00000001" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="0" /></Field>
           </div>
+          {(form.type === 'cripto' || form.type === 'acao' || form.type === 'fii') && <p className="text-xs text-muted flex items-center gap-1.5"><RefreshCw className="w-3.5 h-3.5" /> Com ticker e quantidade, o botao "Atualizar cotacoes" busca o preco e recalcula o valor atual automaticamente (cripto via CoinGecko; acoes/FIIs via brapi).</p>}
         </form>
       </Modal>
     </div>

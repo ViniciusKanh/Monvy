@@ -31,6 +31,8 @@ export const Safe = makeEntity('Safe');
 export const Trigger = makeEntity('Trigger');
 export const Investment = makeEntity('Investment');
 export const Debt = makeEntity('Debt');
+export const CategoryRule = makeEntity('CategoryRule');
+export const Notification = makeEntity('Notification');
 
 export const Auth = {
   login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),

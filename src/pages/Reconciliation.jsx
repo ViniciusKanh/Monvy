@@ -1,19 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Transaction, Account, Category } from '../api/entities.js';
+import { Transaction, Account, Category, CategoryRule } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Badge, Select, Spinner, EmptyState } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import { formatCurrency, todayIso, monthKey } from '../lib/utils.js';
 import { GitCompare, CheckCircle2, AlertTriangle, Copy, Tag, Wand2, ArrowUpRight, ArrowDownRight, ArrowLeftRight, Trash2, Check, Sparkles, ListChecks } from 'lucide-react';
-import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
+import { buildCategoryIndex, predictCategory, matchRule } from '../lib/categoryPredictor.js';
 
 export default function Reconciliation() {
   const qc = useQueryClient();
   const { data: transactions = [], isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
+  const { data: rules = [] } = useQuery({ queryKey: ['catrules'], queryFn: () => CategoryRule.list() });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
   const accMap = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
   const today = todayIso();
@@ -98,7 +99,7 @@ export default function Reconciliation() {
     setBusy(true);
     try {
       const idx = buildCategoryIndex(transactions); let done = 0;
-      for (const t of uncategorized) { const p = predictCategory(t.description, idx); if (p && catMap[p] && catMap[p].type === (t.type === 'income' ? 'income' : 'expense')) { await Transaction.update(t.id, { category_id: p }); done++; } }
+      for (const t of uncategorized) { const p = matchRule(t.description, rules, t.type) || predictCategory(t.description, idx); if (p && catMap[p] && catMap[p].type === (t.type === 'income' ? 'income' : 'expense')) { await Transaction.update(t.id, { category_id: p }); done++; } }
       inval();
       toast.success(done ? `${done} lancamento(s) categorizado(s).` : 'Historico insuficiente para inferir categorias.');
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
