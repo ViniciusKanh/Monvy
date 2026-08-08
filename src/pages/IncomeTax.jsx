@@ -70,9 +70,13 @@ export default function IncomeTax() {
     const rendimentos = yTx.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount || 0), 0);
     const rendPorCat = {};
     for (const t of yTx.filter((t) => t.type === 'income')) { const k = catMap[t.category_id]?.name || 'Outros rendimentos'; rendPorCat[k] = (rendPorCat[k] || 0) + Number(t.amount || 0); }
-    const ded = { saude: 0, educacao: 0, previdencia: 0 };
+    const ded = { saude: 0, educacao: 0, previdencia: 0, outras: 0 };
     for (const t of yTx.filter((t) => t.type === 'expense')) {
-      const name = (catMap[t.category_id]?.name || '') + ' ' + (t.description || '');
+      const cat = catMap[t.category_id];
+      const marked = cat && cat.ir_deductible; // marcacao manual na categoria tem prioridade
+      if (marked && ded[marked] != null) { ded[marked] += Number(t.amount || 0); continue; }
+      if (marked) continue; // categoria explicitamente marcada como algo fora dos buckets
+      const name = (cat?.name || '') + ' ' + (t.description || '');
       for (const k of Object.keys(DEDUCTIBLE)) if (DEDUCTIBLE[k].test(name)) { ded[k] += Number(t.amount || 0); break; }
     }
     const bens = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0) + investments.reduce((s, i) => s + Number(i.current_value || i.invested_amount || 0), 0);
@@ -83,7 +87,7 @@ export default function IncomeTax() {
   const rAnual = useMemo(() => calcAnual(anual, cfg), [anual, cfg]);
   const rMensal = useMemo(() => calcMensal(mensal, cfg), [mensal, cfg]);
 
-  const usarDados = () => setAnual((a) => ({ ...a, tributavel: org.rendimentos.toFixed(2), saude: org.ded.saude.toFixed(2), educacao: org.ded.educacao.toFixed(2), previdencia: org.ded.previdencia.toFixed(2) }));
+  const usarDados = () => setAnual((a) => ({ ...a, tributavel: org.rendimentos.toFixed(2), saude: org.ded.saude.toFixed(2), educacao: org.ded.educacao.toFixed(2), previdencia: org.ded.previdencia.toFixed(2), outras: org.ded.outras.toFixed(2) }));
   const setCfgTabela = (key, i, field, val) => setCfg((c) => ({ ...c, [key]: c[key].map((f, j) => j === i ? { ...f, [field]: Number(val) } : f) }));
 
   if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
@@ -147,7 +151,7 @@ export default function IncomeTax() {
             <Stat label="Rendimentos tributaveis" value={formatCurrency(org.rendimentos)} color="text-emerald-500" icon={ArrowUpRight} />
             <Stat label="Bens e direitos" value={formatCurrency(org.bens)} icon={Wallet} />
             <Stat label="Dividas e onus" value={formatCurrency(org.dividas)} color="text-rose-500" icon={Landmark} />
-            <Stat label="Desp. dedutiveis (estim.)" value={formatCurrency(org.ded.saude + org.ded.educacao + org.ded.previdencia)} color="text-indigo-500" icon={TrendingUp} />
+            <Stat label="Desp. dedutiveis" value={formatCurrency(org.ded.saude + org.ded.educacao + org.ded.previdencia + org.ded.outras)} color="text-indigo-500" icon={TrendingUp} />
           </div>
           <Card>
             <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Rendimentos por fonte — {year}</h3><Badge color="emerald">{Object.keys(org.rendPorCat).length} fonte(s)</Badge></div>
@@ -157,13 +161,13 @@ export default function IncomeTax() {
               ))}</div>}
           </Card>
           <Card>
-            <h3 className="font-semibold mb-3">Despesas dedutiveis identificadas (estimativa)</h3>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              {[['Saude', org.ded.saude], ['Educacao', org.ded.educacao], ['Previdencia', org.ded.previdencia]].map(([k, v]) => (
+            <h3 className="font-semibold mb-3">Despesas dedutiveis identificadas</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+              {[['Saude', org.ded.saude], ['Educacao', org.ded.educacao], ['Previdencia', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-black/5 dark:bg-white/5 py-3"><p className="text-xs text-muted">{k}</p><p className="font-semibold">{formatCurrency(v)}</p></div>
               ))}
             </div>
-            <p className="text-xs text-muted mt-3">Estimado por palavra-chave nas categorias/descricoes. Confira os comprovantes antes de declarar.</p>
+            <p className="text-xs text-muted mt-3">Marque a dedutibilidade em <b>Categorias</b> (campo "Dedutivel no IR") para precisao total; sem marcacao, o Monvy estima por palavra-chave. Confira os comprovantes antes de declarar.</p>
           </Card>
         </div>
       )}
@@ -250,8 +254,8 @@ export default function IncomeTax() {
               {org.contas.map((a) => (<div key={a.id} className="flex justify-between py-1.5 text-sm"><span>{a.name}</span><span className="font-medium">{formatCurrency(a.current_balance || 0)}</span></div>))}
               {org.investimentos.map((i) => (<div key={i.id} className="flex justify-between py-1.5 text-sm"><span>{i.name} (investimento)</span><span className="font-medium">{formatCurrency(i.current_value || i.invested_amount || 0)}</span></div>))}
             </div>
-            <h4 className="font-semibold mt-4 mb-1">Despesas dedutiveis (estimativa)</h4>
-            <div className="divide-y divide-[hsl(var(--border))]">{[['Saude', org.ded.saude], ['Educacao', org.ded.educacao], ['Previdencia', org.ded.previdencia]].map(([k, v]) => (<div key={k} className="flex justify-between py-1.5 text-sm"><span>{k}</span><span className="font-medium">{formatCurrency(v)}</span></div>))}</div>
+            <h4 className="font-semibold mt-4 mb-1">Despesas dedutiveis</h4>
+            <div className="divide-y divide-[hsl(var(--border))]">{[['Saude', org.ded.saude], ['Educacao', org.ded.educacao], ['Previdencia', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (<div key={k} className="flex justify-between py-1.5 text-sm"><span>{k}</span><span className="font-medium">{formatCurrency(v)}</span></div>))}</div>
           </Card>
         </div>
       )}

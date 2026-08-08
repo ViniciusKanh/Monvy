@@ -40,6 +40,7 @@ export const SCHEMA_STATEMENTS = [
     color TEXT DEFAULT '#18A558',
     icon TEXT DEFAULT 'tag',
     budget_limit REAL,
+    ir_deductible TEXT DEFAULT '',
     is_active INTEGER DEFAULT 1,
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
@@ -346,6 +347,7 @@ export const MIGRATIONS = [
   { id: '010_trigger_config', statements: [`ALTER TABLE Trigger ADD COLUMN config TEXT`] },
   { id: '011_tx_reconciled', statements: [`ALTER TABLE "Transaction" ADD COLUMN reconciled INTEGER DEFAULT 0`] },
   { id: '012_ticket_number', statements: [`ALTER TABLE SupportTicket ADD COLUMN number INTEGER`] },
+  { id: '013_category_ir_deductible', statements: [`ALTER TABLE Category ADD COLUMN ir_deductible TEXT DEFAULT ''`] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);

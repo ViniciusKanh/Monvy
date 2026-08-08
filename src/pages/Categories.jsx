@@ -8,7 +8,9 @@ import { formatCurrency, monthKey, inMonth } from '../lib/utils.js';
 import { Plus, Tags, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e', '#64748b'];
-const emptyForm = { name: '', type: 'expense', color: '#10b981', budget_limit: '' };
+const emptyForm = { name: '', type: 'expense', color: '#10b981', budget_limit: '', ir_deductible: '' };
+const IR_OPTS = [['', 'Nao dedutivel'], ['saude', 'Saude'], ['educacao', 'Educacao'], ['previdencia', 'Previdencia'], ['outras', 'Outras deducoes']];
+const IR_LABEL = Object.fromEntries(IR_OPTS);
 
 export default function Categories() {
   const qc = useQueryClient();
@@ -26,9 +28,9 @@ export default function Categories() {
   const del = useMutation({ mutationFn: (id) => Category.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }) });
 
   const openNew = () => { setEditing(null); setForm({ ...emptyForm, type: tab }); setModal(true); };
-  const openEdit = (c) => { setEditing(c); setForm({ name: c.name, type: c.type, color: c.color, budget_limit: c.budget_limit ?? '' }); setModal(true); };
+  const openEdit = (c) => { setEditing(c); setForm({ name: c.name, type: c.type, color: c.color, budget_limit: c.budget_limit ?? '', ir_deductible: c.ir_deductible || '' }); setModal(true); };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const submit = (e) => { e.preventDefault(); save.mutate({ ...form, budget_limit: form.budget_limit === '' ? null : Number(form.budget_limit) }); };
+  const submit = (e) => { e.preventDefault(); save.mutate({ ...form, budget_limit: form.budget_limit === '' ? null : Number(form.budget_limit), ir_deductible: form.type === 'expense' ? form.ir_deductible : '' }); };
 
   const mk = monthKey(new Date());
   const spent = useMemo(() => {
@@ -73,7 +75,7 @@ export default function Categories() {
                       <div className="flex items-center gap-3">
                         <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: c.color }}><Tags className="w-5 h-5" /></span>
                         <div>
-                          <p className="font-semibold">{c.name}</p>
+                          <p className="font-semibold flex items-center gap-1.5">{c.name}{c.ir_deductible && <Badge color="indigo">IR: {IR_LABEL[c.ir_deductible]}</Badge>}</p>
                           <p className="text-xs text-muted">{formatCurrency(sp)} este mes</p>
                         </div>
                       </div>
@@ -101,6 +103,7 @@ export default function Categories() {
           <Field label="Nome"><Input required value={form.name} onChange={set('name')} placeholder="Ex: Alimentacao" /></Field>
           <Field label="Tipo"><Select value={form.type} onChange={set('type')}><option value="expense">Despesa</option><option value="income">Receita</option></Select></Field>
           {form.type === 'expense' && <Field label="Limite mensal (opcional)"><Input type="number" step="0.01" value={form.budget_limit} onChange={set('budget_limit')} placeholder="0,00" /></Field>}
+          {form.type === 'expense' && <Field label="Dedutivel no Imposto de Renda"><Select value={form.ir_deductible} onChange={set('ir_deductible')}>{IR_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>}
           <Field label="Cor">
             <div className="flex gap-2 flex-wrap">{COLORS.map((c) => <button key={c} type="button" onClick={() => setForm((f) => ({ ...f, color: c }))} className={`w-8 h-8 rounded-full border-2 transition ${form.color === c ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />)}</div>
           </Field>
