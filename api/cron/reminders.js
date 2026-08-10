@@ -69,8 +69,8 @@ async function invoicesDue(uid, tN) {
 // ---- motor de regras (condicoes) ----
 const opTest = (op, a, b) => ({ lt: a < b, lte: a <= b, gt: a > b, gte: a >= b, eq: Math.abs(a - b) < 0.005 }[op] ?? false);
 const OP_LABEL = { lt: 'menor que', lte: 'menor ou igual a', gt: 'maior que', gte: 'maior ou igual a', eq: 'igual a' };
-const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos' };
-const METRIC_UNIT = { savings_rate: '%', pending_count: 'un' };
+const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos', net_worth: 'Patrimonio liquido', open_tickets: 'Chamados em aberto', debt_monthly: 'Parcelas de dividas/mes' };
+const METRIC_UNIT = { savings_rate: '%', pending_count: 'un', open_tickets: 'un' };
 const fmtMetric = (metric, v) => { const u = METRIC_UNIT[metric]; if (u === '%') return `${Number(v).toFixed(0)}%`; if (u === 'un') return String(Math.round(v)); return brl(v); };
 async function categorySpend(uid, ym, catId) {
   if (!catId) return 0;
@@ -80,6 +80,20 @@ async function categorySpend(uid, ym, catId) {
 }
 async function pendingCount(uid, t0) {
   return Number((await db().execute({ sql: `SELECT COUNT(*) n FROM "Transaction" WHERE created_by_id=? AND type!='transfer' AND (is_deleted IS NULL OR is_deleted=0) AND status='pending' AND substr(date,1,10)<=?`, args: [uid, t0] })).rows[0]?.n || 0);
+}
+async function debtMonthlyOf(uid) {
+  const rows = (await db().execute({ sql: `SELECT installment_amount, installments, paid_installments FROM Debt WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0)`, args: [uid] })).rows;
+  return rows.reduce((s, d) => (Number(d.installments || 0) - Number(d.paid_installments || 0) > 0 ? s + Number(d.installment_amount || 0) : s), 0);
+}
+async function netWorthOf(uid) {
+  const bal = await totalBalanceOf(uid);
+  const inv = Number((await db().execute({ sql: `SELECT COALESCE(SUM(COALESCE(current_value,invested_amount,0)),0) t FROM Investment WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0)`, args: [uid] })).rows[0]?.t || 0);
+  const dRows = (await db().execute({ sql: `SELECT installment_amount, installments, paid_installments, total_amount FROM Debt WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0)`, args: [uid] })).rows;
+  const debt = dRows.reduce((s, d) => { const rest = Number(d.installment_amount || 0) * Math.max(0, Number(d.installments || 0) - Number(d.paid_installments || 0)); return s + (rest || Number(d.total_amount || 0)); }, 0);
+  return bal + inv - debt;
+}
+async function openTicketsOf(uid) {
+  return Number((await db().execute({ sql: `SELECT COUNT(*) n FROM SupportTicket WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [uid] })).rows[0]?.n || 0);
 }
 
 // panorama financeiro do mes (para gatilho de resumo)
@@ -150,7 +164,7 @@ export default async function handler(req, res) {
 
       // contexto do usuario (calculado uma vez)
       const rr = await monthRate(u.id, ym);
-      const ctx = { total_balance: await totalBalanceOf(u.id), month_income: rr.inc, month_expense: rr.exp, month_balance: rr.inc - rr.exp, savings_rate: rr.rate, pending_count: await pendingCount(u.id, t0) };
+      const ctx = { total_balance: await totalBalanceOf(u.id), month_income: rr.inc, month_expense: rr.exp, month_balance: rr.inc - rr.exp, savings_rate: rr.rate, pending_count: await pendingCount(u.id, t0), net_worth: await netWorthOf(u.id), open_tickets: await openTicketsOf(u.id), debt_monthly: await debtMonthlyOf(u.id) };
       const greet = `Ola${u.full_name ? ' ' + u.full_name : ''}`;
 
       for (const tr of dueToday) {
@@ -191,6 +205,10 @@ export default async function handler(req, res) {
               await notify(u.id, { kind: 'ticket', title: `Chamado #${number} aberto por automacao`, text: subj, path: '/chamados' });
               trig++;
             }
+          } else if (c.action === 'notify') {
+            const title = (c.subject && c.subject.trim()) || tr.name || 'Aviso do Monvy';
+            const rows = evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ');
+            await notify(u.id, { kind: 'alert', title, text: c.message || rows || 'Automacao acionada.', path: '/gatilhos' }); trig++;
           } else { // email_alert
             const subject = (c.subject && c.subject.trim()) || tr.name || 'Alerta Monvy';
             const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));

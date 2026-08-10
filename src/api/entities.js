@@ -33,6 +33,7 @@ export const Investment = makeEntity('Investment');
 export const Debt = makeEntity('Debt');
 export const CategoryRule = makeEntity('CategoryRule');
 export const Notification = makeEntity('Notification');
+export const BankRate = makeEntity('BankRate');
 
 export const Auth = {
   login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),
@@ -58,6 +59,7 @@ export const Support = {
   createTicket: (data) => api.post('/api/support/tickets', { op: 'create', ...data }),
   replyTicket: (data) => api.post('/api/support/tickets', { op: 'reply', ...data }),
   setTicketStatus: (id, data) => api.post('/api/support/tickets', { op: 'status', id, ...data }),
+  deleteTicket: (id) => api.post('/api/support/tickets', { op: 'delete', id }),
   updateTicket: (id, data) => api.post('/api/support/tickets', { op: 'meta', id, ...data }),
   config: () => api.post('/api/support/config', { op: 'get' }),
   saveConfig: (data) => api.post('/api/support/config', { op: 'save', ...data }),

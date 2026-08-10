@@ -66,6 +66,9 @@ export default function TicketsCenter() {
   const counts = useMemo(() => { const m = {}; for (const t of tickets) m[t.status] = (m[t.status] || 0) + 1; return m; }, [tickets]);
   const openCount = tickets.filter((t) => !stOf(t.status).final).length;
 
+  const delTicket = useMutation({ mutationFn: (id) => Support.deleteTicket(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); toast.success('Chamado excluido. Um e-mail de aviso foi enviado.'); }, onError: (e) => toast.error(e.message || 'Falha ao excluir') });
+  const confirmDel = (t) => { if (window.confirm(`Excluir o chamado #${t.number || ''} — ${t.subject}? Um e-mail de aviso sera enviado. Esta acao nao pode ser desfeita.`)) delTicket.mutate(t.id); };
+
   return (
     <div className="space-y-5 animate-fadeIn">
       <PageHeader
@@ -99,19 +102,20 @@ export default function TicketsCenter() {
           <div className="space-y-2">
             {shown.map((t, i) => (
               <Reveal key={t.id} i={Math.min(i, 10)}>
-                <button onClick={() => setOpenId(t.id)} className="w-full text-left">
-                  <Card className="py-3 hover-lift">
-                    <div className="flex items-center gap-3">
+                <Card className="py-3 hover-lift">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setOpenId(t.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                       <span className="font-mono text-xs text-muted shrink-0 w-14">#{t.number || '—'}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{t.subject}</p>
                         <p className="text-xs text-muted truncate">{t.category || 'Sem categoria'}{isAdmin ? ` · ${t.user_name || t.user_email}` : ''} · aberto {fmtDate(t.created_date)}</p>
                       </div>
-                      {isAdmin && t.priority && t.priority !== 'normal' && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: (t.priority === 'urgente' ? HEX.rose : HEX.amber) + '22', color: t.priority === 'urgente' ? HEX.rose : HEX.amber }}>{t.priority}</span>}
-                      <StatusChip st={stOf(t.status)} />
-                    </div>
-                  </Card>
-                </button>
+                    </button>
+                    {isAdmin && t.priority && t.priority !== 'normal' && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0" style={{ background: (t.priority === 'urgente' ? HEX.rose : HEX.amber) + '22', color: t.priority === 'urgente' ? HEX.rose : HEX.amber }}>{t.priority}</span>}
+                    <StatusChip st={stOf(t.status)} />
+                    <button onClick={(e) => { e.stopPropagation(); confirmDel(t); }} title="Excluir chamado" className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 shrink-0"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </Card>
               </Reveal>
             ))}
           </div>

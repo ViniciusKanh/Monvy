@@ -152,6 +152,29 @@ export default async function handler(req, res) {
         if (!final && wasFinal && !isAdmin) { const admins = await adminEmails(); if (admins.length) sendMail({ to: admins.join(','), replyTo: t.user_email, subject: `Chamado #${t.number || ''} reaberto: ${t.subject}`, html: tpl('Um chamado foi reaberto 🔁', `O usuario <b>${t.user_name || t.user_email}</b> reabriu o chamado <b>#${t.number || ''} — ${t.subject}</b>.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {}); }
         return sendJson(res, 200, { ok: true });
       }
+      if (op === 'delete') {
+        const t = (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE id=?`, args: [body.id] })).rows[0];
+        if (!t) return sendJson(res, 404, { error: 'Chamado nao encontrado' });
+        if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
+        await db().execute({ sql: `UPDATE SupportTicket SET is_deleted=1, updated_date=? WHERE id=?`, args: [nowIso(), body.id] });
+        const when = new Date().toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' });
+        const quem = u.full_name || u.email;
+        const detalhe = `
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px">
+            <tr><td style="padding:6px 0;color:#64748b">Chamado</td><td style="padding:6px 0;text-align:right;font-weight:700">#${t.number || ''} — ${String(t.subject || '').replace(/</g, '&lt;')}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Categoria</td><td style="padding:6px 0;text-align:right">${t.category || 'Duvida'}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Prioridade</td><td style="padding:6px 0;text-align:right">${t.priority || 'normal'}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Aberto por</td><td style="padding:6px 0;text-align:right">${t.user_name || t.user_email || '-'}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Excluido por</td><td style="padding:6px 0;text-align:right">${quem}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Data da exclusao</td><td style="padding:6px 0;text-align:right">${when}</td></tr>
+          </table>`;
+        const html = tpl('Um chamado foi excluido 🗑️', `O chamado abaixo foi <b>removido</b> da Central de Tickets. Este e um aviso automatico para manter o historico rastreavel.${detalhe}`, { ctaText: 'Ver a Central de Tickets', ctaUrl: `${baseUrl(req)}/chamados`, footerNote: 'exclusao registrada automaticamente pelo Monvy.' });
+        const destinatarios = new Set();
+        if (t.user_email) destinatarios.add(t.user_email);
+        for (const a of await adminEmails()) destinatarios.add(a);
+        if (destinatarios.size) sendMail({ to: [...destinatarios].join(','), subject: `Chamado #${t.number || ''} excluido: ${t.subject}`, html }).catch(() => {});
+        return sendJson(res, 200, { ok: true });
+      }
       return sendJson(res, 400, { error: 'Operacao invalida' });
     }
 

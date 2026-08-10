@@ -308,6 +308,17 @@ export const SCHEMA_STATEMENTS = [
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS BankRate (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT DEFAULT 'imovel',
+    rate_month REAL DEFAULT 0,
+    max_ltv REAL,
+    notes TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_bankrate_owner ON BankRate(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notif_owner ON Notification(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_catrule_owner ON CategoryRule(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_inv_owner2 ON Investment(created_by_id)`,
@@ -371,6 +382,7 @@ export const ENTITIES = {
   Debt: 'Debt',
   CategoryRule: 'CategoryRule',
   Notification: 'Notification',
+  BankRate: 'BankRate',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)

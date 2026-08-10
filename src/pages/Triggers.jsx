@@ -17,12 +17,16 @@ const METRICS = [
   { k: 'savings_rate', label: 'Taxa de poupanca do mes', unit: '%' },
   { k: 'category_spend', label: 'Gasto em uma categoria (mes)', unit: 'R$', needsCategory: true },
   { k: 'pending_count', label: 'Lancamentos vencidos nao pagos', unit: 'un' },
+  { k: 'net_worth', label: 'Patrimonio liquido (contas + invest. - dividas)', unit: 'R$' },
+  { k: 'debt_monthly', label: 'Parcelas de dividas por mes', unit: 'R$' },
+  { k: 'open_tickets', label: 'Chamados em aberto', unit: 'un' },
 ];
 const mInfo = (k) => METRICS.find((m) => m.k === k) || METRICS[0];
 const OPS = [{ k: 'lt', label: 'menor que' }, { k: 'lte', label: 'menor ou igual a' }, { k: 'gt', label: 'maior que' }, { k: 'gte', label: 'maior ou igual a' }, { k: 'eq', label: 'igual a' }];
 const opLabel = (k) => (OPS.find((o) => o.k === k) || OPS[0]).label;
 const ACTIONS = [
   { k: 'email_alert', label: 'Enviar alerta por e-mail', desc: 'Manda um e-mail com sua mensagem e os valores avaliados.' },
+  { k: 'notify', label: 'Notificar dentro do app', desc: 'Cria uma notificacao no sino e na tela de Notificacoes (sem e-mail).' },
   { k: 'open_ticket', label: 'Abrir um chamado', desc: 'Cria um chamado (ticket) pra voce resolver, na categoria escolhida.' },
   { k: 'email_summary', label: 'Enviar resumo financeiro', desc: 'Panorama completo: saldo, receitas, despesas e poupanca.' },
   { k: 'email_bills', label: 'Enviar vencimentos proximos', desc: 'Lista as contas e faturas a vencer nos proximos dias.' },
@@ -190,7 +194,7 @@ export default function Triggers() {
             <div className="flex items-center gap-2 mb-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-sm font-medium flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Acao</span></div>
             <Select value={cfg.action} onChange={(e) => setC('action', e.target.value)}>{ACTIONS.map((a) => <option key={a.k} value={a.k}>{a.label}</option>)}</Select>
             <p className="text-xs text-muted mt-1">{ACTIONS.find((a) => a.k === cfg.action)?.desc}</p>
-            {(cfg.action === 'email_alert' || cfg.action === 'open_ticket') && (
+            {(cfg.action === 'email_alert' || cfg.action === 'open_ticket' || cfg.action === 'notify') && (
               <div className="mt-2 space-y-2">
                 {cfg.action === 'open_ticket' && (
                   <Select value={cfg.ticketCategory || ''} onChange={(e) => setC('ticketCategory', e.target.value)}>
