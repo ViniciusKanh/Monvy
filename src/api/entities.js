@@ -87,5 +87,5 @@ export const Admin = {
   saveMail: (data) => api.put('/api/admin/mail', data),
   testMail: (to) => api.post('/api/admin/mail', { to }),
   getDefaultScreens: () => api.get('/api/admin/defaults'),
-  saveDefaultScreens: (screens) => api.put('/api/admin/defaults', { screens }),
+  saveDefaultScreens: (screens) => api.post('/api/admin/defaults', { screens }),
 };

@@ -53,6 +53,7 @@ export function requireAuth(req, res) {
 
 export async function readBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
+  if (typeof req.body === 'string') { try { return req.body ? JSON.parse(req.body) : {}; } catch { return {}; } }
   return new Promise((resolve) => {
     let data = '';
     req.on('data', (c) => (data += c));
@@ -60,5 +61,6 @@ export async function readBody(req) {
       try { resolve(data ? JSON.parse(data) : {}); }
       catch { resolve({}); }
     });
+    req.on('error', () => resolve({}));
   });
 }

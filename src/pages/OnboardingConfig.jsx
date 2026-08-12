@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Admin } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Spinner, Badge } from '../components/ui';
@@ -12,20 +12,23 @@ const GROUPS = NAV_GROUPS.map((g) => ({ label: g.label, items: g.items.filter((i
 const ALL_KEYS = GROUPS.flatMap((g) => g.items.map((i) => i.key));
 
 export default function OnboardingConfig() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ['default-screens'], queryFn: () => Admin.getDefaultScreens() });
   const [sel, setSel] = useState(null);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    if (data) setSel(Array.isArray(data.screens) && data.screens.length ? data.screens : ALL_KEYS);
-  }, [data]);
+    if (data && sel === null) setSel(Array.isArray(data.screens) && data.screens.length ? data.screens : ALL_KEYS);
+  }, [data, sel]);
 
   const save = useMutation({
     mutationFn: () => Admin.saveDefaultScreens(sel),
-    onSuccess: () => toast.success('Padrao salvo! Novos usuarios ja recebem essas telas.'),
+    onSuccess: (r) => { setDirty(false); qc.setQueryData(['default-screens'], { screens: r?.screens || sel }); toast.success('Padrao salvo! Novos usuarios ja recebem essas telas.'); },
     onError: (e) => toast.error(e.message || 'Falha ao salvar'),
   });
 
-  const toggle = (k) => setSel((s) => s.includes(k) ? s.filter((x) => x !== k) : [...s, k]);
+  const toggle = (k) => { setDirty(true); setSel((s) => s.includes(k) ? s.filter((x) => x !== k) : [...s, k]); };
+  const setAll = (v) => { setDirty(true); setSel(v); };
   const count = sel?.length || 0;
   const allOn = useMemo(() => count === ALL_KEYS.length, [count]);
 
@@ -36,7 +39,7 @@ export default function OnboardingConfig() {
       <PageHeader
         title={<span className="flex items-center gap-2"><UserPlus className="w-6 h-6 text-emerald-500" /> Onboarding de novos usuarios</span>}
         subtitle="Defina as telas que cada novo usuario recebe automaticamente ao se cadastrar"
-        actions={<Button onClick={() => save.mutate()} disabled={save.isPending || count === 0}>{save.isPending ? <Spinner className="w-4 h-4" /> : <><Check className="w-4 h-4" /> Salvar padrao</>}</Button>}
+        actions={<Button onClick={() => save.mutate()} disabled={save.isPending || count === 0}>{save.isPending ? <Spinner className="w-4 h-4" /> : <><Check className="w-4 h-4" /> {dirty ? 'Salvar alteracoes' : 'Salvar padrao'}</>}</Button>}
       />
 
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#059669 0%,#0d9488 55%,#6366f1 100%)' }}>
@@ -47,7 +50,7 @@ export default function OnboardingConfig() {
             <p className="font-display text-2xl font-extrabold mt-1">{count} de {ALL_KEYS.length} telas liberadas</p>
             <p className="text-emerald-50 text-sm mt-1">Ao cadastrar, o usuario ja entra com essas telas — voce nao precisa liberar uma a uma.</p>
           </div>
-          <button onClick={() => setSel(allOn ? [] : ALL_KEYS)} className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition font-semibold text-sm flex items-center gap-2"><LayoutGrid className="w-4 h-4" /> {allOn ? 'Desmarcar todas' : 'Selecionar todas'}</button>
+          <button onClick={() => setAll(allOn ? [] : ALL_KEYS)} className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition font-semibold text-sm flex items-center gap-2"><LayoutGrid className="w-4 h-4" /> {allOn ? 'Desmarcar todas' : 'Selecionar todas'}</button>
         </div>
       </div>
 

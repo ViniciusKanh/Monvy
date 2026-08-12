@@ -6,9 +6,9 @@ import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge, 
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import { formatCurrency, todayIso } from '../lib/utils.js';
-import { analyzeCredit, priceInstallment as calcPrice, CREDIT_TYPES, STATUS_META } from '../lib/credit.js';
+import { analyzeCredit, subtiposDe, rulesFor, STATUS_META } from '../lib/credit.js';
 import { fetchMarketRate, amToAa } from '../lib/bcbRates.js';
-import { Landmark, Plus, Pencil, Trash2, CheckCircle2, Table, Zap, Calculator, Building2, Download, XCircle, AlertTriangle, Gauge } from 'lucide-react';
+import { Landmark, Plus, Pencil, Trash2, CheckCircle2, Table, Zap, Calculator, Building2, Download, XCircle, AlertTriangle, Gauge, ScrollText, Wallet } from 'lucide-react';
 
 const TYPES = [
   { v: 'emprestimo', label: 'Emprestimo' },
@@ -193,17 +193,21 @@ export default function Debts() {
 
 function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
   const saved = loadSim();
-  const [f, setF] = useState(saved || { tipo: 'imovel', valorBem: '', entrada: '', valorEmprestimo: '', prazo: '360', taxaMes: '0.9', sistema: 'price', rendaMensal: rendaEstimada ? String(Math.round(rendaEstimada)) : '', outrasParcelas: outrasParcelas ? outrasParcelas.toFixed(2) : '' });
+  const [f, setF] = useState(saved || { tipo: 'imovel', subtipo: 'novo', valorBem: '', entrada: '', valorEmprestimo: '', prazo: '360', taxaMes: '0.9', sistema: 'price', rendaMensal: rendaEstimada ? String(Math.round(rendaEstimada)) : '', outrasParcelas: outrasParcelas ? outrasParcelas.toFixed(2) : '', idadeAnos: '', idadeVeiculoAnos: '', fgts: '' });
   const [bankModal, setBankModal] = useState(false);
   const [fetching, setFetching] = useState(false);
   const set = (k, v) => setF((s) => { const next = { ...s, [k]: v }; try { localStorage.setItem(LS_SIM, JSON.stringify(next)); } catch { /* */ } return next; });
+  const setTipo = (tipo) => { const subs = subtiposDe(tipo); setF((s) => { const next = { ...s, tipo, subtipo: subs[0]?.key || '' }; try { localStorage.setItem(LS_SIM, JSON.stringify(next)); } catch { /* */ } return next; }); };
 
   const isFin = f.tipo === 'imovel' || f.tipo === 'veiculo';
+  const subs = subtiposDe(f.tipo);
+  const rules = rulesFor(f.tipo, f.subtipo);
   const kindBanks = banks.filter((b) => (b.kind || 'imovel') === f.tipo);
 
   const res = useMemo(() => analyzeCredit({
-    tipo: f.tipo, valorBem: f.valorBem, entrada: f.entrada, valorEmprestimo: f.valorEmprestimo,
+    tipo: f.tipo, subtipo: f.subtipo, valorBem: f.valorBem, entrada: f.entrada, valorEmprestimo: f.valorEmprestimo,
     prazo: f.prazo, taxaMes: f.taxaMes, sistema: f.sistema, rendaMensal: f.rendaMensal, outrasParcelas: f.outrasParcelas,
+    idadeAnos: f.idadeAnos, idadeVeiculoAnos: f.idadeVeiculoAnos, fgts: f.fgts,
   }), [f]);
 
   const meta = STATUS_META[res.status];
@@ -213,7 +217,7 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
     try { const r = await fetchMarketRate(f.tipo); set('taxaMes', r.am.toFixed(2)); toast.success(r.source === 'bcb' ? `Taxa media do BCB: ${r.aa.toFixed(1)}% a.a.` : 'Usei uma taxa de referencia (BCB indisponivel).'); }
     catch { toast.error('Nao consegui buscar a taxa agora.'); } finally { setFetching(false); }
   };
-
+  const usarTaxaTipica = () => { if (rules.taxaTipicaAm) { set('taxaMes', Number(rules.taxaTipicaAm).toFixed(2)); toast.success('Taxa tipica aplicada. Ajuste conforme sua proposta.'); } };
   const pickBank = (id) => { const b = kindBanks.find((x) => x.id === id); if (b) { set('taxaMes', Number(b.rate_month).toFixed(2)); toast.success(`Taxa de ${b.name} aplicada.`); } };
 
   return (
@@ -227,7 +231,8 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
           </div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <Field label="Tipo de credito"><Select value={f.tipo} onChange={(e) => set('tipo', e.target.value)}>{KINDS.map((k) => <option key={k.v} value={k.v}>{k.label}</option>)}</Select></Field>
+          <Field label="Tipo de credito"><Select value={f.tipo} onChange={(e) => setTipo(e.target.value)}>{KINDS.map((k) => <option key={k.v} value={k.v}>{k.label}</option>)}</Select></Field>
+          {subs.length > 0 && <Field label="Modalidade"><Select value={f.subtipo} onChange={(e) => set('subtipo', e.target.value)}>{subs.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></Field>}
           {kindBanks.length > 0 && <Field label="Banco cadastrado"><Select defaultValue="" onChange={(e) => pickBank(e.target.value)}><option value="">Escolher taxa...</option>{kindBanks.map((b) => <option key={b.id} value={b.id}>{b.name} — {Number(b.rate_month).toFixed(2)}% a.m.</option>)}</Select></Field>}
           {isFin ? (<>
             <Field label="Valor do bem (R$)"><Input type="number" value={f.valorBem} onChange={(e) => set('valorBem', e.target.value)} placeholder="0,00" /></Field>
@@ -235,20 +240,26 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
           </>) : (
             <Field label="Valor do emprestimo (R$)"><Input type="number" value={f.valorEmprestimo} onChange={(e) => set('valorEmprestimo', e.target.value)} placeholder="0,00" /></Field>
           )}
+          {f.tipo === 'imovel' && <Field label="Usar FGTS (R$)"><Input type="number" value={f.fgts} onChange={(e) => set('fgts', e.target.value)} placeholder="0,00" /></Field>}
           <Field label="Prazo (meses)"><Input type="number" value={f.prazo} onChange={(e) => set('prazo', e.target.value)} /></Field>
           <Field label="Juros (% a.m.)"><Input type="number" step="0.01" value={f.taxaMes} onChange={(e) => set('taxaMes', e.target.value)} /></Field>
           <Field label="Sistema"><Select value={f.sistema} onChange={(e) => set('sistema', e.target.value)}><option value="price">Price (parcela fixa)</option><option value="sac">SAC (parcela decrescente)</option></Select></Field>
           <Field label="Sua renda mensal (R$)"><Input type="number" value={f.rendaMensal} onChange={(e) => set('rendaMensal', e.target.value)} placeholder="0,00" /></Field>
           <Field label="Outras parcelas/mes (R$)"><Input type="number" value={f.outrasParcelas} onChange={(e) => set('outrasParcelas', e.target.value)} placeholder="0,00" /></Field>
+          {f.tipo === 'imovel' && <Field label="Sua idade (anos)"><Input type="number" value={f.idadeAnos} onChange={(e) => set('idadeAnos', e.target.value)} placeholder="ex: 35" /></Field>}
+          {f.tipo === 'veiculo' && f.subtipo === 'usado' && <Field label="Idade do veiculo (anos)"><Input type="number" value={f.idadeVeiculoAnos} onChange={(e) => set('idadeVeiculoAnos', e.target.value)} placeholder="ex: 5" /></Field>}
         </div>
-        {f.taxaMes && <p className="text-xs text-muted mt-2">{Number(f.taxaMes).toFixed(2)}% a.m. equivale a ~{amToAa(f.taxaMes).toFixed(1)}% a.a.</p>}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {f.taxaMes && <span className="text-xs text-muted">{Number(f.taxaMes).toFixed(2)}% a.m. ≈ {amToAa(f.taxaMes).toFixed(1)}% a.a.</span>}
+          {rules.taxaTipicaAm ? <button onClick={usarTaxaTipica} className="text-xs font-medium text-emerald-600 hover:underline">usar taxa tipica ({Number(rules.taxaTipicaAm).toFixed(2)}% a.m.)</button> : null}
+        </div>
       </Card>
 
       {/* VEREDITO ESTILIZADO */}
       <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}cc)` }}>
         <div className="absolute -right-6 -top-6 opacity-20"><Gauge className="w-32 h-32" /></div>
         <div className="relative">
-          <div className="flex items-center gap-2 text-sm font-medium opacity-90"><span className="text-lg">{meta.emoji}</span> Analise de aprovacao</div>
+          <div className="flex items-center gap-2 text-sm font-medium opacity-90"><span className="text-lg">{meta.emoji}</span> Analise de aprovacao — {rules.tipoLabel}{f.subtipo ? ` · ${(subs.find((s) => s.key === f.subtipo) || {}).label || ''}` : ''}</div>
           <p className="font-display text-3xl font-bold mt-1">{meta.label}</p>
           <p className="text-sm opacity-90 mt-1">{meta.hint}</p>
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -281,14 +292,40 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
             {res.sistema === 'sac' && <Row label="Parcela final (SAC)" value={formatCurrency(res.sac.last)} />}
             <Row label="Total pago" value={formatCurrency(res.totalPago)} />
             <Row label="Juros totais" value={formatCurrency(res.jurosTotal)} strong color="text-rose-500" />
+            {f.tipo === 'imovel' && <>
+              <Row label="Custos (ITBI+registro ~5%)" value={formatCurrency(res.custosAquisicao)} />
+              <Row label="Recursos a vista (entrada+custos-FGTS)" value={formatCurrency(res.recursosNecessarios)} strong />
+            </>}
           </div>
           <p className="text-xs text-muted mt-3">Estimativa educativa. Bancos avaliam ainda score de credito, relacionamento e comprovacao de renda.</p>
         </Card>
       </div>
 
+      {/* REGRAS APLICADAS */}
+      <Card>
+        <h3 className="font-semibold mb-3 flex items-center gap-2"><ScrollText className="w-4 h-4 text-indigo-500" /> Regras aplicadas nesta modalidade</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+          {isFin && <RuleCard label="Financia ate (LTV)" value={`${(rules.ltvMax * 100).toFixed(0)}%`} />}
+          {isFin && <RuleCard label="Entrada minima" value={`${(rules.entradaMinPct * 100).toFixed(0)}%`} />}
+          <RuleCard label="Prazo maximo" value={`${rules.prazoMaxMeses} meses`} />
+          <RuleCard label="Comprometimento max" value={`${(rules.comprometimentoMax * 100).toFixed(0)}% da renda`} />
+          <RuleCard label="Taxa tipica" value={`~${Number(rules.taxaTipicaAm).toFixed(2)}% a.m.`} />
+          {rules.idadeRule && <RuleCard label="Idade + prazo" value="ate 80 anos e 6 meses" />}
+          {rules.veiculoMaxAnos && <RuleCard label="Idade max do veiculo" value={`${rules.veiculoMaxAnos} anos`} />}
+          {rules.rendaMax && <RuleCard label="Teto de renda (MCMV)" value={formatCurrency(rules.rendaMax)} />}
+          {rules.tetoSFH ? <RuleCard label="Teto SFH (com FGTS)" value={formatCurrency(rules.tetoSFH)} /> : null}
+        </div>
+        {rules.obs && <p className="text-xs text-muted mt-3 flex items-start gap-2"><Wallet className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-500" /> {rules.obs}</p>}
+        <p className="text-xs text-muted mt-2">Valores de referencia do mercado brasileiro; cada banco tem politica propria. Cadastre bancos para usar taxas reais.</p>
+      </Card>
+
       {bankModal && <BankModal banks={banks} qc={qc} onClose={() => setBankModal(false)} />}
     </div>
   );
+}
+
+function RuleCard({ label, value }) {
+  return <div className="rounded-xl bg-black/5 dark:bg-white/5 p-3"><p className="text-[11px] text-muted">{label}</p><p className="font-semibold">{value}</p></div>;
 }
 
 function Row({ label, value, strong, color = '' }) {

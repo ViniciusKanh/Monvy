@@ -173,6 +173,11 @@ export default async function handler(req, res) {
         if (t.user_email) destinatarios.add(t.user_email);
         for (const a of await adminEmails()) destinatarios.add(a);
         if (destinatarios.size) sendMail({ to: [...destinatarios].join(','), subject: `Chamado #${t.number || ''} excluido: ${t.subject}`, html }).catch(() => {});
+        // Notificacao no app (garante o aviso mesmo sem e-mail configurado) — para o dono do chamado
+        if (t.created_by_id) {
+          await db().execute({ sql: `INSERT INTO Notification (id,kind,title,text,path,read,is_deleted,created_date,updated_date,created_by_id) VALUES (?,?,?,?,?,0,0,?,?,?)`,
+            args: [newId(), 'ticket', `Chamado #${t.number || ''} excluido`, `${String(t.subject || '').slice(0, 80)} — excluido por ${quem}`, '/chamados', nowIso(), nowIso(), t.created_by_id] }).catch(() => {});
+        }
         return sendJson(res, 200, { ok: true });
       }
       return sendJson(res, 400, { error: 'Operacao invalida' });
