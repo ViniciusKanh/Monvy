@@ -359,6 +359,7 @@ export const MIGRATIONS = [
   { id: '011_tx_reconciled', statements: [`ALTER TABLE "Transaction" ADD COLUMN reconciled INTEGER DEFAULT 0`] },
   { id: '012_ticket_number', statements: [`ALTER TABLE SupportTicket ADD COLUMN number INTEGER`] },
   { id: '013_category_ir_deductible', statements: [`ALTER TABLE Category ADD COLUMN ir_deductible TEXT DEFAULT ''`] },
+  { id: '014_trigger_lastfired', statements: [`ALTER TABLE Trigger ADD COLUMN last_fired TEXT`] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);

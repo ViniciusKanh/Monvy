@@ -69,7 +69,7 @@ async function invoicesDue(uid, tN) {
 // ---- motor de regras (condicoes) ----
 const opTest = (op, a, b) => ({ lt: a < b, lte: a <= b, gt: a > b, gte: a >= b, eq: Math.abs(a - b) < 0.005 }[op] ?? false);
 const OP_LABEL = { lt: 'menor que', lte: 'menor ou igual a', gt: 'maior que', gte: 'maior ou igual a', eq: 'igual a' };
-const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos', net_worth: 'Patrimonio liquido', open_tickets: 'Chamados em aberto', debt_monthly: 'Parcelas de dividas/mes' };
+const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos', net_worth: 'Patrimonio liquido', open_tickets: 'Chamados em aberto', debt_monthly: 'Parcelas de dividas/mes', goals_saved: 'Guardado em metas/cofres', card_invoice_total: 'Faturas de cartao em aberto', investments_total: 'Total investido' };
 const METRIC_UNIT = { savings_rate: '%', pending_count: 'un', open_tickets: 'un' };
 const fmtMetric = (metric, v) => { const u = METRIC_UNIT[metric]; if (u === '%') return `${Number(v).toFixed(0)}%`; if (u === 'un') return String(Math.round(v)); return brl(v); };
 async function categorySpend(uid, ym, catId) {
@@ -94,6 +94,15 @@ async function netWorthOf(uid) {
 }
 async function openTicketsOf(uid) {
   return Number((await db().execute({ sql: `SELECT COUNT(*) n FROM SupportTicket WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [uid] })).rows[0]?.n || 0);
+}
+async function goalsSavedOf(uid) {
+  return Number((await db().execute({ sql: `SELECT COALESCE(SUM(current_amount),0) t FROM Goal WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0)`, args: [uid] })).rows[0]?.t || 0);
+}
+async function cardInvoiceTotalOf(uid) {
+  return Number((await db().execute({ sql: `SELECT COALESCE(SUM(total_amount),0) t FROM CreditCardInvoice WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) AND status IN ('open','overdue')`, args: [uid] })).rows[0]?.t || 0);
+}
+async function investmentsTotalOf(uid) {
+  return Number((await db().execute({ sql: `SELECT COALESCE(SUM(COALESCE(current_value,invested_amount,0)),0) t FROM Investment WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0)`, args: [uid] })).rows[0]?.t || 0);
 }
 
 // panorama financeiro do mes (para gatilho de resumo)
@@ -159,20 +168,31 @@ export default async function handler(req, res) {
     for (const u of users) {
       const trigs = (await db().execute({ sql: `SELECT * FROM Trigger WHERE created_by_id = ? AND enabled = 1 AND (is_deleted IS NULL OR is_deleted=0)`, args: [u.id] })).rows;
       if (!trigs.length) continue;
-      const dueToday = trigs.filter((tr) => tr.frequency === 'daily' || (tr.frequency === 'weekly' && Number(tr.weekday) === dow) || (tr.frequency === 'monthly' && dom === 1));
+      const lastDom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0)).getUTCDate();
+      const parseCfg = (tr) => { try { return tr.config ? (typeof tr.config === 'string' ? JSON.parse(tr.config) : tr.config) : null; } catch { return null; } };
+      const isDue = (tr, c) => {
+        if (tr.frequency === 'daily') return true;
+        if (tr.frequency === 'weekly') return Number(tr.weekday) === dow;
+        if (tr.frequency === 'monthly') return dom === Math.min(Number(c?.dayOfMonth) || 1, lastDom);
+        return false;
+      };
+      const dueToday = trigs.map((tr) => ({ tr, c: parseCfg(tr) })).filter(({ tr, c }) => c && isDue(tr, c));
       if (!dueToday.length) continue;
 
       // contexto do usuario (calculado uma vez)
       const rr = await monthRate(u.id, ym);
-      const ctx = { total_balance: await totalBalanceOf(u.id), month_income: rr.inc, month_expense: rr.exp, month_balance: rr.inc - rr.exp, savings_rate: rr.rate, pending_count: await pendingCount(u.id, t0), net_worth: await netWorthOf(u.id), open_tickets: await openTicketsOf(u.id), debt_monthly: await debtMonthlyOf(u.id) };
+      const ctx = { total_balance: await totalBalanceOf(u.id), month_income: rr.inc, month_expense: rr.exp, month_balance: rr.inc - rr.exp, savings_rate: rr.rate, pending_count: await pendingCount(u.id, t0), net_worth: await netWorthOf(u.id), open_tickets: await openTicketsOf(u.id), debt_monthly: await debtMonthlyOf(u.id), goals_saved: await goalsSavedOf(u.id), card_invoice_total: await cardInvoiceTotalOf(u.id), investments_total: await investmentsTotalOf(u.id) };
       const greet = `Ola${u.full_name ? ' ' + u.full_name : ''}`;
 
-      for (const tr of dueToday) {
-        let c = null;
-        try { c = tr.config ? (typeof tr.config === 'string' ? JSON.parse(tr.config) : tr.config) : null; } catch { c = null; }
-        if (!c || !c.action) continue; // ignora gatilhos antigos sem regra
+      for (const { tr, c } of dueToday) {
         const conditions = Array.isArray(c.conditions) ? c.conditions : [];
         try {
+          // cooldown: nao repetir dentro de X dias
+          const cooldown = Number(c.cooldownDays) || 0;
+          if (cooldown > 0 && tr.last_fired) {
+            const diff = (new Date(t0) - new Date(String(tr.last_fired).slice(0, 10))) / 86400000;
+            if (diff < cooldown) continue;
+          }
           // avalia condicoes
           const evals = [];
           for (const cond of conditions) {
@@ -182,40 +202,46 @@ export default async function handler(req, res) {
           const pass = conditions.length === 0 ? true : (c.match === 'any' ? evals.some((e) => e.ok) : evals.every((e) => e.ok));
           if (!pass) continue;
 
-          if (c.action === 'email_summary') {
-            await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) });
-            await notify(u.id, { kind: 'summary', title: 'Resumo financeiro disponivel', text: `Gerado pela automacao "${tr.name}".`, path: '/relatorios' }); trig++;
-          } else if (c.action === 'email_bills') {
-            const venc = await vencData(u.id, t0, t3);
-            if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); trig++; }
-          } else if (c.action === 'open_ticket') {
-            const subj = (c.subject && c.subject.trim()) || tr.name || 'Automacao financeira';
-            // evita duplicar: nao reabre se ja existe um chamado aberto (nao finalizado) com mesmo assunto
-            const exists = (await db().execute({ sql: `SELECT id FROM SupportTicket WHERE created_by_id=? AND subject=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [u.id, subj] })).rows[0];
-            if (!exists) {
-              const situ = evals.map((e) => `- ${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)} (condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))})`).join('\n');
-              const desc = `${c.message || 'Automacao acionada pelo gatilho.'}\n\nSituacao atual:\n${situ}`;
-              const id = newId();
-              const number = Number((await db().execute(`SELECT COALESCE(MAX(number),1000) n FROM SupportTicket`)).rows[0]?.n || 1000) + 1;
-              await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subj, 'open', c.ticketCategory || 'Financeiro', 'alta', u.full_name || '', u.email, u.id, nowIso(), nowIso()] });
-              await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), id, u.id, 'user', 'Automacao Monvy', desc, nowIso()] });
-              const admins = (await db().execute(`SELECT email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`)).rows.map((r) => r.email).filter(Boolean);
-              if (admins.length) sendMail({ to: admins.join(','), replyTo: u.email, subject: `Chamado automatico #${number}: ${subj}`, html: tpl('Chamado aberto por automacao 🤖', `Uma automacao de <b>${u.full_name || u.email}</b> abriu o chamado <b>#${number} — ${subj}</b>.<br/><br/>${desc.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}`) }).catch(() => {});
-              await sendMail({ to: u.email, subject: `Monvy abriu um chamado pra voce: ${subj}`, html: tpl('Abrimos um chamado pra voce 🎫', `${greet}, uma automacao sua identificou algo que merece atencao e abriu o chamado <b>#${number} — ${subj}</b>. Acompanhe e resolva na Central de Tickets.`, { ctaText: 'Ver chamado', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
-              await notify(u.id, { kind: 'ticket', title: `Chamado #${number} aberto por automacao`, text: subj, path: '/chamados' });
-              trig++;
+          // uma ou varias acoes
+          const acts = Array.isArray(c.actions) && c.actions.length ? c.actions : (c.action ? [{ action: c.action, subject: c.subject, message: c.message, ticketCategory: c.ticketCategory }] : []);
+          let fired = 0;
+
+          for (const act of acts) {
+            if (act.action === 'email_summary') {
+              await sendMail({ to: u.email, subject: 'Monvy — seu resumo financeiro', html: tpl('Seu resumo financeiro 📊', await summaryBody(u, ym)) });
+              await notify(u.id, { kind: 'summary', title: 'Resumo financeiro disponivel', text: `Gerado pela automacao "${tr.name}".`, path: '/relatorios' }); fired++;
+            } else if (act.action === 'email_bills') {
+              const venc = await vencData(u.id, t0, t3);
+              if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); fired++; }
+            } else if (act.action === 'open_ticket') {
+              const subj = (act.subject && act.subject.trim()) || tr.name || 'Automacao financeira';
+              const exists = (await db().execute({ sql: `SELECT id FROM SupportTicket WHERE created_by_id=? AND subject=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [u.id, subj] })).rows[0];
+              if (!exists) {
+                const situ = evals.map((e) => `- ${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)} (condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))})`).join('\n');
+                const desc = `${act.message || 'Automacao acionada pelo gatilho.'}\n\nSituacao atual:\n${situ}`;
+                const id = newId();
+                const number = Number((await db().execute(`SELECT COALESCE(MAX(number),1000) n FROM SupportTicket`)).rows[0]?.n || 1000) + 1;
+                await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subj, 'open', act.ticketCategory || 'Financeiro', 'alta', u.full_name || '', u.email, u.id, nowIso(), nowIso()] });
+                await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), id, u.id, 'user', 'Automacao Monvy', desc, nowIso()] });
+                const admins = (await db().execute(`SELECT email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`)).rows.map((r) => r.email).filter(Boolean);
+                if (admins.length) sendMail({ to: admins.join(','), replyTo: u.email, subject: `Chamado automatico #${number}: ${subj}`, html: tpl('Chamado aberto por automacao 🤖', `Uma automacao de <b>${u.full_name || u.email}</b> abriu o chamado <b>#${number} — ${subj}</b>.<br/><br/>${desc.replace(/</g, '&lt;').replace(/\n/g, '<br/>')}`) }).catch(() => {});
+                await sendMail({ to: u.email, subject: `Monvy abriu um chamado pra voce: ${subj}`, html: tpl('Abrimos um chamado pra voce 🎫', `${greet}, uma automacao sua identificou algo que merece atencao e abriu o chamado <b>#${number} — ${subj}</b>. Acompanhe e resolva na Central de Tickets.`, { ctaText: 'Ver chamado', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
+                await notify(u.id, { kind: 'ticket', title: `Chamado #${number} aberto por automacao`, text: subj, path: '/chamados' });
+                fired++;
+              }
+            } else if (act.action === 'notify') {
+              const title = (act.subject && act.subject.trim()) || tr.name || 'Aviso do Monvy';
+              const rows = evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ');
+              await notify(u.id, { kind: 'alert', title, text: act.message || rows || 'Automacao acionada.', path: '/gatilhos' }); fired++;
+            } else { // email_alert
+              const subject = (act.subject && act.subject.trim()) || tr.name || 'Alerta Monvy';
+              const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
+              const body = `${greet},${act.message ? `<br/><br/>${String(act.message).replace(/</g, '&lt;')}` : ''}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
+              await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) });
+              await notify(u.id, { kind: 'alert', title: subject, text: act.message || 'Automacao acionada.', path: '/gatilhos' }); fired++;
             }
-          } else if (c.action === 'notify') {
-            const title = (c.subject && c.subject.trim()) || tr.name || 'Aviso do Monvy';
-            const rows = evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ');
-            await notify(u.id, { kind: 'alert', title, text: c.message || rows || 'Automacao acionada.', path: '/gatilhos' }); trig++;
-          } else { // email_alert
-            const subject = (c.subject && c.subject.trim()) || tr.name || 'Alerta Monvy';
-            const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
-            const body = `${greet},${c.message ? `<br/><br/>${String(c.message).replace(/</g, '&lt;')}` : ''}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
-            await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) });
-            await notify(u.id, { kind: 'alert', title: subject, text: c.message || 'Automacao acionada.', path: '/gatilhos' }); trig++;
           }
+          if (fired) { trig += fired; await db().execute({ sql: `UPDATE Trigger SET last_fired=? WHERE id=?`, args: [t0, tr.id] }).catch(() => {}); }
         } catch { /* nao quebra os demais */ }
       }
     }

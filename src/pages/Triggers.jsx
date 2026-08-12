@@ -19,6 +19,9 @@ const METRICS = [
   { k: 'pending_count', label: 'Lancamentos vencidos nao pagos', unit: 'un' },
   { k: 'net_worth', label: 'Patrimonio liquido (contas + invest. - dividas)', unit: 'R$' },
   { k: 'debt_monthly', label: 'Parcelas de dividas por mes', unit: 'R$' },
+  { k: 'goals_saved', label: 'Guardado em metas/cofres', unit: 'R$' },
+  { k: 'card_invoice_total', label: 'Faturas de cartao em aberto', unit: 'R$' },
+  { k: 'investments_total', label: 'Total investido', unit: 'R$' },
   { k: 'open_tickets', label: 'Chamados em aberto', unit: 'un' },
 ];
 const mInfo = (k) => METRICS.find((m) => m.k === k) || METRICS[0];
@@ -45,8 +48,17 @@ const TEMPLATES = [
   { label: 'Vencimentos da semana', config: { match: 'all', conditions: [], action: 'email_bills', subject: '', message: '' }, frequency: 'weekly' },
 ];
 
-const emptyForm = () => ({ name: '', frequency: 'daily', weekday: 1, enabled: true, config: { match: 'all', conditions: [], action: 'email_alert', subject: '', message: '' } });
-const normConfig = (c) => ({ match: c?.match || 'all', conditions: Array.isArray(c?.conditions) ? c.conditions : [], action: c?.action || 'email_alert', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '' });
+const emptyAction = () => ({ action: 'email_alert', subject: '', message: '', ticketCategory: '' });
+const emptyForm = () => ({ name: '', frequency: 'daily', weekday: 1, enabled: true, config: { match: 'all', conditions: [], actions: [emptyAction()], cooldownDays: 0, dayOfMonth: 1 } });
+const normConfig = (c) => ({
+  match: c?.match || 'all',
+  conditions: Array.isArray(c?.conditions) ? c.conditions : [],
+  cooldownDays: Number(c?.cooldownDays) || 0,
+  dayOfMonth: Number(c?.dayOfMonth) || 1,
+  actions: Array.isArray(c?.actions) && c.actions.length
+    ? c.actions.map((a) => ({ action: a.action || 'email_alert', subject: a.subject || '', message: a.message || '', ticketCategory: a.ticketCategory || '' }))
+    : [{ action: c?.action || 'email_alert', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '' }],
+});
 
 function fmtVal(metric, v) { const u = mInfo(metric).unit; if (u === 'R$') return formatCurrency(v); if (u === '%') return `${v}%`; return String(v); }
 function condText(c, catMap) {
@@ -79,12 +91,17 @@ export default function Triggers() {
   const setCond = (i, patch) => setForm((f) => ({ ...f, config: { ...f.config, conditions: f.config.conditions.map((c, idx) => idx === i ? { ...c, ...patch } : c) } }));
   const addCond = () => setForm((f) => ({ ...f, config: { ...f.config, conditions: [...f.config.conditions, { metric: 'total_balance', op: 'lt', value: 0 }] } }));
   const rmCond = (i) => setForm((f) => ({ ...f, config: { ...f.config, conditions: f.config.conditions.filter((_, idx) => idx !== i) } }));
+  const setAct = (i, patch) => setForm((f) => ({ ...f, config: { ...f.config, actions: f.config.actions.map((a, idx) => idx === i ? { ...a, ...patch } : a) } }));
+  const addAct = () => setForm((f) => ({ ...f, config: { ...f.config, actions: [...f.config.actions, emptyAction()] } }));
+  const rmAct = (i) => setForm((f) => ({ ...f, config: { ...f.config, actions: f.config.actions.length > 1 ? f.config.actions.filter((_, idx) => idx !== i) : f.config.actions } }));
   const applyTemplate = (tpl) => setForm((f) => ({ ...f, name: f.name || tpl.label, frequency: tpl.frequency, config: normConfig(tpl.config) }));
 
   const submit = () => {
     if (!form.name) return toast.error('De um nome a automacao');
     const cfg = form.config;
-    if (cfg.action !== 'email_summary' && cfg.action !== 'email_bills' && cfg.conditions.length === 0) return toast.error('Adicione ao menos uma condicao ou escolha uma acao de envio direto');
+    if (!cfg.actions.length) return toast.error('Adicione ao menos uma acao');
+    const directOnly = cfg.actions.every((a) => a.action === 'email_summary' || a.action === 'email_bills');
+    if (!directOnly && cfg.conditions.length === 0) return toast.error('Adicione ao menos uma condicao ou use apenas acoes de envio direto (resumo/vencimentos)');
     save.mutate({ ...form, weekday: Number(form.weekday), type: 'custom' });
   };
 
@@ -111,7 +128,7 @@ export default function Triggers() {
               <Reveal key={t.id} i={Math.min(i, 8)}>
                 <Card className={`hover-lift h-full ${on ? '' : 'opacity-70'}`}>
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2"><span className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: on ? '#f59e0b' : '#94a3b8' }}><Zap className="w-5 h-5" /></span><div><p className="font-semibold leading-tight">{t.name}</p><p className="text-xs text-muted">{freqLabel(t.frequency)}{t.frequency === 'weekly' ? ` · ${WEEKDAYS[t.weekday ?? 1]}` : ''}</p></div></div>
+                    <div className="flex items-center gap-2"><span className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: on ? '#f59e0b' : '#94a3b8' }}><Zap className="w-5 h-5" /></span><div><p className="font-semibold leading-tight">{t.name}</p><p className="text-xs text-muted">{freqLabel(t.frequency)}{t.frequency === 'weekly' ? ` · ${WEEKDAYS[t.weekday ?? 1]}` : ''}{t.frequency === 'monthly' ? ` · dia ${c.dayOfMonth || 1}` : ''}{c.cooldownDays > 0 ? ` · a cada ${c.cooldownDays}d` : ''}</p></div></div>
                     <div className="flex gap-1">
                       <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => del.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
@@ -121,7 +138,7 @@ export default function Triggers() {
                     <div className="flex items-start gap-2"><span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 rounded px-1.5 py-0.5 mt-0.5">SE</span>
                       <span className="text-muted">{c.conditions.length === 0 ? 'sempre (na frequencia definida)' : c.conditions.map((x) => condText(x, catMap)).join(c.match === 'any' ? '  OU  ' : '  E  ')}</span>
                     </div>
-                    <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-muted flex items-center gap-1"><Mail className="w-3 h-3" /> {actLabel(c.action)}</span></div>
+                    <div className="flex items-start gap-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5 mt-0.5">ENTAO</span><span className="text-muted flex items-center gap-1 flex-wrap"><Mail className="w-3 h-3 shrink-0" /> {c.actions.map((a) => actLabel(a.action)).join(', ')}</span></div>
                   </div>
                   <label className="flex items-center justify-between mt-3 pt-3 border-t border-[hsl(var(--border))] text-sm cursor-pointer">
                     <span>{on ? 'Ativa' : 'Pausada'}</span>
@@ -151,6 +168,12 @@ export default function Triggers() {
             <div className="grid grid-cols-2 gap-2">
               <Select value={form.frequency} onChange={(e) => setF('frequency', e.target.value)}>{FREQ.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>
               {form.frequency === 'weekly' && <Select value={form.weekday} onChange={(e) => setF('weekday', e.target.value)}>{WEEKDAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}</Select>}
+              {form.frequency === 'monthly' && <Select value={cfg.dayOfMonth} onChange={(e) => setC('dayOfMonth', Number(e.target.value))}>{Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>Dia {d}</option>)}</Select>}
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className="text-muted">Nao repetir por</span>
+              <Input type="number" min="0" value={cfg.cooldownDays} onChange={(e) => setC('cooldownDays', Number(e.target.value))} className="w-20" />
+              <span className="text-muted">dia(s) — 0 = pode repetir sempre</span>
             </div>
           </div>
 
@@ -191,21 +214,33 @@ export default function Triggers() {
 
           {/* ENTAO */}
           <div className="rounded-xl border border-[hsl(var(--border))] p-3">
-            <div className="flex items-center gap-2 mb-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-sm font-medium flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Acao</span></div>
-            <Select value={cfg.action} onChange={(e) => setC('action', e.target.value)}>{ACTIONS.map((a) => <option key={a.k} value={a.k}>{a.label}</option>)}</Select>
-            <p className="text-xs text-muted mt-1">{ACTIONS.find((a) => a.k === cfg.action)?.desc}</p>
-            {(cfg.action === 'email_alert' || cfg.action === 'open_ticket' || cfg.action === 'notify') && (
-              <div className="mt-2 space-y-2">
-                {cfg.action === 'open_ticket' && (
-                  <Select value={cfg.ticketCategory || ''} onChange={(e) => setC('ticketCategory', e.target.value)}>
-                    <option value="">Categoria do chamado</option>
-                    {ticketCats.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </Select>
-                )}
-                <Input value={cfg.subject} onChange={(e) => setC('subject', e.target.value)} placeholder={cfg.action === 'open_ticket' ? 'Assunto do chamado' : 'Assunto do e-mail (opcional)'} />
-                <Textarea rows={2} value={cfg.message} onChange={(e) => setC('message', e.target.value)} placeholder={cfg.action === 'open_ticket' ? 'Descricao do chamado (a situacao avaliada e incluida)' : 'Mensagem do alerta (os valores avaliados sao incluidos)'} />
-              </div>
-            )}
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-sm font-medium flex items-center gap-1"><Play className="w-3.5 h-3.5" /> Acoes ({cfg.actions.length})</span></div>
+              <Button size="sm" variant="outline" onClick={addAct}><Plus className="w-4 h-4" /> Adicionar acao</Button>
+            </div>
+            <div className="space-y-3">
+              {cfg.actions.map((a, i) => (
+                <div key={i} className="rounded-lg bg-black/5 dark:bg-white/5 p-2.5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Select value={a.action} onChange={(e) => setAct(i, { action: e.target.value })} className="flex-1">{ACTIONS.map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}</Select>
+                    {cfg.actions.length > 1 && <button type="button" onClick={() => rmAct(i)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 shrink-0"><X className="w-4 h-4" /></button>}
+                  </div>
+                  <p className="text-xs text-muted">{ACTIONS.find((x) => x.k === a.action)?.desc}</p>
+                  {(a.action === 'email_alert' || a.action === 'open_ticket' || a.action === 'notify') && (
+                    <div className="space-y-2">
+                      {a.action === 'open_ticket' && (
+                        <Select value={a.ticketCategory || ''} onChange={(e) => setAct(i, { ticketCategory: e.target.value })}>
+                          <option value="">Categoria do chamado</option>
+                          {ticketCats.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </Select>
+                      )}
+                      <Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificacao' : 'Assunto do e-mail (opcional)'} />
+                      <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Descricao do chamado (a situacao avaliada e incluida)' : 'Mensagem (os valores avaliados sao incluidos)'} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           <label className="flex items-center justify-between text-sm"><span>Ativa</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={form.enabled} onChange={(e) => setF('enabled', e.target.checked)} /></label>
