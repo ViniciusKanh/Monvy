@@ -313,6 +313,12 @@ export const SCHEMA_STATEMENTS = [
     name TEXT NOT NULL,
     kind TEXT DEFAULT 'imovel',
     rate_month REAL DEFAULT 0,
+    base_rate REAL,
+    periodicity TEXT DEFAULT 'mensal',
+    indexer TEXT DEFAULT 'prefixado',
+    prazo_max INTEGER,
+    system TEXT DEFAULT 'price',
+    updated_at TEXT,
     max_ltv REAL,
     notes TEXT,
     is_deleted INTEGER DEFAULT 0,
@@ -360,6 +366,14 @@ export const MIGRATIONS = [
   { id: '012_ticket_number', statements: [`ALTER TABLE SupportTicket ADD COLUMN number INTEGER`] },
   { id: '013_category_ir_deductible', statements: [`ALTER TABLE Category ADD COLUMN ir_deductible TEXT DEFAULT ''`] },
   { id: '014_trigger_lastfired', statements: [`ALTER TABLE Trigger ADD COLUMN last_fired TEXT`] },
+  { id: '015_bankrate_rich', statements: [
+    `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
+    `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,
+    `ALTER TABLE BankRate ADD COLUMN indexer TEXT DEFAULT 'prefixado'`,
+    `ALTER TABLE BankRate ADD COLUMN prazo_max INTEGER`,
+    `ALTER TABLE BankRate ADD COLUMN system TEXT DEFAULT 'price'`,
+    `ALTER TABLE BankRate ADD COLUMN updated_at TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);

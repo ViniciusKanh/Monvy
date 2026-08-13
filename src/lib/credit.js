@@ -24,9 +24,9 @@ export const CREDIT_MATRIX = {
   imovel: {
     label: 'Financiamento imobiliario', hasSubtipo: true, comprometimentoMax: 0.30, custoAquisicaoPct: 0.05, idadeRule: true, tetoSFH: 1500000,
     subtipos: {
-      novo: { key: 'novo', label: 'Imovel novo', ltvMax: 0.80, entradaMinPct: 0.20, prazoMaxMeses: 420, taxaTipicaAm: 0.90 },
+      novo: { key: 'novo', label: 'Imovel novo', ltvMax: 0.90, entradaMinPct: 0.10, prazoMaxMeses: 420, taxaTipicaAm: 0.90 },
       usado: { key: 'usado', label: 'Imovel usado', ltvMax: 0.80, entradaMinPct: 0.20, prazoMaxMeses: 420, taxaTipicaAm: 0.95 },
-      mcmv: { key: 'mcmv', label: 'Minha Casa Minha Vida', ltvMax: 0.80, entradaMinPct: 0.05, prazoMaxMeses: 420, taxaTipicaAm: 0.45, rendaMax: 8000, obs: 'Faixas com subsidio e juros reduzidos para renda familiar ate ~R$ 8.000.' },
+      mcmv: { key: 'mcmv', label: 'Minha Casa Minha Vida', ltvMax: 0.90, entradaMinPct: 0.10, prazoMaxMeses: 420, taxaTipicaAm: 0.45, rendaMax: 8000, obs: 'Faixas com subsidio e juros reduzidos para renda familiar ate ~R$ 8.000.' },
     },
   },
   veiculo: {
@@ -50,6 +50,33 @@ export const CREDIT_MATRIX = {
   },
 };
 
+// ---- indexadores e taxa efetiva ----
+export const INDEXERS = {
+  prefixado: { label: 'Prefixado (sem correcao)', defaultAnnual: 0 },
+  TR: { label: 'TR', defaultAnnual: 1.5 },
+  IPCA: { label: 'IPCA (inflacao)', defaultAnnual: 4.5 },
+  poupanca: { label: 'Poupanca', defaultAnnual: 6.17 },
+};
+export const toMonthly = (rate, periodicity) => periodicity === 'anual' ? (Math.pow(1 + Number(rate) / 100, 1 / 12) - 1) * 100 : Number(rate);
+// combina juros (base) + correcao do indexador (aprox: (1+i)(1+c)-1)
+export function effectiveMonthly(baseRate, periodicity, indexer, indexerAnnual) {
+  const baseM = toMonthly(baseRate, periodicity);
+  const annual = (indexer && indexer !== 'prefixado') ? (indexerAnnual != null && indexerAnnual !== '' ? Number(indexerAnnual) : (INDEXERS[indexer]?.defaultAnnual || 0)) : 0;
+  const idxM = annual > 0 ? (Math.pow(1 + annual / 100, 1 / 12) - 1) * 100 : 0;
+  const eff = ((1 + baseM / 100) * (1 + idxM / 100) - 1) * 100;
+  return { baseM, idxM, eff, indexerAnnual: annual };
+}
+
+// Bancos de referencia (condicoes publicas observadas em 13/08/2026 — valores base, sem TR/IPCA/seguros/CET).
+export const BANK_PRESETS = [
+  { name: 'Caixa Economica Federal', kind: 'imovel', base_rate: 10.99, periodicity: 'anual', indexer: 'TR', max_ltv: 90, prazo_max: 420, system: 'sac', updated_at: '2026-08-13', notes: 'SBPE/SFH. Taxa a partir de 10,99% a.a. + TR; quota ate 90% conforme perfil, imovel e relacionamento.' },
+  { name: 'Santander', kind: 'imovel', base_rate: 11.69, periodicity: 'anual', indexer: 'TR', max_ltv: 90, prazo_max: 420, system: 'sac', updated_at: '2026-08-13', notes: 'Taxa a partir de 11,69% a.a. + TR. Financiamento ate 90%, sujeito a analise de credito.' },
+  { name: 'Itau', kind: 'imovel', base_rate: 11.90, periodicity: 'anual', indexer: 'TR', max_ltv: 80, prazo_max: 420, system: 'sac', updated_at: '2026-08-13', notes: 'Referencia 11,90% a.a. + TR (Uniclass). Entrada a partir de 20%.' },
+  { name: 'Banco Inter (TR)', kind: 'imovel', base_rate: 11.49, periodicity: 'anual', indexer: 'TR', max_ltv: 75, prazo_max: 420, system: 'sac', updated_at: '2026-08-13', notes: 'Taxa bonificada de referencia 11,49% a.a. + TR. Beneficio condicionado a relacionamento.' },
+  { name: 'Banco Inter (IPCA)', kind: 'imovel', base_rate: 9.99, periodicity: 'anual', indexer: 'IPCA', max_ltv: 75, prazo_max: 420, system: 'sac', updated_at: '2026-08-13', notes: 'Taxa a partir de 9,99% a.a. + IPCA. O saldo devedor e corrigido pela inflacao.' },
+  { name: 'Banco do Brasil (MCMV)', kind: 'imovel', base_rate: 8.0, periodicity: 'anual', indexer: 'TR', max_ltv: 80, prazo_max: 420, system: 'sac', updated_at: '2026-08-13', notes: 'MCMV / classe media. Condicoes subsidiadas ~4% a 10% a.a. dependentes de renda/programa.' },
+];
+
 export function subtiposDe(tipo) {
   const t = CREDIT_MATRIX[tipo]; if (!t || !t.hasSubtipo) return [];
   return Object.values(t.subtipos);
@@ -67,6 +94,10 @@ export function analyzeCredit(inp) {
   const tipo = inp.tipo || 'imovel';
   const isFinanciamento = tipo === 'imovel' || tipo === 'veiculo';
   const r = rulesFor(tipo, inp.subtipo);
+  // banco selecionado pode sobrescrever LTV / prazo (entrada minima acompanha o LTV)
+  if (inp.ltvOverride != null && Number(inp.ltvOverride) > 0) { r.ltvMax = Number(inp.ltvOverride); r.entradaMinPct = Math.max(0, 1 - r.ltvMax); }
+  if (inp.prazoMaxOverride != null && Number(inp.prazoMaxOverride) > 0) r.prazoMaxMeses = Number(inp.prazoMaxOverride);
+  if (inp.bankName) r.bankName = inp.bankName;
   const rendaMensal = n(inp.rendaMensal);
   const outrasParcelas = n(inp.outrasParcelas);
   const taxaMes = n(inp.taxaMes);
