@@ -193,7 +193,8 @@ export default function Debts() {
 
 function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
   const saved = loadSim();
-  const [f, setF] = useState(saved || { tipo: 'imovel', subtipo: 'novo', valorBem: '', entrada: '', valorEmprestimo: '', prazo: '360', taxaMes: '0.9', indexer: 'prefixado', indexerAnnual: '', sistema: 'price', rendaMensal: rendaEstimada ? String(Math.round(rendaEstimada)) : '', outrasParcelas: outrasParcelas ? outrasParcelas.toFixed(2) : '', idadeAnos: '', idadeVeiculoAnos: '', fgts: '', ltvOverride: '', prazoMaxOverride: '', bankName: '' });
+  const DEFAULTS = { tipo: 'imovel', subtipo: 'novo', valorBem: '', entrada: '', valorEmprestimo: '', prazo: '360', taxaMes: '0.9', indexer: 'prefixado', indexerAnnual: '', sistema: 'price', rendaMensal: rendaEstimada ? String(Math.round(rendaEstimada)) : '', outrasParcelas: outrasParcelas ? outrasParcelas.toFixed(2) : '', idadeAnos: '', idadeVeiculoAnos: '', fgts: '', ltvOverride: '', prazoMaxOverride: '', bankName: '' };
+  const [f, setF] = useState({ ...DEFAULTS, ...(saved || {}), indexer: (saved && INDEXERS[saved.indexer]) ? saved.indexer : 'prefixado' });
   const [bankModal, setBankModal] = useState(false);
   const [fetching, setFetching] = useState(false);
   const set = (k, v) => setF((s) => { const next = { ...s, [k]: v }; try { localStorage.setItem(LS_SIM, JSON.stringify(next)); } catch { /* */ } return next; });
@@ -258,7 +259,7 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
           <Field label="Prazo (meses)"><Input type="number" value={f.prazo} onChange={(e) => set('prazo', e.target.value)} /></Field>
           <Field label="Juros base (% a.m.)"><Input type="number" step="0.001" value={f.taxaMes} onChange={(e) => set('taxaMes', e.target.value)} /></Field>
           <Field label="Indexador"><Select value={f.indexer} onChange={(e) => set('indexer', e.target.value)}>{Object.entries(INDEXERS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></Field>
-          {f.indexer !== 'prefixado' && <Field label={`${INDEXERS[f.indexer].label} estimado (% a.a.)`}><Input type="number" step="0.01" value={f.indexerAnnual} onChange={(e) => set('indexerAnnual', e.target.value)} placeholder={String(idxAnnualDefault)} /></Field>}
+          {f.indexer !== 'prefixado' && <Field label={`${INDEXERS[f.indexer]?.label || 'Indexador'} estimado (% a.a.)`}><Input type="number" step="0.01" value={f.indexerAnnual} onChange={(e) => set('indexerAnnual', e.target.value)} placeholder={String(idxAnnualDefault)} /></Field>}
           <Field label="Sistema"><Select value={f.sistema} onChange={(e) => set('sistema', e.target.value)}><option value="price">Price (parcela fixa)</option><option value="sac">SAC (parcela decrescente)</option></Select></Field>
           <Field label="Sua renda mensal (R$)"><Input type="number" value={f.rendaMensal} onChange={(e) => set('rendaMensal', e.target.value)} placeholder="0,00" /></Field>
           <Field label="Outras parcelas/mes (R$)"><Input type="number" value={f.outrasParcelas} onChange={(e) => set('outrasParcelas', e.target.value)} placeholder="0,00" /></Field>
@@ -266,7 +267,7 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
           {f.tipo === 'veiculo' && f.subtipo === 'usado' && <Field label="Idade do veiculo (anos)"><Input type="number" value={f.idadeVeiculoAnos} onChange={(e) => set('idadeVeiculoAnos', e.target.value)} placeholder="ex: 5" /></Field>}
         </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {f.taxaMes && <span className="text-xs text-muted">Juros {baseM.toFixed(3)}% a.m.{f.indexer !== 'prefixado' ? ` + ${INDEXERS[f.indexer].label} ~${idxM.toFixed(3)}% a.m.` : ''} → <b className="text-[hsl(var(--text))]">efetiva ~{effM.toFixed(3)}% a.m.</b> (~{amToAa(effM).toFixed(1)}% a.a.)</span>}
+          {f.taxaMes && <span className="text-xs text-muted">Juros {baseM.toFixed(3)}% a.m.{f.indexer !== 'prefixado' ? ` + ${INDEXERS[f.indexer]?.label || 'indexador'} ~${idxM.toFixed(3)}% a.m.` : ''} → <b className="text-[hsl(var(--text))]">efetiva ~{effM.toFixed(3)}% a.m.</b> (~{amToAa(effM).toFixed(1)}% a.a.)</span>}
           {rules.taxaTipicaAm ? <button onClick={usarTaxaTipica} className="text-xs font-medium text-emerald-600 hover:underline">usar taxa tipica ({Number(rules.taxaTipicaAm).toFixed(2)}% a.m.)</button> : null}
         </div>
         {f.bankName && <div className="mt-2 flex items-center gap-2 text-xs"><Badge color="emerald"><Building2 className="w-3 h-3" /> {f.bankName}</Badge><span className="text-muted">LTV {f.ltvOverride || rules.ltvMax * 100}% · prazo max {f.prazoMaxOverride || rules.prazoMaxMeses}m</span><button onClick={clearBank} className="text-rose-500 hover:underline">remover</button></div>}
@@ -383,7 +384,7 @@ function BankModal({ banks, qc, onClose }) {
           <Field label="LTV maximo (%)"><Input type="number" value={form.max_ltv} onChange={(e) => setForm((s) => ({ ...s, max_ltv: e.target.value }))} placeholder="90" /></Field>
           <Field label="Prazo max (meses)"><Input type="number" value={form.prazo_max} onChange={(e) => setForm((s) => ({ ...s, prazo_max: e.target.value }))} placeholder="420" /></Field>
         </div>
-        {eff && <p className="text-xs text-muted">{Number(form.base_rate).toFixed(2)}% {form.periodicity === 'anual' ? 'a.a.' : 'a.m.'} = juros ~{eff.baseM.toFixed(3)}% a.m.{form.indexer !== 'prefixado' ? ` + ${INDEXERS[form.indexer].label} (estimado ~${eff.idxM.toFixed(3)}% a.m.) → efetiva ~${eff.eff.toFixed(3)}% a.m.` : ''}</p>}
+        {eff && <p className="text-xs text-muted">{Number(form.base_rate).toFixed(2)}% {form.periodicity === 'anual' ? 'a.a.' : 'a.m.'} = juros ~{eff.baseM.toFixed(3)}% a.m.{form.indexer !== 'prefixado' ? ` + ${INDEXERS[form.indexer]?.label || 'indexador'} (estimado ~${eff.idxM.toFixed(3)}% a.m.) → efetiva ~${eff.eff.toFixed(3)}% a.m.` : ''}</p>}
         <Field label="Observacao"><Textarea rows={2} value={form.notes} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} placeholder="Condicoes, relacionamento, etc." /></Field>
         <Button onClick={submit} disabled={save.isPending} className="w-full">{save.isPending ? <Spinner className="w-4 h-4" /> : <><Plus className="w-4 h-4" /> Cadastrar banco</>}</Button>
         {banks.length > 0 && (
