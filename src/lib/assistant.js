@@ -177,10 +177,33 @@ async function marketAnswer(q) {
 
 // mapeia a intencao da pergunta para o foco de um robo
 export function intentFocus(question) {
-  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'inteligencia', comparar: 'gastos', assinaturas: 'gastos', renda: 'entradas', poupanca: 'entradas', analise: 'inteligencia', inteligencia: 'inteligencia', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', impostos: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
+  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'inteligencia', comparar: 'gastos', assinaturas: 'gastos', renda: 'entradas', poupanca: 'entradas', analise: 'inteligencia', inteligencia: 'inteligencia', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', impostos: 'mercado', metas: 'metas', resumo: 'geral', ajuda: 'geral' };
   return map[detect(norm(question))] || 'geral';
 }
 const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
+
+// Sugestoes de acao concretas com base na pergunta (botoes que levam para a tela certa)
+const SUGGEST_BY_FOCUS = {
+  gastos: { label: 'Definir orçamento', path: '/orcamento' },
+  entradas: { label: 'Ver lançamentos', path: '/lancamentos' },
+  vencimentos: { label: 'Contas a pagar', path: '/pagamentos' },
+  patrimonio: { label: 'Ver investimentos', path: '/investimentos' },
+  mercado: { label: 'Abrir Mercado', path: '/mercado' },
+  inteligencia: { label: 'Abrir Inteligência', path: '/inteligencia' },
+  metas: { label: 'Abrir Metas', path: '/metas' },
+  saldo: { label: 'Ver contas', path: '/contas' },
+  geral: { label: 'Ver Dashboard', path: '/' },
+};
+export function suggestFor(question) {
+  const intent = detect(norm(question));
+  const out = [];
+  if (intent === 'dividas') out.push({ label: 'Simular quitação', path: '/dividas' });
+  if (intent === 'impostos') out.push({ label: 'Abrir Imposto de Renda', path: '/imposto-de-renda' });
+  if (intent === 'economizar' || intent === 'gastos_top') out.push({ label: 'Criar uma meta de economia', path: '/metas' });
+  const base = SUGGEST_BY_FOCUS[intentFocus(question)];
+  if (base && !out.some((x) => x.path === base.path)) out.push(base);
+  return out.slice(0, 2);
+}
 // escolhe o robo que "tem a resposta": foco exato > nome citado > robo geral > primeiro
 export function routeAgent(question, agents = []) {
   if (!agents.length) return null;
@@ -203,6 +226,7 @@ const FOCUS_KW = {
   vencimentos: ['vence', 'vencimento', 'pagar', 'divida', 'devo', 'boleto', 'prazo', 'fatura'],
   mercado: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'bolsa', 'cotacao', 'acoes', 'imposto', 'ir', 'tributo', 'selic', 'ipca', 'taxa'],
   inteligencia: ['analise', 'inteligencia', 'saude', 'raio-x', 'diagnostico', 'comportamento', 'insights', 'recomenda', 'dica', 'previsao', 'tendencia'],
+  metas: ['meta', 'metas', 'objetivo', 'objetivos', 'cofre', 'cofres', 'sonho', 'guardar', 'juntar'],
   geral: ['resumo', 'financas', 'como estou', 'panorama'],
 };
 // Conselho de robos: cada robo pontua sua confianca pela pergunta e seu papel.
@@ -222,10 +246,10 @@ export function deliberate(question, agents = []) {
   return scored;
 }
 
-export const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', entradas: 'Entradas & Renda', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado & Impostos', vencimentos: 'Vencimentos', inteligencia: 'Inteligencia & Analise' };
+export const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', entradas: 'Entradas & Renda', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado & Impostos', vencimentos: 'Vencimentos', inteligencia: 'Inteligencia & Analise', metas: 'Metas & Objetivos' };
 export function agentInfo(a) { const c = cfgOf(a); const f = c.focus || 'geral'; return { name: a.name, focus: f, focusLabel: FOCUS_LABEL[f] || 'Assistente', emoji: c.emoji || '🤖', personality: c.personality || '' }; }
 // pergunta representativa por foco (para respostas de painel)
-const FOCUS_Q = { saldo: 'qual meu saldo', gastos: 'onde gasto mais', entradas: 'quanto recebi esse mes', patrimonio: 'qual meu patrimonio', vencimentos: 'o que vence essa semana', mercado: 'como esta o dolar', inteligencia: 'me da um raio-x das minhas financas', geral: 'como estao minhas financas' };
+const FOCUS_Q = { saldo: 'qual meu saldo', gastos: 'onde gasto mais', entradas: 'quanto recebi esse mes', patrimonio: 'qual meu patrimonio', vencimentos: 'o que vence essa semana', mercado: 'como esta o dolar', inteligencia: 'me da um raio-x das minhas financas', metas: 'como estao minhas metas', geral: 'como estao minhas financas' };
 export function askFocus(focus, ctx, agent, opts = {}) { return askAssistant(FOCUS_Q[focus] || FOCUS_Q.geral, ctx, agent, opts); }
 
 // quem responde: 1 robo (foco unico) ou 2 (pergunta multi-tema -> resposta combinada)

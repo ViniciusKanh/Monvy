@@ -1,13 +1,14 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscription, CreditCardInvoice, Support, AppSettings, Robots } from '../api/entities.js';
+import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscription, CreditCardInvoice, Support, AppSettings, Robots, Notification } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge, Textarea } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import { converse } from '../lib/chat.js';
-import { deliberate } from '../lib/assistant.js';
+import { deliberate, suggestFor } from '../lib/assistant.js';
+import { useNavigate } from 'react-router-dom';
 import { CouncilThinking } from '../components/Splash.jsx';
 import { Bot, Plus, Pencil, Trash2, MessageSquare, Send, Sparkles, X, Filter, Play, Clock, Zap, Wallet, BarChart3, TrendingUp, Globe, CalendarClock, RefreshCw } from 'lucide-react';
 
@@ -20,6 +21,7 @@ const FOCUS = [
   { k: 'mercado', label: 'Mercado & Impostos', emoji: '🌎', icon: Globe, desc: 'Cotacoes (dolar, euro, cripto), Selic/IPCA e Imposto de Renda.' },
   { k: 'vencimentos', label: 'Vencimentos & Contas', emoji: '📅', icon: CalendarClock, desc: 'Avisa o que esta pra vencer.' },
   { k: 'inteligencia', label: 'Inteligencia & Analise', emoji: '🧠', icon: BarChart3, desc: 'Raio-X, saude financeira, comportamento e recomendacoes.' },
+  { k: 'metas', label: 'Metas & Objetivos', emoji: '🎯', icon: TrendingUp, desc: 'Acompanha o progresso das suas metas e cobra.' },
 ];
 const focusOf = (k) => FOCUS.find((f) => f.k === k) || FOCUS[0];
 const EMOJIS = ['🤖', '💰', '📊', '📈', '🌎', '📅', '🦾', '🧠', '🛡️', '🦉', '🐱', '🚀', '💡', '🕵️', '📎'];
@@ -83,13 +85,16 @@ const GALLERY = [
     config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimonio.', monitor: true, match: 'all', conditions: [{ metric: 'net_worth', op: 'lte', value: 0 }], actions: [{ action: 'notify', subject: 'Patrimonio zerado ou negativo', message: 'Seu patrimonio liquido chegou a zero ou ficou negativo. Vale revisar contas, dividas e gastos.' }] } },
   { name: 'Analista de Inteligencia', emoji: '🧠', tag: 'Inteligencia', desc: 'Faz o raio-X: saude financeira, comportamento, previsao e recomendacoes.', frequency: 'monthly',
     config: { focus: 'inteligencia', emoji: '🧠', greeting: 'Peca um raio-X das suas financas quando quiser.', monitor: false } },
+  { name: 'Coach de Metas', emoji: '🎯', tag: 'Metas', desc: 'Acompanha suas metas e te lembra de guardar todo mes.', frequency: 'monthly',
+    config: { focus: 'metas', emoji: '🎯', greeting: 'Bora bater suas metas? Me pergunte como elas estao.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Hora de guardar', message: 'Lembrete do mes: separe um valor para suas metas.' }], dayOfMonth: 5 } },
   { name: 'Alfred', emoji: '🦾', tag: 'Geral', desc: 'Assistente geral: responde qualquer pergunta sobre suas financas.', frequency: 'weekly',
     config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas financas.', monitor: false } },
 ];
 
-const SECTOR_COLOR = { gastos: '#f43f5e', entradas: '#10b981', vencimentos: '#f59e0b', patrimonio: '#6366f1', mercado: '#0ea5e9', inteligencia: '#a855f7', saldo: '#14b8a6', geral: '#8b5cf6' };
-const SECTORS = ['gastos', 'entradas', 'vencimentos', 'patrimonio', 'mercado', 'inteligencia', 'geral'];
+const SECTOR_COLOR = { gastos: '#f43f5e', entradas: '#10b981', vencimentos: '#f59e0b', patrimonio: '#6366f1', mercado: '#0ea5e9', inteligencia: '#a855f7', metas: '#ec4899', saldo: '#14b8a6', geral: '#8b5cf6' };
+const SECTORS = ['gastos', 'entradas', 'vencimentos', 'patrimonio', 'mercado', 'inteligencia', 'metas', 'geral'];
 const hireFor = (focus) => GALLERY.find((g) => g.config.focus === focus) || { name: focusOf(focus).label, frequency: 'weekly', config: { focus, emoji: focusOf(focus).emoji, monitor: false } };
+const relTime = (iso) => { if (!iso) return ''; const d = (Date.now() - new Date(iso).getTime()) / 1000; if (!isFinite(d)) return ''; if (d < 3600) return `há ${Math.max(1, Math.round(d / 60))}min`; if (d < 86400) return `há ${Math.round(d / 3600)}h`; return `há ${Math.round(d / 86400)}d`; };
 
 function Bold({ text }) {
   const parts = String(text).split(/\*\*/);
@@ -102,6 +107,7 @@ export default function Agents() {
   const { data: agents = [], isLoading } = useQuery({ queryKey: ['triggers'], queryFn: () => Trigger.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const { data: sup } = useQuery({ queryKey: ['support-config'], queryFn: () => Support.config() });
+  const { data: notifs = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => Notification.list({ _limit: 50 }), refetchInterval: 60_000 });
   const ticketCats = sup?.categories || [];
   const expenseCats = categories.filter((c) => c.type === 'expense');
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
@@ -227,6 +233,31 @@ export default function Agents() {
 
       <p className="text-xs text-muted">Cada robô tem um <b>chat</b> que lê seus dados (100% local, ou com IA se você configurar a chave Gemini) e pode <b>monitorar 24/7</b> e te avisar. Precisa de algo sob medida? <button onClick={openNew} className="underline text-emerald-600">Criar do zero</button>.</p>
 
+      {/* LINHA DO TEMPO DOS ROBOS */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> Linha do tempo da equipe</h3>
+          <span className="text-xs text-muted">o que os robôs sinalizaram</span>
+        </div>
+        {notifs.length === 0 ? <p className="text-sm text-muted py-2">Nenhum sinal ainda. Quando um robô detectar algo, aparece aqui.</p>
+          : (
+            <div className="relative pl-4 space-y-3 before:absolute before:left-1 before:top-1 before:bottom-1 before:w-px before:bg-[hsl(var(--border))]">
+              {[...notifs].sort((a, b) => String(b.created_date || '').localeCompare(String(a.created_date || ''))).slice(0, 12).map((n) => (
+                <div key={n.id} className="relative">
+                  <span className="absolute -left-3 top-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[hsl(var(--card))]" />
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-tight">{n.title}</p>
+                      {n.text && <p className="text-xs text-muted leading-tight">{n.text}</p>}
+                    </div>
+                    <span className="text-[10px] text-muted shrink-0 mt-0.5">{relTime(n.created_date)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+      </Card>
+
       {/* Modal criar/editar robo */}
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? 'Editar robo' : 'Novo robo'} maxWidth="max-w-xl"
         footer={<><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar robo'}</Button></>}>
@@ -321,6 +352,7 @@ export default function Agents() {
 }
 
 function ChatModal({ agent, agents = [], user, catMap, onClose }) {
+  const navigate = useNavigate();
   const c = normConfig(agent.config);
   const foc = focusOf(c.focus);
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
@@ -363,7 +395,8 @@ function ChatModal({ agent, agents = [], user, catMap, onClose }) {
       const { panel, parts } = await converse({ question: q, ctx, agents, primary: agent, apiKey, history });
       const adds = [];
       if (panel && parts.length > 1) adds.push({ role: 'note', text: `🤝 ${parts.map((p) => p.robot.name).join(' e ')} responderam juntos` });
-      for (const p of parts) adds.push({ role: 'agent', text: p.text, emoji: p.robot.emoji, name: p.robot.name });
+      const acts = suggestFor(q);
+      parts.forEach((p, idx) => adds.push({ role: 'agent', text: p.text, emoji: p.robot.emoji, name: p.robot.name, actions: idx === parts.length - 1 ? acts : [] }));
       setMsgs((m) => [...m, ...adds]);
     }
     catch { setMsgs((m) => [...m, { role: 'agent', text: 'Ops, tive um problema para responder agora. Tente de novo.' }]); }
@@ -391,6 +424,7 @@ function ChatModal({ agent, agents = [], user, catMap, onClose }) {
             <div className="max-w-[80%]">
               {m.role === 'agent' && m.name && m.name !== agent.name && <p className="text-[10px] text-muted mb-0.5">{m.name}</p>}
               <div className={`rounded-2xl px-3 py-2 text-sm leading-relaxed ${m.role === 'user' ? 'bg-emerald-500 text-white' : 'bg-black/5 dark:bg-white/10'}`}><Bold text={m.text} /></div>
+              {m.actions?.length > 0 && <div className="flex flex-wrap gap-1.5 mt-1.5">{m.actions.map((a, k) => <button key={k} onClick={() => { onClose(); navigate(a.path); }} className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition">{a.label} →</button>)}</div>}
             </div>
           </div>
         ))}
