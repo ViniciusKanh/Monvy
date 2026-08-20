@@ -74,11 +74,15 @@ const GALLERY = [
     config: { focus: 'entradas', emoji: '💵', greeting: 'Acompanho tudo que entra na sua conta.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo de entradas', message: 'Confira o que voce recebeu no ultimo periodo.' }], dayOfMonth: 1 } },
   { name: 'Analista de Mercado & Impostos', emoji: '🌎', tag: 'Mercado', desc: 'Tira duvidas de dolar, euro, cripto, Selic/IPCA e Imposto de Renda no chat.', frequency: 'weekly',
     config: { focus: 'mercado', emoji: '🌎', greeting: 'Pergunte sobre cotacoes, taxas e impostos.', monitor: false } },
-  { name: 'Consultor de Patrimonio', emoji: '📈', tag: 'Patrimonio', desc: 'Resumo mensal do seu patrimonio e investimentos.', frequency: 'monthly',
-    config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimonio.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo do patrimonio', message: 'Veja como esta seu patrimonio este mes.' }], dayOfMonth: 1 } },
+  { name: 'Consultor de Patrimonio', emoji: '📈', tag: 'Patrimonio', desc: 'Alerta na hora se seu patrimonio zerar ou ficar negativo.', frequency: 'daily',
+    config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimonio.', monitor: true, match: 'all', conditions: [{ metric: 'net_worth', op: 'lte', value: 0 }], actions: [{ action: 'notify', subject: 'Patrimonio zerado ou negativo', message: 'Seu patrimonio liquido chegou a zero ou ficou negativo. Vale revisar contas, dividas e gastos.' }] } },
   { name: 'Alfred', emoji: '🦾', tag: 'Geral', desc: 'Assistente geral: responde qualquer pergunta sobre suas financas.', frequency: 'weekly',
     config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas financas.', monitor: false } },
 ];
+
+const SECTOR_COLOR = { gastos: '#f43f5e', entradas: '#10b981', vencimentos: '#f59e0b', patrimonio: '#6366f1', mercado: '#0ea5e9', saldo: '#14b8a6', geral: '#8b5cf6' };
+const SECTORS = ['gastos', 'entradas', 'vencimentos', 'patrimonio', 'mercado', 'geral'];
+const hireFor = (focus) => GALLERY.find((g) => g.config.focus === focus) || { name: focusOf(focus).label, frequency: 'weekly', config: { focus, emoji: focusOf(focus).emoji, monitor: false } };
 
 function Bold({ text }) {
   const parts = String(text).split(/\*\*/);
@@ -140,64 +144,69 @@ export default function Agents() {
         actions={<Button onClick={openNew}><Plus className="w-4 h-4" /> Novo robo</Button>}
       />
 
-      {/* GALERIA 1-CLIQUE */}
-      <Card>
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <h3 className="font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> Adicionar robô em 1 clique</h3>
-          <span className="text-xs text-muted">Prontos pra usar — sem precisar configurar nada</span>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {GALLERY.map((p) => { const owned = ownedFocuses.has(p.config.focus); return (
-            <div key={p.name} className="rounded-2xl border border-[hsl(var(--border))] p-3 flex flex-col hover-lift">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)' }}>{p.emoji}</span>
-                <div className="min-w-0"><p className="font-semibold text-sm leading-tight truncate">{p.name}</p><span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-muted">{p.tag}</span></div>
+      {/* HERO EMPRESA */}
+      {(() => {
+        const ativos = agents.filter((a) => { const c = normConfig(a.config); return c.monitor && a.enabled !== false; }).length;
+        const setoresOcupados = new Set(agents.map((a) => normConfig(a.config).focus)).size;
+        return (
+          <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#0f172a 0%,#065f46 55%,#4338ca 100%)' }}>
+            <div className="absolute -top-16 -right-10 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,.15), transparent 70%)' }} />
+            <div className="relative flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-[11px] tracking-[0.28em] font-medium text-emerald-200"><Bot className="w-3.5 h-3.5" /> SUA EQUIPE FINANCEIRA</div>
+                <p className="font-display text-2xl font-extrabold mt-1">Monvy · Central de Robôs</p>
+                <p className="text-white/80 text-sm mt-1 max-w-lg">Cada robô cuida de um setor e monitora suas finanças 24/7. Contrate para as áreas vazias e converse com eles quando quiser.</p>
               </div>
-              <p className="text-xs text-muted flex-1 mt-1">{p.desc}</p>
-              <div className="flex items-center gap-2 mt-3">
-                <Button size="sm" className="flex-1" onClick={() => quickCreate.mutate(p)} disabled={quickCreate.isPending}><Plus className="w-4 h-4" /> Adicionar</Button>
-                <button onClick={() => customFrom(p)} className="text-xs text-muted hover:text-emerald-600 whitespace-nowrap">ajustar</button>
+              <div className="flex gap-5 text-center">
+                <div><p className="font-display text-2xl font-extrabold">{agents.length}</p><p className="text-white/70 text-xs">funcionários</p></div>
+                <div><p className="font-display text-2xl font-extrabold text-emerald-300">{ativos}</p><p className="text-white/70 text-xs">monitorando</p></div>
+                <div><p className="font-display text-2xl font-extrabold">{setoresOcupados}/{SECTORS.length}</p><p className="text-white/70 text-xs">setores</p></div>
               </div>
-              {owned && <p className="text-[10px] text-amber-500 mt-1">Voce ja tem um robô deste tipo</p>}
             </div>
-          ); })}
-        </div>
-        <p className="text-xs text-muted mt-3">A ação padrão é <b>notificação no app</b> (sem precisar de e-mail). Quer personalizar? Use "ajustar" ou <button onClick={openNew} className="underline text-emerald-600">criar do zero</button>.</p>
-      </Card>
-
-      {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : agents.length === 0 ? <Card><EmptyState icon={Bot} title="Nenhum robo ainda" subtitle="Crie um robo para monitorar e conversar sobre suas financas." action={<Button onClick={openNew}><Plus className="w-4 h-4" /> Novo robo</Button>} /></Card>
-        : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {agents.map((t, i) => { const c = normConfig(t.config); const on = t.enabled !== false; const foc = focusOf(c.focus); return (
-              <Reveal key={t.id} i={Math.min(i, 8)}>
-                <Card className="hover-lift h-full flex flex-col">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)' }}>{c.emoji}</span>
-                      <div><p className="font-semibold leading-tight">{t.name}</p><p className="text-xs text-muted">{foc.label}</p></div>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => del.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                  {c.monitor ? (
-                    <div className="mt-3 text-xs space-y-1 flex-1">
-                      <p className="text-muted"><Clock className="w-3 h-3 inline mr-1" />{freqLabel(t.frequency)}{t.frequency === 'weekly' ? ` · ${WEEKDAYS[t.weekday ?? 1]}` : t.frequency === 'monthly' ? ` · dia ${c.dayOfMonth || 1}` : ''}</p>
-                      <p className="text-muted truncate"><Filter className="w-3 h-3 inline mr-1" />{c.conditions.length ? c.conditions.map((x) => `${mInfo(x.metric).label} ${opLabel(x.op)} ${x.value}`).join(c.match === 'any' ? ' ou ' : ' e ') : 'sempre'}</p>
-                      <p className="text-emerald-600 dark:text-emerald-400 truncate"><Play className="w-3 h-3 inline mr-1" />{c.actions.map((a) => actLabel(a.action)).join(', ')}</p>
-                    </div>
-                  ) : <p className="mt-3 text-xs text-muted flex-1">Somente chat (sem monitoramento automatico).</p>}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[hsl(var(--border))]">
-                    <Button size="sm" className="flex-1" onClick={() => setChatFor(t)}><MessageSquare className="w-4 h-4" /> Conversar</Button>
-                    {c.monitor && <label className="flex items-center gap-1.5 text-xs cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={on} onChange={(e) => toggle.mutate({ id: t.id, enabled: e.target.checked })} />{on ? 'ativo' : 'pausado'}</label>}
-                  </div>
-                </Card>
-              </Reveal>
-            ); })}
           </div>
-        )}
+        );
+      })()}
+
+      {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div> : (
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...new Set([...SECTORS, ...agents.map((a) => normConfig(a.config).focus)])].map((focus) => {
+            const foc = focusOf(focus); const color = SECTOR_COLOR[focus] || '#64748b';
+            const staff = agents.filter((a) => normConfig(a.config).focus === focus);
+            return (
+              <Card key={focus} className="p-0 overflow-hidden hover-lift flex flex-col">
+                <div className="px-4 py-3 flex items-center gap-2" style={{ background: `linear-gradient(135deg, ${color}22, ${color}0d)` }}>
+                  <span className="w-9 h-9 rounded-xl flex items-center justify-center text-lg text-white shrink-0" style={{ background: color }}>{foc.emoji}</span>
+                  <div className="min-w-0 flex-1"><p className="font-semibold text-sm leading-tight">{foc.label}</p><p className="text-[11px] text-muted">Departamento · {staff.length} func.</p></div>
+                </div>
+                <div className="p-3 space-y-2 flex-1">
+                  {staff.length === 0 ? (
+                    <button onClick={() => quickCreate.mutate(hireFor(focus))} disabled={quickCreate.isPending} className="w-full h-full min-h-[92px] rounded-xl border-2 border-dashed border-[hsl(var(--border))] flex flex-col items-center justify-center gap-1 text-muted hover:border-emerald-500 hover:text-emerald-600 transition text-sm">
+                      <Plus className="w-5 h-5" /> Contratar {foc.label.split(' ')[0]}
+                    </button>
+                  ) : staff.map((t) => { const c = normConfig(t.config); const on = t.enabled !== false; return (
+                    <div key={t.id} className="rounded-xl border border-[hsl(var(--border))] p-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="relative w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)' }}>{c.emoji}<span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[hsl(var(--card))] ${c.monitor && on ? 'bg-emerald-500' : 'bg-slate-400'}`} /></span>
+                        <div className="min-w-0 flex-1"><p className="font-semibold text-sm leading-tight truncate">{t.name}</p><p className="text-[11px] text-muted">{c.monitor ? (on ? 'monitorando' : 'pausado') : 'só chat'}</p></div>
+                        <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10" title="Ajustar"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => del.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10" title="Demitir"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                      {c.monitor && <p className="text-[11px] text-muted mt-1.5 truncate"><Filter className="w-3 h-3 inline mr-1" />{c.conditions.length ? c.conditions.map((x) => `${mInfo(x.metric).label} ${opLabel(x.op)} ${x.value}`).join(c.match === 'any' ? ' ou ' : ' e ') : 'resumo periodico'}</p>}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Button size="sm" className="flex-1" onClick={() => setChatFor(t)}><MessageSquare className="w-4 h-4" /> Conversar</Button>
+                        {c.monitor && <label className="flex items-center gap-1 text-[11px] cursor-pointer" title="Ativar/pausar"><input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={on} onChange={(e) => toggle.mutate({ id: t.id, enabled: e.target.checked })} /></label>}
+                      </div>
+                    </div>
+                  ); })}
+                  {staff.length > 0 && <button onClick={() => quickCreate.mutate(hireFor(focus))} disabled={quickCreate.isPending} className="w-full text-[11px] text-muted hover:text-emerald-600 py-1">+ mais um neste setor</button>}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-muted">Cada robô tem um <b>chat</b> que lê seus dados (100% local, ou com IA se você configurar a chave Gemini) e pode <b>monitorar 24/7</b> e te avisar. Precisa de algo sob medida? <button onClick={openNew} className="underline text-emerald-600">Criar do zero</button>.</p>
 
       {/* Modal criar/editar robo */}
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? 'Editar robo' : 'Novo robo'} maxWidth="max-w-xl"

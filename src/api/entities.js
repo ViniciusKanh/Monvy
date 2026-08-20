@@ -1,5 +1,9 @@
 import { api } from './client.js';
 
+// Entidades que podem disparar robos em tempo real (avisa a UI para atualizar as notificacoes)
+const WATCHED = new Set(['Transaction', 'Account', 'Debt', 'Investment', 'CreditCardTransaction', 'CreditCardInvoice', 'Goal', 'Subscription']);
+const ping = (name) => { if (WATCHED.has(name) && typeof window !== 'undefined') { try { window.dispatchEvent(new CustomEvent('monvy:data-changed', { detail: name })); } catch { /* */ } } };
+
 // Fabrica um "repositorio" CRUD para uma entidade (bate em /api/entities/:name)
 function makeEntity(name) {
   const base = `/api/entities/${name}`;
@@ -9,10 +13,10 @@ function makeEntity(name) {
       return api.get(qs ? `${base}?${qs}` : base);
     },
     get: (id) => api.get(`${base}?id=${encodeURIComponent(id)}`),
-    create: (data) => api.post(base, data),
-    bulkCreate: (items) => api.post(base, { _bulk: items }),
-    update: (id, data) => api.put(`${base}?id=${encodeURIComponent(id)}`, data),
-    remove: (id) => api.del(`${base}?id=${encodeURIComponent(id)}`),
+    create: (data) => api.post(base, data).then((r) => { ping(name); return r; }),
+    bulkCreate: (items) => api.post(base, { _bulk: items }).then((r) => { ping(name); return r; }),
+    update: (id, data) => api.put(`${base}?id=${encodeURIComponent(id)}`, data).then((r) => { ping(name); return r; }),
+    remove: (id) => api.del(`${base}?id=${encodeURIComponent(id)}`).then((r) => { ping(name); return r; }),
   };
 }
 

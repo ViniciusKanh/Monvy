@@ -27,8 +27,15 @@ export function AlertsBell({ dark }) {
   const { data: subscriptions = [] } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
-  const { data: notifications = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => Notification.list({ _limit: 50 }), refetchInterval: 120_000 });
+  const { data: notifications = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => Notification.list({ _limit: 50 }), refetchInterval: 60_000, refetchOnWindowFocus: true });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
+
+  // Ao mudar dados (lancamento etc.), os robos podem ter gerado notificacoes: atualiza o sino na hora.
+  useEffect(() => {
+    const onChange = () => { setTimeout(() => qc.invalidateQueries({ queryKey: ['notifications'] }), 900); };
+    window.addEventListener('monvy:data-changed', onChange);
+    return () => window.removeEventListener('monvy:data-changed', onChange);
+  }, [qc]);
 
   const baseAlerts = useMemo(() => computeAlerts({ transactions, invoices, subscriptions, categories, accounts, catMap }), [transactions, invoices, subscriptions, categories, accounts, catMap]);
   const { data: fx } = useQuery({ queryKey: ['fx-bell'], queryFn: fetchFx, retry: 1, staleTime: 30_000, refetchInterval: 60_000 });
