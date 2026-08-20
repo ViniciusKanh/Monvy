@@ -5,9 +5,9 @@ import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscr
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Spinner, Badge } from '../components/ui';
-import { routeAgent } from '../lib/assistant.js';
+import { deliberate } from '../lib/assistant.js';
 import { answerHybrid } from '../lib/chat.js';
-import { MessagesSquare, Send, Sparkles, User, Bot, Cpu } from 'lucide-react';
+import { MessagesSquare, Send, Sparkles, User, Bot, Cpu, Users } from 'lucide-react';
 
 const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado', vencimentos: 'Vencimentos' };
 const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
@@ -40,10 +40,12 @@ export default function Chat() {
   const send = async (q) => {
     const question = (q ?? input).trim();
     if (!question || loading) return;
-    const robot = routeAgent(question, agents);
+    const council = deliberate(question, agents);
+    const robot = council[0]?.agent || null;
     const agent = robot ? { name: robot.name, focus: cfgOf(robot).focus, focusLabel: FOCUS_LABEL[cfgOf(robot).focus] || 'Assistente', emoji: cfgOf(robot).emoji || '🤖', personality: cfgOf(robot).personality || '' } : { name: 'Assistente', focus: 'geral', focusLabel: 'Assistente geral', emoji: '🤖' };
-    const history = messages.slice(-6);
+    const history = messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-6);
     setMessages((m) => [...m, { role: 'user', text: question }]);
+    if (council.length > 1) setMessages((m) => [...m, { role: 'council', items: council.slice(0, 4), winner: robot?.name }]);
     setInput(''); setLoading(true);
     try {
       const { text, via } = await answerHybrid({ question, ctx, agent, apiKey, history });
@@ -78,7 +80,19 @@ export default function Chat() {
               {agents.length === 0 && <p className="text-xs mt-4">Dica: crie robos em <Link to="/agentes" className="underline">Agentes & Robos</Link> para respostas com personalidade.</p>}
             </div>
           )}
-          {messages.map((m, i) => (
+          {messages.map((m, i) => m.role === 'council' ? (
+            <div key={i} className="rounded-xl border border-[hsl(var(--border))] bg-black/[0.03] dark:bg-white/[0.03] px-3 py-2">
+              <p className="text-[11px] font-semibold text-muted flex items-center gap-1.5 mb-1.5"><Users className="w-3.5 h-3.5 text-indigo-500" /> Os robôs se reuniram</p>
+              <div className="flex flex-wrap gap-1.5">
+                {m.items.map((it, k) => (
+                  <span key={k} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${it.name === m.winner ? 'bg-emerald-500 text-white font-semibold' : 'bg-black/5 dark:bg-white/10 text-muted'}`}>
+                    {it.emoji} {it.name} · {Math.round(it.score * 100)}%{it.name === m.winner ? ' ✓' : ''}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted mt-1.5">{m.winner} assumiu a resposta por ter o papel mais adequado.</p>
+            </div>
+          ) : (
             <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-lg ${m.role === 'user' ? 'bg-emerald-500 text-white' : ''}`} style={m.role !== 'user' ? { background: 'linear-gradient(135deg,#10b98122,#6366f122)' } : {}}>{m.role === 'user' ? <User className="w-4 h-4" /> : (m.robot?.emoji || <Bot className="w-4 h-4" />)}</span>
               <div className="max-w-[80%]">

@@ -1,5 +1,6 @@
 // Assistente financeiro local (sem IA de terceiros): interpreta a pergunta, le todos os
 // dados do usuario e responde em linguagem natural e personalizada.
+import { detectPriceHikes, detectAnomalies } from './analytics.js';
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const num = (v) => { const x = Number(v); return isNaN(x) ? 0 : x; };
@@ -72,6 +73,42 @@ function upcoming(ctx, days = 15) {
   return items.sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
+// serie de despesas dos ultimos n meses (mais antigo -> atual)
+function expenseSeries(ctx, n = 6) {
+  const now = new Date(); const out = [];
+  for (let k = n - 1; k >= 0; k--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - k, 1); const mk = d.toISOString().slice(0, 7);
+    const exp = ctx.transactions.filter((t) => t.type === 'expense' && String(t.date).slice(0, 7) === mk).reduce((s, t) => s + num(t.amount), 0);
+    out.push({ mk, exp });
+  }
+  return out;
+}
+const median = (arr) => { const s = [...arr].filter((x) => x > 0).sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : 0; };
+// previsao de despesa do mes: projeta o mes corrente pelo ritmo diario + mediana historica
+function forecastExpense(ctx) {
+  const now = new Date(); const day = now.getDate(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const mk = ym();
+  const soFar = ctx.transactions.filter((t) => t.type === 'expense' && String(t.date).slice(0, 7) === mk).reduce((s, t) => s + num(t.amount), 0);
+  const paceProj = day > 0 ? soFar / day * dim : soFar;
+  const hist = median(expenseSeries(ctx, 6).slice(0, -1).map((m) => m.exp));
+  const projecao = hist > 0 ? (paceProj * 0.6 + hist * 0.4) : paceProj; // combina ritmo com historico
+  return { soFar, projecao, hist, restanteEstimado: Math.max(0, projecao - soFar) };
+}
+// compara mes atual x anterior (total e por categoria)
+function comparePrev(ctx) {
+  const cur = { mk: ym(), kind: 'month' }; const prev = { mk: prevYm(), kind: 'month' };
+  const tc = totals(ctx, cur); const tp = totals(ctx, prev);
+  const catCur = {}; const catPrev = {};
+  for (const t of ctx.transactions) {
+    if (t.type !== 'expense') continue; const m = String(t.date).slice(0, 7); const name = ctx.catMap[t.category_id]?.name || 'Outros';
+    if (m === cur.mk) catCur[name] = (catCur[name] || 0) + num(t.amount);
+    else if (m === prev.mk) catPrev[name] = (catPrev[name] || 0) + num(t.amount);
+  }
+  const deltas = Object.keys({ ...catCur, ...catPrev }).map((k) => ({ name: k, cur: catCur[k] || 0, prev: catPrev[k] || 0, delta: (catCur[k] || 0) - (catPrev[k] || 0) })).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return { tc, tp, deltas, expDelta: tc.exp - tp.exp, expPct: tp.exp > 0 ? (tc.exp - tp.exp) / tp.exp : 0 };
+}
+const arrow = (d) => d > 0 ? '↑' : d < 0 ? '↓' : '→';
+
 function greetLine(user, agent) {
   const nm = firstName(user);
   const who = agent?.name ? `Aqui e o ${agent.name}. ` : '';
@@ -94,6 +131,9 @@ const INTENTS = [
   { key: 'assinaturas', kw: ['assinatura', 'assinaturas', 'streaming', 'recorrente', 'mensalidade'] },
   { key: 'cartao', kw: ['cartao', 'fatura', 'faturas', 'cartao de credito'] },
   { key: 'mercado', kw: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'cotacao', 'bolsa', 'acoes'] },
+  { key: 'previsao', kw: ['vou gastar', 'quanto vou gastar', 'previsao', 'previsão', 'projecao', 'projeta', 'estimativa de gasto', 'fim do mes', 'vai sobrar', 'vou fechar o mes'] },
+  { key: 'comparar', kw: ['comparar', 'comparado', 'vs mes passado', 'em relacao ao mes passado', 'mais que mes passado', 'gastei mais', 'gastei menos', 'comparacao', 'mes passado x'] },
+  { key: 'analise', kw: ['analise', 'analisa', 'analise completa', 'o que voce acha', 'avalie', 'avaliacao', 'diagnostico', 'me da um raio-x', 'raio-x', 'radiografia'] },
   { key: 'resumo', kw: ['resumo', 'como estou', 'como esta minha', 'panorama', 'situacao', 'saude financeira', 'como estao minhas financas', 'como vao minhas financas'] },
   { key: 'ajuda', kw: ['ajuda', 'o que voce faz', 'o que sabe', 'pode fazer', 'quem e voce', 'comandos', 'me ajuda'] },
 ];
@@ -131,7 +171,7 @@ async function marketAnswer(q) {
 
 // mapeia a intencao da pergunta para o foco de um robo
 export function intentFocus(question) {
-  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', assinaturas: 'gastos', renda: 'geral', poupanca: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
+  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'gastos', comparar: 'gastos', assinaturas: 'gastos', renda: 'geral', poupanca: 'geral', analise: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
   return map[detect(norm(question))] || 'geral';
 }
 const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
@@ -148,6 +188,32 @@ export function routeAgent(question, agents = []) {
   if (geral.length) return geral[0];
   return agents[0];
 }
+// palavras-chave por foco (para o conselho pontuar relevancia)
+const FOCUS_KW = {
+  saldo: ['saldo', 'conta', 'dinheiro', 'tenho'],
+  gastos: ['gasto', 'gastei', 'despesa', 'economizar', 'economia', 'categoria', 'assinatura', 'previsao', 'comparar', 'cartao'],
+  patrimonio: ['patrimonio', 'investi', 'investimento', 'carteira', 'rico', 'valho', 'rendimento'],
+  vencimentos: ['vence', 'vencimento', 'pagar', 'divida', 'devo', 'boleto', 'prazo', 'fatura'],
+  mercado: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'bolsa', 'cotacao', 'acoes'],
+  geral: ['resumo', 'saude', 'analise', 'financas', 'como estou', 'raio-x'],
+};
+// Conselho de robos: cada robo pontua sua confianca pela pergunta e seu papel.
+export function deliberate(question, agents = []) {
+  const q = norm(question);
+  const focus = intentFocus(question);
+  const scored = agents.map((a) => {
+    const c = cfgOf(a); const f = c.focus || 'geral'; const reasons = [];
+    let score = 0.08;
+    if (f === focus) { score += 0.6; reasons.push('foco combina com a pergunta'); }
+    else if (f === 'geral') { score += 0.3; reasons.push('generalista'); }
+    const kws = FOCUS_KW[f] || []; const hits = kws.filter((k) => q.includes(k)).length;
+    if (hits) { score += Math.min(0.3, hits * 0.12); reasons.push(`${hits} termo(s) da especialidade`); }
+    if (a.name && q.includes(norm(a.name))) { score += 0.5; reasons.push('citado pelo nome'); }
+    return { agent: a, name: a.name, focus: f, emoji: c.emoji || '🤖', score: Math.min(1, Math.round(score * 100) / 100), reasons };
+  }).sort((x, y) => y.score - x.score);
+  return scored;
+}
+
 // contexto compacto (JSON) para enviar ao Gemini
 export function buildAIContext(ctx) {
   const p = { mk: ym(), label: monthName(ym()), kind: 'month' };
@@ -195,9 +261,42 @@ export async function askAssistant(question, ctx, agent) {
     if (!t.list.length) return { text: `${g}Não encontrei despesas em ${p.label} para analisar. Assim que você lançar seus gastos, eu mostro onde o dinheiro está indo.` };
     const top = t.list[0];
     const restos = t.list.slice(1).map((c) => `${c.name} (${brl(c.value)})`).join(' e ');
-    return { text: `${g}Em ${p.label}, você gasta mais com **${top.name}**: ${brl(top.value)}, cerca de ${pct(top.share)} de tudo que gastou.${restos ? ` Na sequência vêm ${restos}.` : ''} Se quiser reduzir, essa é a categoria com maior impacto.` };
+    let trend = '';
+    if (p.kind === 'month') { const c = comparePrev(ctx); const d = c.deltas.find((x) => x.name === top.name); if (d && d.prev > 0) trend = ` ${arrow(d.delta)} ${pct(Math.abs(d.delta / d.prev))} vs ${monthName(prevYm())}.`; }
+    return { text: `${g}Em ${p.label}, você gasta mais com **${top.name}**: ${brl(top.value)}, cerca de ${pct(top.share)} de tudo que gastou.${trend}${restos ? ` Na sequência vêm ${restos}.` : ''} Se quiser reduzir, essa é a categoria com maior impacto.` };
   }
-  if (intent === 'despesas') { const t = totals(ctx, p); return { text: `${g}Em ${p.label} você gastou **${brl(t.exp)}**${t.inc ? ` e recebeu ${brl(t.inc)}, um ${t.saldo >= 0 ? 'saldo positivo' : 'saldo negativo'} de ${brl(t.saldo)}` : ''}.` }; }
+  if (intent === 'despesas') {
+    const t = totals(ctx, p);
+    let cmp = '';
+    if (p.kind === 'month') { const c = comparePrev(ctx); if (c.tp.exp > 0) cmp = ` Isso e ${arrow(c.expDelta)} ${pct(Math.abs(c.expPct))} ${c.expDelta >= 0 ? 'a mais' : 'a menos'} que ${monthName(prevYm())} (${brl(c.tp.exp)}).`; }
+    return { text: `${g}Em ${p.label} você gastou **${brl(t.exp)}**${t.inc ? ` e recebeu ${brl(t.inc)} (saldo de ${brl(t.saldo)})` : ''}.${cmp}` };
+  }
+  if (intent === 'previsao') {
+    const f = forecastExpense(ctx); const t = totals(ctx, { mk: ym(), kind: 'month' });
+    const sobra = t.inc - f.projecao;
+    return { text: `${g}Até agora você gastou **${brl(f.soFar)}** em ${monthName(ym())}. No ritmo atual, deve fechar o mês em torno de **${brl(f.projecao)}** (faltam ~${brl(f.restanteEstimado)}).${t.inc ? ` Com sua renda de ${brl(t.inc)}, a projeção é ${sobra >= 0 ? `sobrar ${brl(sobra)}` : `faltar ${brl(-sobra)}`}.` : ''}` };
+  }
+  if (intent === 'comparar') {
+    const c = comparePrev(ctx);
+    if (c.tp.exp === 0 && c.tc.exp === 0) return { text: `${g}Ainda não tenho gastos suficientes para comparar ${monthName(ym())} com ${monthName(prevYm())}.` };
+    const subiu = c.deltas.filter((d) => d.delta > 0).slice(0, 2).map((d) => `${d.name} (${arrow(d.delta)} ${brl(Math.abs(d.delta))})`);
+    const caiu = c.deltas.filter((d) => d.delta < 0).slice(0, 2).map((d) => `${d.name} (${arrow(d.delta)} ${brl(Math.abs(d.delta))})`);
+    return { text: `${g}Comparando ${monthName(ym())} com ${monthName(prevYm())}: você gastou **${brl(c.tc.exp)}** vs ${brl(c.tp.exp)} (${arrow(c.expDelta)} ${pct(Math.abs(c.expPct))}).${subiu.length ? ` Subiu em ${subiu.join(', ')}.` : ''}${caiu.length ? ` Caiu em ${caiu.join(', ')}.` : ''}` };
+  }
+  if (intent === 'analise') {
+    const t = totals(ctx, { mk: ym(), kind: 'month' }); const tc = topCategories(ctx, { mk: ym(), kind: 'month' }, 1);
+    const f = forecastExpense(ctx); const c = comparePrev(ctx); const d = debtInfo(ctx);
+    const hikes = detectPriceHikes(ctx.transactions); const anom = detectAnomalies(ctx.transactions, ctx.catMap);
+    const linhas = [];
+    linhas.push(`Poupança do mês: **${pct(t.rate)}** ${t.rate >= 0.2 ? '(ótimo)' : t.rate > 0 ? '(dá pra melhorar)' : '(no vermelho)'}.`);
+    if (tc.list[0]) linhas.push(`Maior gasto: ${tc.list[0].name} (${brl(tc.list[0].value)}, ${pct(tc.list[0].share)}).`);
+    if (c.tp.exp > 0) linhas.push(`Vs mês passado: ${arrow(c.expDelta)} ${pct(Math.abs(c.expPct))} em despesas.`);
+    linhas.push(`Projeção de fechamento: ~${brl(f.projecao)}.`);
+    if (d.saldo > 0) linhas.push(`Dívidas: ${brl(d.saldo)} (${brl(d.mensal)}/mês).`);
+    if (hikes[0]) linhas.push(`Atenção: ${hikes[0].name} subiu ${hikes[0].changePct}% (${brl(hikes[0].from)}→${brl(hikes[0].to)}).`);
+    if (anom[0]) linhas.push(`Cobrança atípica: ${anom[0].description || 'lançamento'} de ${brl(anom[0].amount)}.`);
+    return { text: `${g}Raio-X das suas finanças:\n\n• ${linhas.join('\n• ')}` };
+  }
   if (intent === 'renda') { const t = totals(ctx, p); return { text: `${g}Sua renda em ${p.label} foi de **${brl(t.inc)}**. Com despesas de ${brl(t.exp)}, sobraram ${brl(t.saldo)} (${pct(t.rate)} de poupança).` }; }
   if (intent === 'poupanca') { const t = totals(ctx, p); const msg = t.rate >= 0.2 ? 'Excelente, acima dos 20% recomendados! 👏' : t.rate > 0 ? 'Dá pra apertar um pouco mais para chegar aos 20% ideais.' : 'Neste período você gastou mais do que ganhou — vale rever as maiores despesas.'; return { text: `${g}Em ${p.label} você guardou **${brl(t.saldo)}**, uma taxa de poupança de ${pct(t.rate)}. ${msg}` }; }
   if (intent === 'saldo') {
