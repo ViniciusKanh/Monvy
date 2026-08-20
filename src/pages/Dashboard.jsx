@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Account, Transaction, Category, CreditCard, CreditCardTransaction, Goal, Subscription, CreditCardInvoice } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Spinner } from '../components/ui';
+import { RobotsSummaryCard } from '../components/RobotsSummaryCard.jsx';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, inMonth, monthRange } from '../lib/utils.js';
 import { PALETTE, colorAt, lastMonths, monthlySeries, monthTotals, categoryBreakdown, forecastNextMonth, detectAnomalies } from '../lib/analytics.js';
@@ -167,6 +168,8 @@ export default function Dashboard() {
           <button onClick={() => setHide((h) => !h)} className="p-2.5 rounded-xl card hover:bg-black/5 dark:hover:bg-white/10">{hide ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
         </div>
       </div>
+
+      <RobotsSummaryCard />
 
       {customize && (
         <Card>

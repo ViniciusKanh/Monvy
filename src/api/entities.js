@@ -69,6 +69,7 @@ export const Support = {
   saveConfig: (data) => api.post('/api/support/config', { op: 'save', ...data }),
 };
 
+export const Robots = { check: () => api.post('/api/agents/check', {}) };
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
 export const Summary = { get: (month) => api.get(`/api/summary?month=${month}`) };
 export const Cards = {

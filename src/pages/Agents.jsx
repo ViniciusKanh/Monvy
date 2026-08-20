@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscription, CreditCardInvoice, Support, AppSettings } from '../api/entities.js';
+import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscription, CreditCardInvoice, Support, AppSettings, Robots } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge, Textarea } from '../components/ui';
@@ -9,7 +9,7 @@ import { toast } from '../lib/toast.js';
 import { converse } from '../lib/chat.js';
 import { deliberate } from '../lib/assistant.js';
 import { CouncilThinking } from '../components/Splash.jsx';
-import { Bot, Plus, Pencil, Trash2, MessageSquare, Send, Sparkles, X, Filter, Play, Clock, Zap, Wallet, BarChart3, TrendingUp, Globe, CalendarClock } from 'lucide-react';
+import { Bot, Plus, Pencil, Trash2, MessageSquare, Send, Sparkles, X, Filter, Play, Clock, Zap, Wallet, BarChart3, TrendingUp, Globe, CalendarClock, RefreshCw } from 'lucide-react';
 
 const FOCUS = [
   { k: 'geral', label: 'Assistente geral', emoji: '🤖', icon: Bot, desc: 'Responde sobre tudo: saldo, gastos, dividas, patrimonio, metas...' },
@@ -71,6 +71,10 @@ const GALLERY = [
     config: { focus: 'gastos', emoji: '📊', greeting: 'Fico de olho nos seus gastos.', monitor: true, match: 'all', conditions: [{ metric: 'month_expense', op: 'gt', value: 3000 }], actions: [{ action: 'notify', subject: 'Gastos acima do previsto', message: 'Seus gastos do mes passaram de R$ 3.000.' }] } },
   { name: 'Radar de Vencimentos', emoji: '📅', tag: 'Vencimentos', desc: 'Avisa quando ha contas vencidas ou a vencer.', frequency: 'weekly',
     config: { focus: 'vencimentos', emoji: '📅', greeting: 'Nao deixo nenhuma conta passar.', monitor: true, match: 'all', conditions: [{ metric: 'pending_count', op: 'gte', value: 1 }], actions: [{ action: 'notify', subject: 'Voce tem contas a pagar', message: 'Ha lancamentos vencidos ou proximos do vencimento.' }] } },
+  { name: 'Guardiao do Saldo', emoji: '🛡️', tag: 'Saldo', desc: 'Alerta na hora se o saldo total ficar abaixo de R$ 500.', frequency: 'daily',
+    config: { focus: 'saldo', emoji: '🛡️', greeting: 'Protejo seu saldo de sustos.', monitor: true, match: 'all', conditions: [{ metric: 'total_balance', op: 'lt', value: 500 }], actions: [{ action: 'notify', subject: 'Saldo baixo', message: 'Seu saldo total nas contas ficou baixo.' }] } },
+  { name: 'Vigia do Cartao', emoji: '💳', tag: 'Cartao', desc: 'Avisa quando as faturas de cartao em aberto passam de R$ 2.000.', frequency: 'weekly',
+    config: { focus: 'vencimentos', emoji: '💳', greeting: 'Fico de olho nas faturas do cartao.', monitor: true, match: 'all', conditions: [{ metric: 'card_invoice_total', op: 'gt', value: 2000 }], actions: [{ action: 'notify', subject: 'Faturas de cartao altas', message: 'Suas faturas de cartao em aberto passaram de R$ 2.000.' }] } },
   { name: 'Guardiao das Entradas', emoji: '💵', tag: 'Entradas', desc: 'Resumo mensal do que entrou (salarios e recebimentos).', frequency: 'monthly',
     config: { focus: 'entradas', emoji: '💵', greeting: 'Acompanho tudo que entra na sua conta.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo de entradas', message: 'Confira o que voce recebeu no ultimo periodo.' }], dayOfMonth: 1 } },
   { name: 'Analista de Mercado & Impostos', emoji: '🌎', tag: 'Mercado', desc: 'Tira duvidas de dolar, euro, cripto, Selic/IPCA e Imposto de Renda no chat.', frequency: 'weekly',
@@ -117,6 +121,8 @@ export default function Agents() {
   const openEdit = (t) => { setEditing(t); setForm({ name: t.name || '', frequency: t.frequency || 'weekly', weekday: t.weekday ?? 1, enabled: t.enabled !== false, config: normConfig(t.config) }); setModal(true); };
   const customFrom = (p) => { setEditing(null); setForm({ ...emptyForm(), name: p.name, frequency: p.frequency || 'weekly', config: normConfig(p.config) }); setModal(true); };
   const ownedFocuses = new Set(agents.map((a) => normConfig(a.config).focus));
+  const [checking, setChecking] = useState(false);
+  const runCheck = async () => { setChecking(true); try { const { fired } = await Robots.check(); qc.invalidateQueries({ queryKey: ['notifications'] }); inval(); toast.success(fired ? `${fired} alerta(s) gerado(s) agora.` : 'Verificado — nenhum alerta no momento.'); } catch (e) { toast.error(e.message || 'Falha'); } finally { setChecking(false); } };
 
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const setC = (k, v) => setForm((f) => ({ ...f, config: { ...f.config, [k]: v } }));
@@ -144,7 +150,7 @@ export default function Agents() {
       <PageHeader
         title={<span className="flex items-center gap-2"><Bot className="w-6 h-6 text-emerald-500" /> Agentes & Robos</span>}
         subtitle="Crie robos com nome e foco. Eles monitoram suas financas e conversam com voce."
-        actions={<Button onClick={openNew}><Plus className="w-4 h-4" /> Novo robo</Button>}
+        actions={<div className="flex gap-2"><Button variant="outline" onClick={runCheck} disabled={checking}>{checking ? <Spinner className="w-4 h-4" /> : <><RefreshCw className="w-4 h-4" /> Verificar agora</>}</Button><Button onClick={openNew}><Plus className="w-4 h-4" /> Novo robo</Button></div>}
       />
 
       {/* HERO EMPRESA */}
