@@ -51,9 +51,9 @@ const freqLabel = (f) => (FREQ.find((x) => x[0] === f) || FREQ[0])[1];
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
 const emptyAction = () => ({ action: 'notify', subject: '', message: '', ticketCategory: '', aiWrite: false });
-const emptyForm = () => ({ name: '', frequency: 'weekly', weekday: 1, enabled: true, config: { focus: 'geral', emoji: '🤖', greeting: '', monitor: false, match: 'all', conditions: [], actions: [emptyAction()], cooldownDays: 0, dayOfMonth: 1 } });
+const emptyForm = () => ({ name: '', frequency: 'weekly', weekday: 1, enabled: true, config: { focus: 'geral', emoji: '🤖', greeting: '', personality: '', monitor: false, match: 'all', conditions: [], actions: [emptyAction()], cooldownDays: 0, dayOfMonth: 1 } });
 const normConfig = (c) => ({
-  focus: c?.focus || 'geral', emoji: c?.emoji || '🤖', greeting: c?.greeting || '', monitor: !!c?.monitor,
+  focus: c?.focus || 'geral', emoji: c?.emoji || '🤖', greeting: c?.greeting || '', personality: c?.personality || '', monitor: !!c?.monitor,
   match: c?.match || 'all',
   conditions: Array.isArray(c?.conditions) ? c.conditions : [],
   cooldownDays: Number(c?.cooldownDays) || 0,
@@ -190,6 +190,7 @@ export default function Agents() {
           </Field>
           <p className="text-xs text-muted -mt-2">{focusOf(cfg.focus).desc}</p>
           <Field label="Mensagem de boas-vindas (opcional)"><Input value={cfg.greeting} onChange={(e) => setC('greeting', e.target.value)} placeholder="Ex: Pergunte o que quiser sobre suas financas." /></Field>
+          <Field label="Personalidade / estilo (opcional)"><Textarea rows={2} value={cfg.personality} onChange={(e) => setC('personality', e.target.value)} placeholder="Ex: direto e objetivo; ou bem-humorado e motivador. Usado quando a IA (Gemini) esta ativa." /></Field>
 
           <label className="flex items-center justify-between p-3 rounded-xl border border-[hsl(var(--border))] cursor-pointer">
             <span className="text-sm font-medium flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> Monitoramento automatico</span>
@@ -283,7 +284,7 @@ function ChatModal({ agent, user, catMap, onClose }) {
   const apiKey = settingsList[0]?.gemini_api_key;
 
   const ctx = useMemo(() => ({ user, transactions, accounts, categories: Object.values(catMap), catMap, investments, debts, goals, subs, invoices }), [user, transactions, accounts, catMap, investments, debts, goals, subs, invoices]);
-  const persona = { name: agent.name, focus: c.focus, focusLabel: foc.label, emoji: c.emoji };
+  const persona = { name: agent.name, focus: c.focus, focusLabel: foc.label, emoji: c.emoji, personality: c.personality };
 
   const [msgs, setMsgs] = useState(() => [{ role: 'agent', text: c.greeting || `${agent.name} na area! Pergunte o que quiser sobre suas financas.` }]);
   const [input, setInput] = useState('');

@@ -5,7 +5,7 @@ import { Ai } from '../api/entities.js';
 export async function answerHybrid({ question, ctx, agent, apiKey, history = [] }) {
   if (apiKey) {
     try {
-      const persona = agent ? { name: agent.name, focus: agent.focusLabel || agent.focus || '' } : null;
+      const persona = agent ? { name: agent.name, focus: agent.focusLabel || agent.focus || '', personality: agent.personality || '' } : null;
       const { answer } = await Ai.ask(question, buildAIContext(ctx), apiKey, history.slice(-6).map((m) => ({ role: m.role === 'user' ? 'user' : 'model', text: m.text })), persona);
       if (answer) return { text: answer, via: 'gemini' };
     } catch { /* cai no motor local */ }

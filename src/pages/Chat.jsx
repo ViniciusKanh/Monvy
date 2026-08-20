@@ -41,7 +41,7 @@ export default function Chat() {
     const question = (q ?? input).trim();
     if (!question || loading) return;
     const robot = routeAgent(question, agents);
-    const agent = robot ? { name: robot.name, focus: cfgOf(robot).focus, focusLabel: FOCUS_LABEL[cfgOf(robot).focus] || 'Assistente', emoji: cfgOf(robot).emoji || '🤖' } : { name: 'Assistente', focus: 'geral', focusLabel: 'Assistente geral', emoji: '🤖' };
+    const agent = robot ? { name: robot.name, focus: cfgOf(robot).focus, focusLabel: FOCUS_LABEL[cfgOf(robot).focus] || 'Assistente', emoji: cfgOf(robot).emoji || '🤖', personality: cfgOf(robot).personality || '' } : { name: 'Assistente', focus: 'geral', focusLabel: 'Assistente geral', emoji: '🤖' };
     const history = messages.slice(-6);
     setMessages((m) => [...m, { role: 'user', text: question }]);
     setInput(''); setLoading(true);

@@ -78,28 +78,30 @@ function greetLine(user, agent) {
   return pick([`Olá, ${nm}! ${who}`, `Oi, ${nm}! ${who}`, `${who}Vamos lá, ${nm}. `, `Fala, ${nm}! ${who}`]);
 }
 
-// ---- INTENCOES ----
+// ---- INTENCOES ---- (kw = frases/palavras; frases longas pontuam mais)
 const INTENTS = [
-  { key: 'gastos_top', kw: ['onde gasto', 'gasto mais', 'maior gasto', 'gasto por categoria', 'gastos por categoria', 'onde vai meu dinheiro', 'onde estou gastando', 'categoria que mais'] },
-  { key: 'despesas', kw: ['quanto gastei', 'minhas despesas', 'total de despesas', 'gastei esse', 'gastei este', 'quanto de despesa'] },
-  { key: 'renda', kw: ['quanto recebi', 'minha renda', 'quanto ganhei', 'receita', 'quanto entrou'] },
-  { key: 'poupanca', kw: ['quanto poupei', 'poupanca', 'quanto sobrou', 'quanto economizei', 'minha sobra', 'consegui guardar'] },
-  { key: 'saldo', kw: ['meu saldo', 'quanto tenho', 'quanto eu tenho', 'saldo total', 'dinheiro em conta', 'quanto de dinheiro'] },
-  { key: 'dividas', kw: ['quanto devo', 'minhas dividas', 'divida', 'financiamento', 'emprestimo', 'quanto falta pagar'] },
-  { key: 'patrimonio', kw: ['patrimonio', 'net worth', 'quanto valho', 'minha riqueza', 'quanto tenho no total'] },
-  { key: 'investimentos', kw: ['investimento', 'quanto investi', 'meus investi', 'rendimento', 'carteira'] },
-  { key: 'vencimentos', kw: ['vence', 'vencimento', 'a pagar', 'contas a pagar', 'o que preciso pagar', 'proximos pagamentos', 'boleto'] },
-  { key: 'metas', kw: ['meta', 'objetivo', 'cofre', 'quanto guardei'] },
-  { key: 'assinaturas', kw: ['assinatura', 'assinaturas', 'streaming', 'recorrente'] },
-  { key: 'cartao', kw: ['cartao', 'fatura', 'cartao de credito'] },
-  { key: 'mercado', kw: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'cotacao', 'bolsa'] },
-  { key: 'resumo', kw: ['resumo', 'como estou', 'como esta minha', 'panorama', 'situacao', 'saude financeira'] },
-  { key: 'ajuda', kw: ['ajuda', 'o que voce faz', 'o que sabe', 'pode fazer', 'quem e voce', 'comandos'] },
+  { key: 'economizar', kw: ['economizar', 'economia', 'cortar gasto', 'cortar gastos', 'reduzir gasto', 'reduzir despesa', 'gastar menos', 'onde economizo', 'onde posso economizar', 'dicas', 'dica', 'poupar mais', 'como poupar', 'me ajuda a economizar', 'onde cortar'] },
+  { key: 'gastos_top', kw: ['onde gasto', 'gasto mais', 'gasto mais com', 'maior gasto', 'maiores gastos', 'gasto por categoria', 'gastos por categoria', 'onde vai meu dinheiro', 'onde estou gastando', 'categoria que mais', 'meus gastos', 'como estao meus gastos', 'como esta meus gastos', 'como andam meus gastos', 'meus maiores gastos', 'no que gasto'] },
+  { key: 'despesas', kw: ['quanto gastei', 'total de despesas', 'total gasto', 'gastei esse', 'gastei este', 'gastei no mes', 'quanto de despesa', 'valor gasto', 'total de gastos'] },
+  { key: 'renda', kw: ['quanto recebi', 'minha renda', 'quanto ganhei', 'quanto ganho', 'receita', 'quanto entrou', 'minhas receitas', 'meu salario'] },
+  { key: 'poupanca', kw: ['quanto poupei', 'poupanca', 'quanto sobrou', 'quanto economizei', 'minha sobra', 'consegui guardar', 'taxa de poupanca'] },
+  { key: 'saldo', kw: ['meu saldo', 'quanto tenho', 'quanto eu tenho', 'saldo', 'saldo total', 'dinheiro em conta', 'quanto de dinheiro', 'quanto tem na conta', 'minhas contas'] },
+  { key: 'dividas', kw: ['quanto devo', 'quanto eu devo', 'minhas dividas', 'divida', 'dividas', 'financiamento', 'emprestimo', 'quanto falta pagar', 'estou devendo'] },
+  { key: 'patrimonio', kw: ['patrimonio', 'net worth', 'quanto valho', 'minha riqueza', 'quanto tenho no total', 'meu patrimonio'] },
+  { key: 'investimentos', kw: ['investimento', 'investimentos', 'quanto investi', 'meus investi', 'rendimento', 'carteira', 'meus ativos'] },
+  { key: 'vencimentos', kw: ['vence', 'vencimento', 'vencimentos', 'a pagar', 'contas a pagar', 'o que preciso pagar', 'proximos pagamentos', 'boleto', 'o que tenho que pagar', 'prazos'] },
+  { key: 'metas', kw: ['meta', 'metas', 'objetivo', 'cofre', 'cofres', 'quanto guardei'] },
+  { key: 'assinaturas', kw: ['assinatura', 'assinaturas', 'streaming', 'recorrente', 'mensalidade'] },
+  { key: 'cartao', kw: ['cartao', 'fatura', 'faturas', 'cartao de credito'] },
+  { key: 'mercado', kw: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'cotacao', 'bolsa', 'acoes'] },
+  { key: 'resumo', kw: ['resumo', 'como estou', 'como esta minha', 'panorama', 'situacao', 'saude financeira', 'como estao minhas financas', 'como vao minhas financas'] },
+  { key: 'ajuda', kw: ['ajuda', 'o que voce faz', 'o que sabe', 'pode fazer', 'quem e voce', 'comandos', 'me ajuda'] },
 ];
 function detect(q) {
   let best = null, score = 0;
   for (const it of INTENTS) {
-    const s = it.kw.reduce((n, k) => n + (q.includes(k) ? k.split(' ').length : 0), 0);
+    let s = 0;
+    for (const k of it.kw) { if (q.includes(k)) s += k.includes(' ') ? k.split(' ').length + 1 : 1; }
     if (s > score) { score = s; best = it.key; }
   }
   return score ? best : null;
@@ -129,14 +131,22 @@ async function marketAnswer(q) {
 
 // mapeia a intencao da pergunta para o foco de um robo
 export function intentFocus(question) {
-  const map = { gastos_top: 'gastos', despesas: 'gastos', assinaturas: 'gastos', renda: 'geral', poupanca: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
+  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', assinaturas: 'gastos', renda: 'geral', poupanca: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
   return map[detect(norm(question))] || 'geral';
 }
 const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
-// escolhe o robo que "tem a resposta" com base no foco
+// escolhe o robo que "tem a resposta": foco exato > nome citado > robo geral > primeiro
 export function routeAgent(question, agents = []) {
+  if (!agents.length) return null;
+  const q = norm(question);
   const focus = intentFocus(question);
-  return agents.find((a) => cfgOf(a).focus === focus) || agents.find((a) => cfgOf(a).focus === 'geral') || agents[0] || null;
+  const byFocus = agents.filter((a) => cfgOf(a).focus === focus);
+  if (byFocus.length) return byFocus[0];
+  const byName = agents.filter((a) => a.name && q.includes(norm(a.name)));
+  if (byName.length) return byName[0];
+  const geral = agents.filter((a) => (cfgOf(a).focus || 'geral') === 'geral');
+  if (geral.length) return geral[0];
+  return agents[0];
 }
 // contexto compacto (JSON) para enviar ao Gemini
 export function buildAIContext(ctx) {
@@ -167,6 +177,19 @@ export async function askAssistant(question, ctx, agent) {
 
   if (intent === 'mercado') return { text: g + (await marketAnswer(q)) };
 
+  if (intent === 'economizar') {
+    const t = topCategories(ctx, p, 3);
+    const tot = totals(ctx, p);
+    const active = ctx.subs.filter((s) => s.is_active !== false);
+    const subTotal = active.reduce((s, x) => s + num(x.amount), 0);
+    const tips = [];
+    if (t.list[0]) tips.push(`Seu maior gasto e **${t.list[0].name}** (${brl(t.list[0].value)}, ${pct(t.list[0].share)} do total) — um corte de 10% aqui ja economiza ${brl(t.list[0].value * 0.1)}/mes.`);
+    if (subTotal > 0) tips.push(`Voce paga ${brl(subTotal)}/mes em ${active.length} assinatura(s) (${brl(subTotal * 12)}/ano). Revise as que nao usa.`);
+    if (tot.rate < 0.2 && tot.inc > 0) tips.push(`Sua taxa de poupanca esta em ${pct(tot.rate)}; mirar 20% liberaria cerca de ${brl(Math.max(0, tot.inc * 0.2 - tot.saldo))}/mes.`);
+    if (t.list[1]) tips.push(`Vale olhar tambem ${t.list[1].name} (${brl(t.list[1].value)}).`);
+    if (!tips.length) return { text: `${g}Ainda nao tenho gastos suficientes em ${p.label} para sugerir cortes. Lance suas despesas que eu aponto onde economizar.` };
+    return { text: `${g}Aqui vao dicas pra economizar em ${p.label}:\n\n• ${tips.join('\n• ')}` };
+  }
   if (intent === 'gastos_top') {
     const t = topCategories(ctx, p, 3);
     if (!t.list.length) return { text: `${g}Não encontrei despesas em ${p.label} para analisar. Assim que você lançar seus gastos, eu mostro onde o dinheiro está indo.` };
