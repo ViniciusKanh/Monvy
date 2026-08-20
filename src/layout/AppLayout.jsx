@@ -13,6 +13,7 @@ import { NAV_GROUPS } from '../lib/screens.js';
 import { Logo } from '../components/Logo.jsx';
 import { Menu, X, Sun, Moon, Search } from 'lucide-react';
 import { AlertsBell } from '../components/AlertsBell.jsx';
+import { RobotsStatus } from '../components/RobotsStatus.jsx';
 import { GlobalSearch, openGlobalSearch } from '../components/GlobalSearch.jsx';
 import { OnboardingWizard } from '../components/OnboardingWizard.jsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
@@ -113,6 +114,7 @@ export function AppLayout() {
               <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 rounded-xl px-1 py-1">
                 <button onClick={openGlobalSearch} className="md:hidden p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10" title="Buscar"><Search className="w-5 h-5" /></button>
                 <button onClick={toggle} className="p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10" title="Tema">{theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
+                <RobotsStatus />
                 <AlertsBell />
               </div>
               <div className="flex items-center gap-2 pl-2 ml-1 border-l border-[hsl(var(--border))]">
@@ -132,7 +134,7 @@ export function AppLayout() {
           <div className="flex items-center justify-between px-4 py-3 text-white" style={{ background: 'linear-gradient(120deg,#080d1f,#111b3f)' }}>
             <button onClick={() => setMobileOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10"><Menu /></button>
             <Logo size="sm" />
-            <div className="flex items-center gap-1"><AlertsBell dark /><button onClick={toggle} className="p-1.5 rounded-lg hover:bg-white/10">{theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button></div>
+            <div className="flex items-center gap-1"><RobotsStatus dark /><AlertsBell dark /><button onClick={toggle} className="p-1.5 rounded-lg hover:bg-white/10">{theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button></div>
           </div>
           <div className="h-[3px] bg-gradient-to-r from-emerald-500 via-indigo-500 to-violet-500" />
         </header>

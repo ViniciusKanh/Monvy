@@ -9,6 +9,7 @@ const opTest = (op, a, b) => ({ lt: a < b, lte: a <= b, gt: a > b, gte: a >= b, 
 const OP_LABEL = { lt: 'menor que', lte: 'menor ou igual a', gt: 'maior que', gte: 'maior ou igual a', eq: 'igual a' };
 const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos', net_worth: 'Patrimonio liquido', open_tickets: 'Chamados em aberto', debt_monthly: 'Parcelas de dividas/mes', goals_saved: 'Guardado em metas', card_invoice_total: 'Faturas de cartao em aberto', investments_total: 'Total investido' };
 const UNIT = { savings_rate: '%', pending_count: 'un', open_tickets: 'un' };
+const FOCUS_LABEL = { geral: 'assistente geral', saldo: 'saldo e contas', gastos: 'gastos', entradas: 'entradas e renda', patrimonio: 'patrimonio', mercado: 'mercado e impostos', vencimentos: 'vencimentos', inteligencia: 'inteligencia' };
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numv(v));
 const fmtMetric = (m, v) => { const u = UNIT[m]; if (u === '%') return `${numv(v).toFixed(0)}%`; if (u === 'un') return String(Math.round(numv(v))); return brl(v); };
 
@@ -80,31 +81,34 @@ export async function evaluateAgentsEvent(uid) {
       if (mail === null) mail = await getMailConfig();
       const acts = Array.isArray(c.actions) && c.actions.length ? c.actions : (c.action ? [{ action: c.action, subject: c.subject, message: c.message }] : [{ action: 'notify' }]);
       const situacaoTxt = evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ');
+      const robo = tr.name || 'Robo Monvy'; const emoji = c.emoji || '🤖'; const setor = FOCUS_LABEL[c.focus] || 'financas';
+      const primeiroNome = (user.full_name || '').split(' ')[0];
       let did = 0;
 
       for (const act of acts) {
         if (act.action === 'email_summary' || act.action === 'email_bills') continue; // digests ficam pro cron
-        const title = (act.subject && act.subject.trim()) || tr.name || 'Alerta do robo';
+        const assunto = (act.subject && act.subject.trim()) || tr.name || 'Alerta do robo';
         const msg = (act.message && act.message.trim()) || situacaoTxt || 'Uma condicao monitorada foi atingida.';
         if (act.action === 'open_ticket') {
-          const subj = title;
+          const subj = assunto;
           const exists = (await db().execute({ sql: `SELECT id FROM SupportTicket WHERE created_by_id=? AND subject=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [uid, subj] })).rows[0];
           if (!exists) {
             const id = newId(); const number = Math.round(await q1(`SELECT COALESCE(MAX(number),1000) t FROM SupportTicket`, [])) + 1;
             await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subj, 'open', act.ticketCategory || 'Financeiro', 'alta', user.full_name || '', user.email, uid, nowIso(), nowIso()] });
-            await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), id, uid, 'user', 'Robo Monvy', `${msg}\n\nSituacao: ${situacaoTxt}`, nowIso()] });
-            await notify(uid, { kind: 'ticket', title: `Chamado #${number} aberto por robo`, text: subj, path: '/chamados' });
+            await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), id, uid, 'user', `${emoji} ${robo}`, `${msg}\n\nSituacao: ${situacaoTxt}`, nowIso()] });
+            await notify(uid, { kind: 'ticket', title: `${emoji} ${robo} abriu o chamado #${number}`, text: subj, path: '/chamados' });
             did++;
           }
         } else if (act.action === 'email_alert') {
-          await notify(uid, { kind: 'alert', title, text: msg });
+          await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}` });
           if (mail.enabled && user.email) {
             const rows = evals.map((e) => itemRow(METRIC_LABEL[e.cond.metric] || e.cond.metric, `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
-            await sendMail({ to: user.email, subject: `Monvy — ${title}`, html: tpl(`${title} 🤖`, `Ola${user.full_name ? ' ' + user.full_name : ''},<br/><br/>${String(msg).replace(/</g, '&lt;')}<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}`) }).catch(() => {});
+            const corpo = `Oi${primeiroNome ? ' ' + primeiroNome : ''}, aqui é o <b>${robo}</b>, seu robô de ${setor}.<br/><br/>${String(msg).replace(/</g, '&lt;')}<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}`;
+            await sendMail({ to: user.email, subject: `${emoji} ${robo}: ${assunto}`, html: tpl(`${emoji} ${robo}`, corpo, { footerNote: `mensagem automatica do seu robô ${robo}.` }) }).catch(() => {});
           }
           did++;
         } else { // notify (padrao)
-          await notify(uid, { kind: 'alert', title, text: msg });
+          await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}` });
           did++;
         }
       }

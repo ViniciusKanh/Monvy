@@ -134,7 +134,7 @@ const INTENTS = [
   { key: 'mercado', kw: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'cotacao', 'bolsa', 'acoes', 'selic', 'ipca', 'taxa de juros'] },
   { key: 'previsao', kw: ['vou gastar', 'quanto vou gastar', 'previsao', 'previsão', 'projecao', 'projeta', 'estimativa de gasto', 'fim do mes', 'vai sobrar', 'vou fechar o mes'] },
   { key: 'comparar', kw: ['comparar', 'comparado', 'vs mes passado', 'em relacao ao mes passado', 'mais que mes passado', 'gastei mais', 'gastei menos', 'comparacao', 'mes passado x'] },
-  { key: 'analise', kw: ['analise', 'analisa', 'analise completa', 'o que voce acha', 'avalie', 'avaliacao', 'diagnostico', 'me da um raio-x', 'raio-x', 'radiografia'] },
+  { key: 'analise', kw: ['analise', 'analisa', 'analise completa', 'o que voce acha', 'avalie', 'avaliacao', 'diagnostico', 'me da um raio-x', 'raio-x', 'radiografia', 'inteligencia', 'saude financeira', 'comportamento', 'insights', 'recomenda', 'recomendacao'] },
   { key: 'resumo', kw: ['resumo', 'como estou', 'como esta minha', 'panorama', 'situacao', 'saude financeira', 'como estao minhas financas', 'como vao minhas financas'] },
   { key: 'ajuda', kw: ['ajuda', 'o que voce faz', 'o que sabe', 'pode fazer', 'quem e voce', 'comandos', 'me ajuda'] },
 ];
@@ -148,31 +148,36 @@ function detect(q) {
   return score ? best : null;
 }
 
+async function fetchJson(url, ms = 6000) { const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), ms); try { const r = await fetch(url, { signal: ctrl.signal }); return await r.json(); } finally { clearTimeout(to); } }
+async function bcbSerie(code) { try { const d = await fetchJson(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${code}/dados/ultimos/1?formato=json`); const v = Number(String(d?.[d.length - 1]?.valor || '').replace(',', '.')); return isFinite(v) ? v : null; } catch { return null; } }
+
 async function marketAnswer(q) {
+  const parts = []; const macro = [];
+  // cambio (dolar/euro sempre; outras se citadas)
   try {
-    const wants = [];
-    if (/dolar|dollar|usd/.test(q)) wants.push('USD-BRL');
-    if (/euro|eur/.test(q)) wants.push('EUR-BRL');
-    if (!wants.length) wants.push('USD-BRL', 'EUR-BRL');
-    const parts = [];
-    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 6000);
-    const r = await fetch(`https://economia.awesomeapi.com.br/last/${wants.join(',')}`, { signal: ctrl.signal });
-    clearTimeout(to);
-    const data = await r.json();
-    for (const w of wants) { const k = w.replace('-', ''); const d = data[k]; if (d) parts.push(`${d.name.split('/')[0].trim()}: R$ ${Number(d.bid).toFixed(2)} (${Number(d.pctChange) >= 0 ? '+' : ''}${d.pctChange}% hoje)`); }
-    if (/bitcoin|cripto|btc/.test(q)) {
-      try { const c = await (await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true')).json(); if (c.bitcoin) parts.push(`Bitcoin: R$ ${Number(c.bitcoin.brl).toLocaleString('pt-BR')} (${c.bitcoin.brl_24h_change >= 0 ? '+' : ''}${Number(c.bitcoin.brl_24h_change).toFixed(1)}% 24h)`); } catch { /* */ }
-    }
-    if (!parts.length) throw new Error('sem dados');
-    return `Cotações agora — ${parts.join(' · ')}. Para o mercado nacional e internacional completo, veja a tela Mercado & Indicadores.`;
-  } catch {
-    return 'Não consegui buscar as cotações agora (pode ser conexão). Dá uma olhada na tela Mercado & Indicadores, que traz dólar, euro, Selic, IPCA e cripto atualizados.';
+    const wants = ['USD-BRL', 'EUR-BRL'];
+    if (/libra|gbp/.test(q)) wants.push('GBP-BRL');
+    const data = await fetchJson(`https://economia.awesomeapi.com.br/last/${wants.join(',')}`);
+    for (const w of wants) { const d = data[w.replace('-', '')]; if (d) parts.push(`${d.name.split('/')[0].trim()}: R$ ${Number(d.bid).toFixed(2)} (${Number(d.pctChange) >= 0 ? '+' : ''}${d.pctChange}% hoje)`); }
+  } catch { /* */ }
+  // cripto (se citado ou pergunta generica de mercado)
+  if (/bitcoin|cripto|btc|ethereum|eth|mercado|bolsa/.test(q)) {
+    try { const c = await fetchJson('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=brl&include_24hr_change=true'); if (c.bitcoin) parts.push(`Bitcoin: R$ ${Number(c.bitcoin.brl).toLocaleString('pt-BR')} (${c.bitcoin.brl_24h_change >= 0 ? '+' : ''}${Number(c.bitcoin.brl_24h_change).toFixed(1)}% 24h)`); if (/ethereum|eth/.test(q) && c.ethereum) parts.push(`Ethereum: R$ ${Number(c.ethereum.brl).toLocaleString('pt-BR')}`); } catch { /* */ }
   }
+  // indicadores macro do BCB (Selic meta a.a. = 432; IPCA mensal = 433)
+  const selic = await bcbSerie(432); const ipca = await bcbSerie(433);
+  if (selic != null) macro.push(`Selic ${selic.toFixed(2)}% a.a.`);
+  if (ipca != null) macro.push(`IPCA ${ipca.toFixed(2)}% no mes`);
+  if (!parts.length && !macro.length) return 'Nao consegui buscar as cotacoes agora (pode ser conexao). Veja a tela Mercado & Indicadores.';
+  let out = '';
+  if (parts.length) out += `Cotacoes agora — ${parts.join(' · ')}.`;
+  if (macro.length) out += `${out ? ' ' : ''}Indicadores: ${macro.join(' · ')}.`;
+  return `${out} Para o painel completo, veja a tela Mercado & Indicadores.`;
 }
 
 // mapeia a intencao da pergunta para o foco de um robo
 export function intentFocus(question) {
-  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'gastos', comparar: 'gastos', assinaturas: 'gastos', renda: 'entradas', poupanca: 'entradas', analise: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', impostos: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
+  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'inteligencia', comparar: 'gastos', assinaturas: 'gastos', renda: 'entradas', poupanca: 'entradas', analise: 'inteligencia', inteligencia: 'inteligencia', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', impostos: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
   return map[detect(norm(question))] || 'geral';
 }
 const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
@@ -197,7 +202,8 @@ const FOCUS_KW = {
   patrimonio: ['patrimonio', 'investi', 'investimento', 'carteira', 'rico', 'valho', 'rendimento'],
   vencimentos: ['vence', 'vencimento', 'pagar', 'divida', 'devo', 'boleto', 'prazo', 'fatura'],
   mercado: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'bolsa', 'cotacao', 'acoes', 'imposto', 'ir', 'tributo', 'selic', 'ipca', 'taxa'],
-  geral: ['resumo', 'saude', 'analise', 'financas', 'como estou', 'raio-x'],
+  inteligencia: ['analise', 'inteligencia', 'saude', 'raio-x', 'diagnostico', 'comportamento', 'insights', 'recomenda', 'dica', 'previsao', 'tendencia'],
+  geral: ['resumo', 'financas', 'como estou', 'panorama'],
 };
 // Conselho de robos: cada robo pontua sua confianca pela pergunta e seu papel.
 export function deliberate(question, agents = []) {
@@ -216,10 +222,10 @@ export function deliberate(question, agents = []) {
   return scored;
 }
 
-export const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', entradas: 'Entradas & Renda', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado & Impostos', vencimentos: 'Vencimentos' };
+export const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', entradas: 'Entradas & Renda', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado & Impostos', vencimentos: 'Vencimentos', inteligencia: 'Inteligencia & Analise' };
 export function agentInfo(a) { const c = cfgOf(a); const f = c.focus || 'geral'; return { name: a.name, focus: f, focusLabel: FOCUS_LABEL[f] || 'Assistente', emoji: c.emoji || '🤖', personality: c.personality || '' }; }
 // pergunta representativa por foco (para respostas de painel)
-const FOCUS_Q = { saldo: 'qual meu saldo', gastos: 'onde gasto mais', entradas: 'quanto recebi esse mes', patrimonio: 'qual meu patrimonio', vencimentos: 'o que vence essa semana', mercado: 'como esta o dolar', geral: 'como estao minhas financas' };
+const FOCUS_Q = { saldo: 'qual meu saldo', gastos: 'onde gasto mais', entradas: 'quanto recebi esse mes', patrimonio: 'qual meu patrimonio', vencimentos: 'o que vence essa semana', mercado: 'como esta o dolar', inteligencia: 'me da um raio-x das minhas financas', geral: 'como estao minhas financas' };
 export function askFocus(focus, ctx, agent, opts = {}) { return askAssistant(FOCUS_Q[focus] || FOCUS_Q.geral, ctx, agent, opts); }
 
 // quem responde: 1 robo (foco unico) ou 2 (pergunta multi-tema -> resposta combinada)
@@ -284,13 +290,13 @@ export async function askAssistant(question, ctx, agent, opts = {}) {
     return { text: `${g}Aqui vao dicas pra economizar em ${p.label}:\n\n• ${tips.join('\n• ')}` };
   }
   if (intent === 'gastos_top') {
-    const t = topCategories(ctx, p, 3);
+    const t = topCategories(ctx, p, 5);
     if (!t.list.length) return { text: `${g}Não encontrei despesas em ${p.label} para analisar. Assim que você lançar seus gastos, eu mostro onde o dinheiro está indo.` };
     const top = t.list[0];
-    const restos = t.list.slice(1).map((c) => `${c.name} (${brl(c.value)})`).join(' e ');
     let trend = '';
-    if (p.kind === 'month') { const c = comparePrev(ctx); const d = c.deltas.find((x) => x.name === top.name); if (d && d.prev > 0) trend = ` ${arrow(d.delta)} ${pct(Math.abs(d.delta / d.prev))} vs ${monthName(prevYm())}.`; }
-    return { text: `${g}Em ${p.label}, você gasta mais com **${top.name}**: ${brl(top.value)}, cerca de ${pct(top.share)} de tudo que gastou.${trend}${restos ? ` Na sequência vêm ${restos}.` : ''} Se quiser reduzir, essa é a categoria com maior impacto.` };
+    if (p.kind === 'month') { const c = comparePrev(ctx); const d = c.deltas.find((x) => x.name === top.name); if (d && d.prev > 0) trend = ` (${arrow(d.delta)} ${pct(Math.abs(d.delta / d.prev))} vs ${monthName(prevYm())})`; }
+    const linhas = t.list.map((c, i) => `${i + 1}. ${c.name}: ${brl(c.value)} (${pct(c.share)})${i === 0 ? trend : ''}`);
+    return { text: `${g}Analisei **todas as suas ${t.count} categorias** de despesa em ${p.label} (total ${brl(t.total)}). As maiores:\n\n${linhas.join('\n')}\n\n${top.name} é a de maior impacto — cortar 10% aí já economiza ${brl(top.value * 0.1)}/mês.` };
   }
   if (intent === 'despesas') {
     const t = totals(ctx, p);
@@ -313,16 +319,27 @@ export async function askAssistant(question, ctx, agent, opts = {}) {
   if (intent === 'analise') {
     const t = totals(ctx, { mk: ym(), kind: 'month' }); const tc = topCategories(ctx, { mk: ym(), kind: 'month' }, 1);
     const f = forecastExpense(ctx); const c = comparePrev(ctx); const d = debtInfo(ctx);
-    const hikes = detectPriceHikes(ctx.transactions); const anom = detectAnomalies(ctx.transactions, ctx.catMap);
+    const bal = totalBalance(ctx); const hikes = detectPriceHikes(ctx.transactions); const anom = detectAnomalies(ctx.transactions, ctx.catMap);
+    // placar de saude financeira (0-100)
+    const compromDivida = t.inc > 0 ? d.mensal / t.inc : 0;
+    const mesesReserva = f.projecao > 0 ? bal / f.projecao : (bal > 0 ? 6 : 0);
+    let score = 60;
+    score += Math.min(25, t.rate * 100); // poupanca
+    score -= Math.max(0, (compromDivida - 0.3)) * 100; // divida acima de 30%
+    score += Math.min(15, mesesReserva * 3); // reserva de emergencia
+    if (t.saldo < 0) score -= 15;
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    const nivel = score >= 75 ? 'saudável 💚' : score >= 50 ? 'razoável 🟡' : 'em alerta 🔴';
     const linhas = [];
-    linhas.push(`Poupança do mês: **${pct(t.rate)}** ${t.rate >= 0.2 ? '(ótimo)' : t.rate > 0 ? '(dá pra melhorar)' : '(no vermelho)'}.`);
-    if (tc.list[0]) linhas.push(`Maior gasto: ${tc.list[0].name} (${brl(tc.list[0].value)}, ${pct(tc.list[0].share)}).`);
-    if (c.tp.exp > 0) linhas.push(`Vs mês passado: ${arrow(c.expDelta)} ${pct(Math.abs(c.expPct))} em despesas.`);
-    linhas.push(`Projeção de fechamento: ~${brl(f.projecao)}.`);
-    if (d.saldo > 0) linhas.push(`Dívidas: ${brl(d.saldo)} (${brl(d.mensal)}/mês).`);
-    if (hikes[0]) linhas.push(`Atenção: ${hikes[0].name} subiu ${hikes[0].changePct}% (${brl(hikes[0].from)}→${brl(hikes[0].to)}).`);
+    linhas.push(`Placar de saúde: **${score}/100** (${nivel}).`);
+    linhas.push(`Poupança do mês: ${pct(t.rate)}${t.rate < 0.2 ? ' — mire 20%' : ''}.`);
+    linhas.push(`Reserva de emergência: ~${mesesReserva.toFixed(1)} mês(es) de despesa cobertos.`);
+    if (d.saldo > 0) linhas.push(`Comprometimento com dívidas: ${pct(compromDivida)} da renda.`);
+    if (tc.list[0]) linhas.push(`Maior gasto: ${tc.list[0].name} (${pct(tc.list[0].share)}).`);
+    if (c.tp.exp > 0) linhas.push(`Despesas ${arrow(c.expDelta)} ${pct(Math.abs(c.expPct))} vs mês passado; projeção de fechamento ~${brl(f.projecao)}.`);
+    if (hikes[0]) linhas.push(`Alerta: ${hikes[0].name} subiu ${hikes[0].changePct}%.`);
     if (anom[0]) linhas.push(`Cobrança atípica: ${anom[0].description || 'lançamento'} de ${brl(anom[0].amount)}.`);
-    return { text: `${g}Raio-X das suas finanças:\n\n• ${linhas.join('\n• ')}` };
+    return { text: `${g}Raio-X de inteligência das suas finanças:\n\n• ${linhas.join('\n• ')}\n\nQuer aprofundar? Veja as telas Inteligência, Saúde Financeira e Análise Comportamental.` };
   }
   if (intent === 'renda') { const t = totals(ctx, p); return { text: `${g}Sua renda em ${p.label} foi de **${brl(t.inc)}**. Com despesas de ${brl(t.exp)}, sobraram ${brl(t.saldo)} (${pct(t.rate)} de poupança).` }; }
   if (intent === 'poupanca') { const t = totals(ctx, p); const msg = t.rate >= 0.2 ? 'Excelente, acima dos 20% recomendados! 👏' : t.rate > 0 ? 'Dá pra apertar um pouco mais para chegar aos 20% ideais.' : 'Neste período você gastou mais do que ganhou — vale rever as maiores despesas.'; return { text: `${g}Em ${p.label} você guardou **${brl(t.saldo)}**, uma taxa de poupança de ${pct(t.rate)}. ${msg}` }; }

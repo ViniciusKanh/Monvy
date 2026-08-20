@@ -19,6 +19,7 @@ const FOCUS = [
   { k: 'patrimonio', label: 'Patrimonio & Investimentos', emoji: '📈', icon: TrendingUp, desc: 'Acompanha patrimonio liquido e carteira.' },
   { k: 'mercado', label: 'Mercado & Impostos', emoji: '🌎', icon: Globe, desc: 'Cotacoes (dolar, euro, cripto), Selic/IPCA e Imposto de Renda.' },
   { k: 'vencimentos', label: 'Vencimentos & Contas', emoji: '📅', icon: CalendarClock, desc: 'Avisa o que esta pra vencer.' },
+  { k: 'inteligencia', label: 'Inteligencia & Analise', emoji: '🧠', icon: BarChart3, desc: 'Raio-X, saude financeira, comportamento e recomendacoes.' },
 ];
 const focusOf = (k) => FOCUS.find((f) => f.k === k) || FOCUS[0];
 const EMOJIS = ['🤖', '💰', '📊', '📈', '🌎', '📅', '🦾', '🧠', '🛡️', '🦉', '🐱', '🚀', '💡', '🕵️', '📎'];
@@ -76,12 +77,14 @@ const GALLERY = [
     config: { focus: 'mercado', emoji: '🌎', greeting: 'Pergunte sobre cotacoes, taxas e impostos.', monitor: false } },
   { name: 'Consultor de Patrimonio', emoji: '📈', tag: 'Patrimonio', desc: 'Alerta na hora se seu patrimonio zerar ou ficar negativo.', frequency: 'daily',
     config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimonio.', monitor: true, match: 'all', conditions: [{ metric: 'net_worth', op: 'lte', value: 0 }], actions: [{ action: 'notify', subject: 'Patrimonio zerado ou negativo', message: 'Seu patrimonio liquido chegou a zero ou ficou negativo. Vale revisar contas, dividas e gastos.' }] } },
+  { name: 'Analista de Inteligencia', emoji: '🧠', tag: 'Inteligencia', desc: 'Faz o raio-X: saude financeira, comportamento, previsao e recomendacoes.', frequency: 'monthly',
+    config: { focus: 'inteligencia', emoji: '🧠', greeting: 'Peca um raio-X das suas financas quando quiser.', monitor: false } },
   { name: 'Alfred', emoji: '🦾', tag: 'Geral', desc: 'Assistente geral: responde qualquer pergunta sobre suas financas.', frequency: 'weekly',
     config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas financas.', monitor: false } },
 ];
 
-const SECTOR_COLOR = { gastos: '#f43f5e', entradas: '#10b981', vencimentos: '#f59e0b', patrimonio: '#6366f1', mercado: '#0ea5e9', saldo: '#14b8a6', geral: '#8b5cf6' };
-const SECTORS = ['gastos', 'entradas', 'vencimentos', 'patrimonio', 'mercado', 'geral'];
+const SECTOR_COLOR = { gastos: '#f43f5e', entradas: '#10b981', vencimentos: '#f59e0b', patrimonio: '#6366f1', mercado: '#0ea5e9', inteligencia: '#a855f7', saldo: '#14b8a6', geral: '#8b5cf6' };
+const SECTORS = ['gastos', 'entradas', 'vencimentos', 'patrimonio', 'mercado', 'inteligencia', 'geral'];
 const hireFor = (focus) => GALLERY.find((g) => g.config.focus === focus) || { name: focusOf(focus).label, frequency: 'weekly', config: { focus, emoji: focusOf(focus).emoji, monitor: false } };
 
 function Bold({ text }) {
@@ -167,8 +170,18 @@ export default function Agents() {
         );
       })()}
 
+      {/* ORGANOGRAMA: voce (CEO) -> departamentos */}
+      <div className="flex flex-col items-center">
+        <div className="px-4 py-2 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-sm flex items-center gap-2">
+          <span className="w-9 h-9 rounded-xl text-white flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg,#10b981,#6366f1)' }}>{((user?.first_name || user?.full_name || 'V')[0] || 'V').toUpperCase()}</span>
+          <div><p className="text-sm font-semibold leading-tight">{user?.full_name || 'Voce'}</p><p className="text-[11px] text-muted">CEO · comanda a equipe</p></div>
+        </div>
+        <div className="w-px h-5" style={{ background: 'hsl(var(--border))' }} />
+        <div className="w-full max-w-4xl h-px" style={{ background: 'hsl(var(--border))' }} />
+      </div>
+
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div> : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 -mt-1">
           {[...new Set([...SECTORS, ...agents.map((a) => normConfig(a.config).focus)])].map((focus) => {
             const foc = focusOf(focus); const color = SECTOR_COLOR[focus] || '#64748b';
             const staff = agents.filter((a) => normConfig(a.config).focus === focus);

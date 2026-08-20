@@ -227,6 +227,7 @@ export default async function handler(req, res) {
           // uma ou varias acoes
           const acts = Array.isArray(c.actions) && c.actions.length ? c.actions : (c.action ? [{ action: c.action, subject: c.subject, message: c.message, ticketCategory: c.ticketCategory }] : []);
           let fired = 0;
+          const roboNome = tr.name || 'Robo Monvy'; const roboEmoji = c.emoji || '🤖';
           const situation = evals.length
             ? evals.map((e) => `- ${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)} (condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))})`).join('\n')
             : `Foco do robo: ${c.focus || 'geral'}. Saldo total: ${brl(ctx.total_balance)}. Receita do mes: ${brl(ctx.month_income)}. Despesa do mes: ${brl(ctx.month_expense)}. Gere um resumo/dica util para este foco.`;
@@ -256,18 +257,18 @@ export default async function handler(req, res) {
                 fired++;
               }
             } else if (act.action === 'notify') {
-              let title = (act.subject && act.subject.trim()) || tr.name || 'Aviso do Monvy';
+              let assunto = (act.subject && act.subject.trim()) || tr.name || 'Aviso do Monvy';
               let text = act.message || evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ') || 'Automacao acionada.';
-              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'notify', situation, instruction: act.message }); if (comp) { title = comp.title; text = comp.body; } }
-              await notify(u.id, { kind: 'alert', title, text, path: '/agentes' }); fired++;
+              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'notify', situation, instruction: act.message }); if (comp) { assunto = comp.title; text = comp.body; } }
+              await notify(u.id, { kind: 'alert', title: `${roboEmoji} ${roboNome}`, text: `${assunto} — ${text}`, path: '/agentes' }); fired++;
             } else { // email_alert
-              let subject = (act.subject && act.subject.trim()) || tr.name || 'Alerta Monvy';
-              let intro = act.message ? `<br/><br/>${String(act.message).replace(/</g, '&lt;')}` : '';
-              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'email', situation, instruction: act.message }); if (comp) { subject = comp.title; intro = `<br/><br/>${String(comp.body).replace(/</g, '&lt;').replace(/\n/g, '<br/>')}`; } }
+              let assunto = (act.subject && act.subject.trim()) || tr.name || 'Alerta Monvy';
+              let corpoMsg = act.message || '';
+              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'email', situation, instruction: act.message }); if (comp) { assunto = comp.title; corpoMsg = comp.body; } }
               const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
-              const body = `${greet},${intro}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
-              await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) });
-              await notify(u.id, { kind: 'alert', title: subject, text: 'Automacao acionada.', path: '/agentes' }); fired++;
+              const body = `${greet}, aqui e o <b>${roboNome}</b>, seu robo.${corpoMsg ? `<br/><br/>${String(corpoMsg).replace(/</g, '&lt;').replace(/\n/g, '<br/>')}` : ''}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
+              await sendMail({ to: u.email, subject: `${roboEmoji} ${roboNome}: ${assunto}`, html: tpl(`${roboEmoji} ${roboNome}`, body, { footerNote: `mensagem automatica do seu robo ${roboNome}.` }) });
+              await notify(u.id, { kind: 'alert', title: `${roboEmoji} ${roboNome}`, text: `${assunto} — ${corpoMsg || 'Automacao acionada.'}`, path: '/agentes' }); fired++;
             }
           }
           if (fired) { trig += fired; await db().execute({ sql: `UPDATE Trigger SET last_fired=? WHERE id=?`, args: [t0, tr.id] }).catch(() => {}); }
