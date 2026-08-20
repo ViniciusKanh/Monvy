@@ -1,13 +1,12 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscription, CreditCardInvoice, Support } from '../api/entities.js';
+import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscription, CreditCardInvoice, Support, AppSettings } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge, Textarea } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
-import { formatCurrency } from '../lib/utils.js';
-import { askAssistant } from '../lib/assistant.js';
+import { answerHybrid } from '../lib/chat.js';
 import { Bot, Plus, Pencil, Trash2, MessageSquare, Send, Sparkles, X, Filter, Play, Clock, Zap, Wallet, BarChart3, TrendingUp, Globe, CalendarClock } from 'lucide-react';
 
 const FOCUS = [
@@ -51,7 +50,7 @@ const FREQ = [['daily', 'Todo dia'], ['weekly', 'Toda semana'], ['monthly', 'Tod
 const freqLabel = (f) => (FREQ.find((x) => x[0] === f) || FREQ[0])[1];
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
-const emptyAction = () => ({ action: 'notify', subject: '', message: '', ticketCategory: '' });
+const emptyAction = () => ({ action: 'notify', subject: '', message: '', ticketCategory: '', aiWrite: false });
 const emptyForm = () => ({ name: '', frequency: 'weekly', weekday: 1, enabled: true, config: { focus: 'geral', emoji: '🤖', greeting: '', monitor: false, match: 'all', conditions: [], actions: [emptyAction()], cooldownDays: 0, dayOfMonth: 1 } });
 const normConfig = (c) => ({
   focus: c?.focus || 'geral', emoji: c?.emoji || '🤖', greeting: c?.greeting || '', monitor: !!c?.monitor,
@@ -59,16 +58,17 @@ const normConfig = (c) => ({
   conditions: Array.isArray(c?.conditions) ? c.conditions : [],
   cooldownDays: Number(c?.cooldownDays) || 0,
   dayOfMonth: Number(c?.dayOfMonth) || 1,
-  actions: Array.isArray(c?.actions) && c.actions.length ? c.actions.map((a) => ({ action: a.action || 'notify', subject: a.subject || '', message: a.message || '', ticketCategory: a.ticketCategory || '' })) : [{ action: c?.action || 'notify', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '' }],
+  actions: Array.isArray(c?.actions) && c.actions.length ? c.actions.map((a) => ({ action: a.action || 'notify', subject: a.subject || '', message: a.message || '', ticketCategory: a.ticketCategory || '', aiWrite: !!a.aiWrite })) : [{ action: c?.action || 'notify', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '', aiWrite: false }],
 });
 
 const PRESETS = [
   { name: 'Alfred', config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas financas.', monitor: false } },
   { name: 'Guardiao do Saldo', config: { focus: 'saldo', emoji: '🛡️', monitor: true, match: 'all', conditions: [{ metric: 'total_balance', op: 'lt', value: 500 }], actions: [{ action: 'notify', subject: 'Saldo baixo', message: 'Seu saldo total ficou baixo.' }] }, frequency: 'daily' },
-  { name: 'Vigia dos Gastos', config: { focus: 'gastos', emoji: '📊', monitor: true, match: 'all', conditions: [{ metric: 'month_expense', op: 'gt', value: 3000 }], actions: [{ action: 'email_alert', subject: 'Gastos altos no mes' }] }, frequency: 'weekly' },
-  { name: 'Radar de Vencimentos', config: { focus: 'vencimentos', emoji: '📅', monitor: true, match: 'all', conditions: [], actions: [{ action: 'email_bills' }] }, frequency: 'weekly' },
+  { name: 'Onde Gasto Mais', config: { focus: 'gastos', emoji: '📊', greeting: 'Sou especialista em achar onde seu dinheiro esta indo.', monitor: true, match: 'all', conditions: [{ metric: 'month_expense', op: 'gt', value: 3000 }], actions: [{ action: 'notify', subject: 'Gastos do mes', message: 'Seus gastos passaram do limite definido.' }] }, frequency: 'weekly' },
+  { name: 'Coach de Economia', config: { focus: 'gastos', emoji: '💡', greeting: 'Vou te dar dicas de onde economizar.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'email_alert', subject: 'Dicas de economia', message: 'Sugestoes para economizar neste mes.', aiWrite: true }] }, frequency: 'monthly' },
+  { name: 'Radar de Prazos', config: { focus: 'vencimentos', emoji: '📅', greeting: 'Fico de olho no que esta pra vencer.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'email_bills' }] }, frequency: 'weekly' },
   { name: 'Olheiro do Patrimonio', config: { focus: 'patrimonio', emoji: '📈', monitor: true, match: 'all', conditions: [], actions: [{ action: 'email_summary' }] }, frequency: 'monthly' },
-  { name: 'Sentinela do Mercado', config: { focus: 'mercado', emoji: '🌎', monitor: false } },
+  { name: 'Sentinela do Mercado', config: { focus: 'mercado', emoji: '🌎', greeting: 'Acompanho dolar, euro, cripto e indicadores.', monitor: false } },
 ];
 
 function Bold({ text }) {
@@ -245,8 +245,14 @@ export default function Agents() {
                       {(a.action === 'email_alert' || a.action === 'open_ticket' || a.action === 'notify') && (
                         <div className="space-y-2">
                           {a.action === 'open_ticket' && <Select value={a.ticketCategory || ''} onChange={(e) => setAct(i, { ticketCategory: e.target.value })}><option value="">Categoria do chamado</option>{ticketCats.map((c) => <option key={c} value={c}>{c}</option>)}</Select>}
-                          <Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificacao' : 'Assunto do e-mail'} />
-                          <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Mensagem (os valores avaliados sao incluidos)" />
+                          <label className="flex items-center gap-2 text-xs cursor-pointer p-2 rounded-lg bg-emerald-500/10">
+                            <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={!!a.aiWrite} onChange={(e) => setAct(i, { aiWrite: e.target.checked })} />
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Escrever titulo e conteudo com IA (Gemini) — se houver chave configurada
+                          </label>
+                          {!a.aiWrite && <><Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificacao' : 'Assunto do e-mail'} />
+                          <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Mensagem (os valores avaliados sao incluidos)" /></>}
+                          {a.aiWrite && <p className="text-[11px] text-muted">A IA vai gerar o titulo e o texto com base na situacao avaliada. Voce pode escrever uma instrucao/tom abaixo (opcional).</p>}
+                          {a.aiWrite && <Input value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Instrucao pra IA (opcional): ex. tom motivador, foco em economia" />}
                         </div>
                       )}
                     </div>
@@ -273,8 +279,11 @@ function ChatModal({ agent, user, catMap, onClose }) {
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: () => Goal.list() });
   const { data: subs = [] } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: () => CreditCardInvoice.list() });
+  const { data: settingsList = [] } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
+  const apiKey = settingsList[0]?.gemini_api_key;
 
   const ctx = useMemo(() => ({ user, transactions, accounts, categories: Object.values(catMap), catMap, investments, debts, goals, subs, invoices }), [user, transactions, accounts, catMap, investments, debts, goals, subs, invoices]);
+  const persona = { name: agent.name, focus: c.focus, focusLabel: foc.label, emoji: c.emoji };
 
   const [msgs, setMsgs] = useState(() => [{ role: 'agent', text: c.greeting || `${agent.name} na area! Pergunte o que quiser sobre suas financas.` }]);
   const [input, setInput] = useState('');
@@ -294,8 +303,9 @@ function ChatModal({ agent, user, catMap, onClose }) {
 
   const send = async (text) => {
     const q = (text ?? input).trim(); if (!q || busy) return;
+    const history = msgs.slice(-6).map((m) => ({ role: m.role === 'user' ? 'user' : 'agent', text: m.text }));
     setMsgs((m) => [...m, { role: 'user', text: q }]); setInput(''); setBusy(true);
-    try { const r = await askAssistant(q, ctx, agent); setMsgs((m) => [...m, { role: 'agent', text: r.text }]); }
+    try { const r = await answerHybrid({ question: q, ctx, agent: persona, apiKey, history }); setMsgs((m) => [...m, { role: 'agent', text: r.text }]); }
     catch { setMsgs((m) => [...m, { role: 'agent', text: 'Ops, tive um problema para responder agora. Tente de novo.' }]); }
     finally { setBusy(false); }
   };

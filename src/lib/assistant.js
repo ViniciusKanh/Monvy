@@ -127,6 +127,36 @@ async function marketAnswer(q) {
   }
 }
 
+// mapeia a intencao da pergunta para o foco de um robo
+export function intentFocus(question) {
+  const map = { gastos_top: 'gastos', despesas: 'gastos', assinaturas: 'gastos', renda: 'geral', poupanca: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
+  return map[detect(norm(question))] || 'geral';
+}
+const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
+// escolhe o robo que "tem a resposta" com base no foco
+export function routeAgent(question, agents = []) {
+  const focus = intentFocus(question);
+  return agents.find((a) => cfgOf(a).focus === focus) || agents.find((a) => cfgOf(a).focus === 'geral') || agents[0] || null;
+}
+// contexto compacto (JSON) para enviar ao Gemini
+export function buildAIContext(ctx) {
+  const p = { mk: ym(), label: monthName(ym()), kind: 'month' };
+  const t = totals(ctx, p); const bal = totalBalance(ctx); const inv = investTotal(ctx); const d = debtInfo(ctx);
+  const tc = topCategories(ctx, p, 8);
+  return {
+    mesAtual: p.mk,
+    saldoTotal: Math.round(bal),
+    contas: ctx.accounts.map((a) => ({ nome: a.name, saldo: Math.round(num(a.current_balance)) })),
+    receitaMes: Math.round(t.inc), despesaMes: Math.round(t.exp), saldoMes: Math.round(t.saldo), taxaPoupanca: Math.round(t.rate * 100),
+    gastosPorCategoria: tc.list.map((c) => ({ nome: c.name, valor: Math.round(c.value), percentual: Math.round(c.share * 100) })),
+    patrimonioLiquido: Math.round(bal + inv - d.saldo), investimentos: Math.round(inv), dividaTotal: Math.round(d.saldo), parcelasMes: Math.round(d.mensal),
+    proximosVencimentos: upcoming(ctx, 15).slice(0, 8).map((x) => ({ item: x.label, valor: Math.round(Math.abs(x.amount)), data: x.date, vencido: x.overdue })),
+    metas: ctx.goals.map((g) => ({ nome: g.name, alvo: num(g.target_amount || g.target), atual: num(g.current_amount) })),
+    assinaturas: ctx.subs.filter((s) => s.is_active !== false).map((s) => ({ nome: s.name, valor: num(s.amount) })),
+    faturasCartaoAbertas: Math.round(ctx.invoices.filter((i) => i.status === 'open' || i.status === 'overdue').reduce((s, i) => s + num(i.total_amount), 0)),
+  };
+}
+
 export async function askAssistant(question, ctx, agent) {
   const q = norm(question);
   const g = greetLine(ctx.user, agent);

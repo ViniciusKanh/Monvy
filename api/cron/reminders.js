@@ -5,6 +5,27 @@ import { sendMail, tpl, itemsTable, itemRow } from '../_lib/mailer.js';
 
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
 const fmtDate = (d) => new Date(String(d).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+
+const AI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+async function geminiKey() { try { const r = await db().execute(`SELECT gemini_api_key k FROM AppSettings WHERE gemini_api_key IS NOT NULL AND gemini_api_key <> '' LIMIT 1`); return r.rows[0]?.k || null; } catch { return null; } }
+// Gera titulo e corpo de um aviso/e-mail/chamado com a IA (Gemini). Retorna null se indisponivel.
+async function aiCompose(apiKey, { agentName, focus, kind, situation, instruction }) {
+  if (!apiKey) return null;
+  const tipo = kind === 'ticket' ? 'um chamado (ticket)' : kind === 'notify' ? 'um aviso curto no app' : 'um e-mail';
+  const prompt = `Voce e o robo "${agentName || 'Assistente'}" do Monvy${focus ? `, especialista em ${focus}` : ''}. Gere ${tipo} em portugues do Brasil para o usuario, com base na situacao real abaixo. ${instruction ? 'Instrucao/tom: ' + instruction + '. ' : ''}Seja util, especifico e amigavel; NAO invente numeros. Responda SOMENTE em JSON valido: {"titulo":"...","corpo":"..."} (corpo com ate 5 linhas).\nSITUACAO:\n${situation}`;
+  try {
+    for (const m of AI_MODELS) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6 } }) });
+      if (!r.ok) continue;
+      const data = await r.json();
+      let txt = (data?.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/```json|```/g, '').trim();
+      const j = JSON.parse(txt);
+      if (j && j.titulo) return { title: String(j.titulo).slice(0, 120), body: String(j.corpo || '').slice(0, 1500) };
+    }
+  } catch { /* fallback texto padrao */ }
+  return null;
+}
 function baseUrl(req) {
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return host ? `${req.headers['x-forwarded-proto'] || 'https'}://${host}` : '';
@@ -137,6 +158,7 @@ export default async function handler(req, res) {
     await ensureSchema();
     const cfg = await getMailConfig();
     if (!cfg.enabled) return sendJson(res, 200, { skipped: 'e-mail nao configurado' });
+    const aiKey = await geminiKey();
 
     const today = new Date();
     const t0 = today.toISOString().slice(0, 10);
@@ -205,6 +227,9 @@ export default async function handler(req, res) {
           // uma ou varias acoes
           const acts = Array.isArray(c.actions) && c.actions.length ? c.actions : (c.action ? [{ action: c.action, subject: c.subject, message: c.message, ticketCategory: c.ticketCategory }] : []);
           let fired = 0;
+          const situation = evals.length
+            ? evals.map((e) => `- ${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)} (condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))})`).join('\n')
+            : `Foco do robo: ${c.focus || 'geral'}. Saldo total: ${brl(ctx.total_balance)}. Receita do mes: ${brl(ctx.month_income)}. Despesa do mes: ${brl(ctx.month_expense)}. Gere um resumo/dica util para este foco.`;
 
           for (const act of acts) {
             if (act.action === 'email_summary') {
@@ -214,11 +239,12 @@ export default async function handler(req, res) {
               const venc = await vencData(u.id, t0, t3);
               if (venc.rows.length) { await sendMail({ to: u.email, subject: 'Monvy — vencimentos proximos', html: tpl('Vencimentos proximos ⏰', `${greet}, estes compromissos estao proximos:${itemsTable(venc.rows)}<div style="margin-top:6px;font-weight:700;color:#0b1330">Total: ${brl(venc.total)}</div>`) }); fired++; }
             } else if (act.action === 'open_ticket') {
-              const subj = (act.subject && act.subject.trim()) || tr.name || 'Automacao financeira';
+              let subj = (act.subject && act.subject.trim()) || tr.name || 'Automacao financeira';
+              let corpo = null;
+              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'ticket', situation, instruction: act.message }); if (comp) { subj = comp.title; corpo = comp.body; } }
               const exists = (await db().execute({ sql: `SELECT id FROM SupportTicket WHERE created_by_id=? AND subject=? AND (is_deleted IS NULL OR is_deleted=0) AND resolved_date IS NULL`, args: [u.id, subj] })).rows[0];
               if (!exists) {
-                const situ = evals.map((e) => `- ${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)} (condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))})`).join('\n');
-                const desc = `${act.message || 'Automacao acionada pelo gatilho.'}\n\nSituacao atual:\n${situ}`;
+                const desc = corpo || `${act.message || 'Automacao acionada pelo gatilho.'}\n\nSituacao atual:\n${situation}`;
                 const id = newId();
                 const number = Number((await db().execute(`SELECT COALESCE(MAX(number),1000) n FROM SupportTicket`)).rows[0]?.n || 1000) + 1;
                 await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subj, 'open', act.ticketCategory || 'Financeiro', 'alta', u.full_name || '', u.email, u.id, nowIso(), nowIso()] });
@@ -230,15 +256,18 @@ export default async function handler(req, res) {
                 fired++;
               }
             } else if (act.action === 'notify') {
-              const title = (act.subject && act.subject.trim()) || tr.name || 'Aviso do Monvy';
-              const rows = evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ');
-              await notify(u.id, { kind: 'alert', title, text: act.message || rows || 'Automacao acionada.', path: '/gatilhos' }); fired++;
+              let title = (act.subject && act.subject.trim()) || tr.name || 'Aviso do Monvy';
+              let text = act.message || evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ') || 'Automacao acionada.';
+              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'notify', situation, instruction: act.message }); if (comp) { title = comp.title; text = comp.body; } }
+              await notify(u.id, { kind: 'alert', title, text, path: '/agentes' }); fired++;
             } else { // email_alert
-              const subject = (act.subject && act.subject.trim()) || tr.name || 'Alerta Monvy';
+              let subject = (act.subject && act.subject.trim()) || tr.name || 'Alerta Monvy';
+              let intro = act.message ? `<br/><br/>${String(act.message).replace(/</g, '&lt;')}` : '';
+              if (act.aiWrite && aiKey) { const comp = await aiCompose(aiKey, { agentName: tr.name, focus: c.focus, kind: 'email', situation, instruction: act.message }); if (comp) { subject = comp.title; intro = `<br/><br/>${String(comp.body).replace(/</g, '&lt;').replace(/\n/g, '<br/>')}`; } }
               const rows = evals.map((e) => itemRow(e.cond.metric === 'category_spend' ? 'Gasto na categoria' : (METRIC_LABEL[e.cond.metric] || e.cond.metric), `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
-              const body = `${greet},${act.message ? `<br/><br/>${String(act.message).replace(/</g, '&lt;')}` : ''}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
+              const body = `${greet},${intro}${rows.length ? `<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}` : ''}`;
               await sendMail({ to: u.email, subject: `Monvy — ${subject}`, html: tpl(subject, body) });
-              await notify(u.id, { kind: 'alert', title: subject, text: act.message || 'Automacao acionada.', path: '/gatilhos' }); fired++;
+              await notify(u.id, { kind: 'alert', title: subject, text: 'Automacao acionada.', path: '/agentes' }); fired++;
             }
           }
           if (fired) { trig += fired; await db().execute({ sql: `UPDATE Trigger SET last_fired=? WHERE id=?`, args: [t0, tr.id] }).catch(() => {}); }

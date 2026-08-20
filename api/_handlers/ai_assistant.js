@@ -8,11 +8,14 @@ export default async function handler(req, res) {
   const auth = getAuth(req);
   if (!auth) return sendJson(res, 401, { error: 'Nao autenticado' });
   try {
-    const { question, context, apiKey, history = [] } = await readBody(req);
+    const { question, context, apiKey, history = [], persona } = await readBody(req);
     if (!apiKey) return sendJson(res, 400, { error: 'Configure a chave da API Gemini em Configuracoes.' });
     if (!question) return sendJson(res, 400, { error: 'Pergunta vazia' });
 
-    const sys = `Voce e o assistente financeiro do Monvy. Responda em portugues do Brasil, de forma objetiva, amigavel e util.
+    const personaLine = persona && persona.name
+      ? `Voce e o robo "${persona.name}"${persona.focus ? `, especialista em ${persona.focus}` : ''} do Monvy. Fale em primeira pessoa, com personalidade amigavel, e trate o usuario pelo nome quando fizer sentido.`
+      : 'Voce e o assistente financeiro do Monvy.';
+    const sys = `${personaLine} Responda em portugues do Brasil, de forma objetiva, amigavel e util.
 Use SOMENTE os dados do contexto (JSON) para responder sobre as financas do usuario. Se faltar dado, diga com franqueza.
 Valores em reais (R$). Seja conciso (ate ~6 linhas), use bullet points quando ajudar. Nao invente numeros.
 CONTEXTO:\n${JSON.stringify(context || {})}`;

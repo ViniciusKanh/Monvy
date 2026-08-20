@@ -32,6 +32,7 @@ import Cnpj from './pages/Cnpj.jsx';
 import Help from './pages/Help.jsx';
 import OnboardingConfig from './pages/OnboardingConfig.jsx';
 import Agents from './pages/Agents.jsx';
+import Chat from './pages/Chat.jsx';
 import TicketsCenter from './pages/TicketsCenter.jsx';
 import Investments from './pages/Investments.jsx';
 import Debts from './pages/Debts.jsx';
@@ -105,6 +106,7 @@ export default function App() {
         <Route path="/ajuda" element={<Protected screenKey="help"><Help /></Protected>} />
         <Route path="/config-novos-usuarios" element={<Protected screenKey="newusers"><OnboardingConfig /></Protected>} />
         <Route path="/agentes" element={<Protected screenKey="triggers"><Agents /></Protected>} />
+        <Route path="/chat" element={<Protected screenKey="chat"><Chat /></Protected>} />
         <Route path="/gatilhos" element={<Protected screenKey="triggers"><Agents /></Protected>} />
         <Route path="/chamados" element={<Protected screenKey="tickets"><TicketsCenter /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />

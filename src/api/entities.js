@@ -76,7 +76,7 @@ export const Reports = { email: (payload) => api.post('/api/reports/email', payl
 export const Ai = {
   parseInvoice: (pdfBase64, apiKey, categories) =>
     api.post('/api/ai/parse-invoice', { pdfBase64, apiKey, categories }),
-  ask: (question, context, apiKey, history) => api.post('/api/ai/assistant', { question, context, apiKey, history }),
+  ask: (question, context, apiKey, history, persona) => api.post('/api/ai/assistant', { question, context, apiKey, history, persona }),
 };
 
 export const Admin = {
