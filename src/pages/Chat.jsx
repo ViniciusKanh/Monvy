@@ -5,12 +5,10 @@ import { Trigger, Category, Account, Transaction, Investment, Debt, Goal, Subscr
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Spinner, Badge } from '../components/ui';
+import { converse } from '../lib/chat.js';
 import { deliberate } from '../lib/assistant.js';
-import { answerHybrid } from '../lib/chat.js';
+import { CouncilThinking } from '../components/Splash.jsx';
 import { MessagesSquare, Send, Sparkles, User, Bot, Cpu, Users } from 'lucide-react';
-
-const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado', vencimentos: 'Vencimentos' };
-const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
 
 const SUGGESTIONS = ['Onde gasto mais?', 'Como esta minha saude financeira?', 'O que vence essa semana?', 'Qual meu patrimonio?', 'Como esta o dolar?', 'Onde posso economizar?'];
 
@@ -34,24 +32,25 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [thinking, setThinking] = useState([]);
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
 
   const send = async (q) => {
     const question = (q ?? input).trim();
     if (!question || loading) return;
-    const council = deliberate(question, agents);
-    const robot = council[0]?.agent || null;
-    const agent = robot ? { name: robot.name, focus: cfgOf(robot).focus, focusLabel: FOCUS_LABEL[cfgOf(robot).focus] || 'Assistente', emoji: cfgOf(robot).emoji || '🤖', personality: cfgOf(robot).personality || '' } : { name: 'Assistente', focus: 'geral', focusLabel: 'Assistente geral', emoji: '🤖' };
     const history = messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-6);
+    setThinking(deliberate(question, agents).slice(0, 4).map((x) => ({ emoji: x.emoji, name: x.name })));
     setMessages((m) => [...m, { role: 'user', text: question }]);
-    if (council.length > 1) setMessages((m) => [...m, { role: 'council', items: council.slice(0, 4), winner: robot?.name }]);
     setInput(''); setLoading(true);
     try {
-      const { text, via } = await answerHybrid({ question, ctx, agent, apiKey, history });
-      setMessages((m) => [...m, { role: 'assistant', text, via, robot: agent }]);
+      const { council, panel, parts } = await converse({ question, ctx, agents, primary: null, apiKey, history });
+      const additions = [];
+      if (council.length > 1) additions.push({ role: 'council', items: council.slice(0, 4), winners: parts.map((p) => p.robot.name), panel });
+      for (const p of parts) additions.push({ role: 'assistant', text: p.text, via: p.via, robot: p.robot });
+      setMessages((m) => [...m, ...additions]);
     } catch (e) {
-      setMessages((m) => [...m, { role: 'assistant', text: 'Ops, nao consegui responder agora. ' + (e.message || ''), robot: agent }]);
+      setMessages((m) => [...m, { role: 'assistant', text: 'Ops, nao consegui responder agora. ' + (e.message || ''), robot: { name: 'Assistente', focusLabel: '', emoji: '🤖' } }]);
     } finally { setLoading(false); }
   };
 
@@ -84,13 +83,13 @@ export default function Chat() {
             <div key={i} className="rounded-xl border border-[hsl(var(--border))] bg-black/[0.03] dark:bg-white/[0.03] px-3 py-2">
               <p className="text-[11px] font-semibold text-muted flex items-center gap-1.5 mb-1.5"><Users className="w-3.5 h-3.5 text-indigo-500" /> Os robôs se reuniram</p>
               <div className="flex flex-wrap gap-1.5">
-                {m.items.map((it, k) => (
-                  <span key={k} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${it.name === m.winner ? 'bg-emerald-500 text-white font-semibold' : 'bg-black/5 dark:bg-white/10 text-muted'}`}>
-                    {it.emoji} {it.name} · {Math.round(it.score * 100)}%{it.name === m.winner ? ' ✓' : ''}
+                {m.items.map((it, k) => { const win = (m.winners || []).includes(it.name); return (
+                  <span key={k} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${win ? 'bg-emerald-500 text-white font-semibold' : 'bg-black/5 dark:bg-white/10 text-muted'}`}>
+                    {it.emoji} {it.name} · {Math.round(it.score * 100)}%{win ? ' ✓' : ''}
                   </span>
-                ))}
+                ); })}
               </div>
-              <p className="text-[11px] text-muted mt-1.5">{m.winner} assumiu a resposta por ter o papel mais adequado.</p>
+              <p className="text-[11px] text-muted mt-1.5">{m.panel ? `${(m.winners || []).join(' e ')} responderam juntos — a pergunta envolve mais de uma especialidade.` : `${(m.winners || [])[0]} assumiu por ter o papel mais adequado.`}</p>
             </div>
           ) : (
             <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -101,7 +100,7 @@ export default function Chat() {
               </div>
             </div>
           ))}
-          {loading && <div className="flex gap-3"><span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)' }}><Bot className="w-4 h-4" /></span><div className="rounded-2xl px-4 py-3 bg-black/5 dark:bg-white/5"><Spinner className="w-4 h-4 text-indigo-500" /></div></div>}
+          {loading && <div className="rounded-2xl px-4 py-3 bg-black/5 dark:bg-white/5 w-fit">{thinking.length > 1 ? <CouncilThinking robots={thinking} /> : <Spinner className="w-4 h-4 text-indigo-500" />}</div>}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); send(); }} className="border-t border-[hsl(var(--border))] p-3 flex gap-2">
           <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Pergunte algo sobre suas financas..." disabled={loading} />

@@ -120,7 +120,7 @@ const INTENTS = [
   { key: 'economizar', kw: ['economizar', 'economia', 'cortar gasto', 'cortar gastos', 'reduzir gasto', 'reduzir despesa', 'gastar menos', 'onde economizo', 'onde posso economizar', 'dicas', 'dica', 'poupar mais', 'como poupar', 'me ajuda a economizar', 'onde cortar'] },
   { key: 'gastos_top', kw: ['onde gasto', 'gasto mais', 'gasto mais com', 'maior gasto', 'maiores gastos', 'gasto por categoria', 'gastos por categoria', 'onde vai meu dinheiro', 'onde estou gastando', 'categoria que mais', 'meus gastos', 'como estao meus gastos', 'como esta meus gastos', 'como andam meus gastos', 'meus maiores gastos', 'no que gasto'] },
   { key: 'despesas', kw: ['quanto gastei', 'total de despesas', 'total gasto', 'gastei esse', 'gastei este', 'gastei no mes', 'quanto de despesa', 'valor gasto', 'total de gastos'] },
-  { key: 'renda', kw: ['quanto recebi', 'minha renda', 'quanto ganhei', 'quanto ganho', 'receita', 'quanto entrou', 'minhas receitas', 'meu salario'] },
+  { key: 'renda', kw: ['quanto recebi', 'minha renda', 'quanto ganhei', 'quanto ganho', 'receita', 'quanto entrou', 'minhas receitas', 'meu salario', 'o que entra', 'o que entrou', 'entra na conta', 'entra na minha conta', 'meus recebimentos'] },
   { key: 'poupanca', kw: ['quanto poupei', 'poupanca', 'quanto sobrou', 'quanto economizei', 'minha sobra', 'consegui guardar', 'taxa de poupanca'] },
   { key: 'saldo', kw: ['meu saldo', 'quanto tenho', 'quanto eu tenho', 'saldo', 'saldo total', 'dinheiro em conta', 'quanto de dinheiro', 'quanto tem na conta', 'minhas contas'] },
   { key: 'dividas', kw: ['quanto devo', 'quanto eu devo', 'minhas dividas', 'divida', 'dividas', 'financiamento', 'emprestimo', 'quanto falta pagar', 'estou devendo'] },
@@ -130,7 +130,8 @@ const INTENTS = [
   { key: 'metas', kw: ['meta', 'metas', 'objetivo', 'cofre', 'cofres', 'quanto guardei'] },
   { key: 'assinaturas', kw: ['assinatura', 'assinaturas', 'streaming', 'recorrente', 'mensalidade'] },
   { key: 'cartao', kw: ['cartao', 'fatura', 'faturas', 'cartao de credito'] },
-  { key: 'mercado', kw: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'cotacao', 'bolsa', 'acoes'] },
+  { key: 'impostos', kw: ['imposto', 'imposto de renda', 'ir', 'tributo', 'tributos', 'declaracao', 'restituicao', 'darf', 'leao', 'carne-leao'] },
+  { key: 'mercado', kw: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'cotacao', 'bolsa', 'acoes', 'selic', 'ipca', 'taxa de juros'] },
   { key: 'previsao', kw: ['vou gastar', 'quanto vou gastar', 'previsao', 'previsão', 'projecao', 'projeta', 'estimativa de gasto', 'fim do mes', 'vai sobrar', 'vou fechar o mes'] },
   { key: 'comparar', kw: ['comparar', 'comparado', 'vs mes passado', 'em relacao ao mes passado', 'mais que mes passado', 'gastei mais', 'gastei menos', 'comparacao', 'mes passado x'] },
   { key: 'analise', kw: ['analise', 'analisa', 'analise completa', 'o que voce acha', 'avalie', 'avaliacao', 'diagnostico', 'me da um raio-x', 'raio-x', 'radiografia'] },
@@ -171,7 +172,7 @@ async function marketAnswer(q) {
 
 // mapeia a intencao da pergunta para o foco de um robo
 export function intentFocus(question) {
-  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'gastos', comparar: 'gastos', assinaturas: 'gastos', renda: 'geral', poupanca: 'geral', analise: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
+  const map = { economizar: 'gastos', gastos_top: 'gastos', despesas: 'gastos', previsao: 'gastos', comparar: 'gastos', assinaturas: 'gastos', renda: 'entradas', poupanca: 'entradas', analise: 'geral', saldo: 'saldo', dividas: 'vencimentos', cartao: 'vencimentos', vencimentos: 'vencimentos', patrimonio: 'patrimonio', investimentos: 'patrimonio', mercado: 'mercado', impostos: 'mercado', metas: 'geral', resumo: 'geral', ajuda: 'geral' };
   return map[detect(norm(question))] || 'geral';
 }
 const cfgOf = (a) => { try { return typeof a.config === 'string' ? JSON.parse(a.config) : (a.config || {}); } catch { return {}; } };
@@ -192,9 +193,10 @@ export function routeAgent(question, agents = []) {
 const FOCUS_KW = {
   saldo: ['saldo', 'conta', 'dinheiro', 'tenho'],
   gastos: ['gasto', 'gastei', 'despesa', 'economizar', 'economia', 'categoria', 'assinatura', 'previsao', 'comparar', 'cartao'],
+  entradas: ['recebi', 'recebo', 'renda', 'ganhei', 'ganho', 'salario', 'receita', 'entrou', 'entradas'],
   patrimonio: ['patrimonio', 'investi', 'investimento', 'carteira', 'rico', 'valho', 'rendimento'],
   vencimentos: ['vence', 'vencimento', 'pagar', 'divida', 'devo', 'boleto', 'prazo', 'fatura'],
-  mercado: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'bolsa', 'cotacao', 'acoes'],
+  mercado: ['dolar', 'euro', 'bitcoin', 'cripto', 'ibovespa', 'mercado', 'bolsa', 'cotacao', 'acoes', 'imposto', 'ir', 'tributo', 'selic', 'ipca', 'taxa'],
   geral: ['resumo', 'saude', 'analise', 'financas', 'como estou', 'raio-x'],
 };
 // Conselho de robos: cada robo pontua sua confianca pela pergunta e seu papel.
@@ -212,6 +214,26 @@ export function deliberate(question, agents = []) {
     return { agent: a, name: a.name, focus: f, emoji: c.emoji || '🤖', score: Math.min(1, Math.round(score * 100) / 100), reasons };
   }).sort((x, y) => y.score - x.score);
   return scored;
+}
+
+export const FOCUS_LABEL = { geral: 'Assistente geral', saldo: 'Saldo & Contas', gastos: 'Gastos & Categorias', entradas: 'Entradas & Renda', patrimonio: 'Patrimonio & Investimentos', mercado: 'Mercado & Impostos', vencimentos: 'Vencimentos' };
+export function agentInfo(a) { const c = cfgOf(a); const f = c.focus || 'geral'; return { name: a.name, focus: f, focusLabel: FOCUS_LABEL[f] || 'Assistente', emoji: c.emoji || '🤖', personality: c.personality || '' }; }
+// pergunta representativa por foco (para respostas de painel)
+const FOCUS_Q = { saldo: 'qual meu saldo', gastos: 'onde gasto mais', entradas: 'quanto recebi esse mes', patrimonio: 'qual meu patrimonio', vencimentos: 'o que vence essa semana', mercado: 'como esta o dolar', geral: 'como estao minhas financas' };
+export function askFocus(focus, ctx, agent, opts = {}) { return askAssistant(FOCUS_Q[focus] || FOCUS_Q.geral, ctx, agent, opts); }
+
+// quem responde: 1 robo (foco unico) ou 2 (pergunta multi-tema -> resposta combinada)
+export function planResponders(question, agents = [], primary = null) {
+  if (!agents.length) return primary ? [primary] : [];
+  const q = norm(question);
+  const domains = Object.keys(FOCUS_KW).filter((f) => f !== 'geral' && (FOCUS_KW[f] || []).some((k) => q.includes(k)));
+  const inf = intentFocus(question);
+  if (inf !== 'geral' && !domains.includes(inf)) domains.unshift(inf);
+  const chosen = [];
+  for (const d of domains) { const a = agents.find((x) => cfgOf(x).focus === d); if (a && !chosen.includes(a)) chosen.push(a); }
+  let list = primary ? [primary, ...chosen.filter((a) => a !== primary)] : chosen;
+  if (!list.length) { const w = deliberate(question, agents)[0]?.agent; if (w) list = [w]; }
+  return list.slice(0, 2);
 }
 
 // contexto compacto (JSON) para enviar ao Gemini
@@ -233,15 +255,20 @@ export function buildAIContext(ctx) {
   };
 }
 
-export async function askAssistant(question, ctx, agent) {
+export async function askAssistant(question, ctx, agent, opts = {}) {
   const q = norm(question);
-  const g = greetLine(ctx.user, agent);
+  const g = opts.bare ? '' : greetLine(ctx.user, agent);
   const intent = detect(q);
   const p = periodOf(q);
 
   if (!question.trim()) return { text: `${g}Pode me perguntar coisas como "onde gasto mais?", "quanto devo?", "qual meu patrimônio?" ou "o que vence essa semana?".` };
 
   if (intent === 'mercado') return { text: g + (await marketAnswer(q)) };
+  if (intent === 'impostos') {
+    const anualExp = ctx.transactions.filter((t) => t.type === 'expense' && String(t.date).slice(0, 4) === String(new Date().getFullYear())).reduce((s, t) => s + num(t.amount), 0);
+    const anualInc = ctx.transactions.filter((t) => t.type === 'income' && String(t.date).slice(0, 4) === String(new Date().getFullYear())).reduce((s, t) => s + num(t.amount), 0);
+    return { text: `${g}Sobre Imposto de Renda: neste ano voce ja registrou ${brl(anualInc)} de rendimentos e ${brl(anualExp)} de despesas. Use a tela **Imposto de Renda** do Monvy para o organizador da declaracao, estimativa do imposto (simplificado x completo), carne-leao e renda variavel. Marque as categorias dedutiveis (saude, educacao, previdencia) para o calculo ficar preciso.` };
+  }
 
   if (intent === 'economizar') {
     const t = topCategories(ctx, p, 3);

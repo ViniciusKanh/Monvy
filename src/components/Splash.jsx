@@ -6,7 +6,25 @@ const CSS = `
 @keyframes monvyBar { 0% { transform: translateX(-100%) } 100% { transform: translateX(320%) } }
 @keyframes monvyDots { 0%,80%,100% { opacity:.25; transform: translateY(0) } 40% { opacity:1; transform: translateY(-4px) } }
 @keyframes monvyGrad { 0% { background-position: 0% 50% } 100% { background-position: 100% 50% } }
+@keyframes monvyBounce { 0%,100% { transform: translateY(0) scale(1) } 40% { transform: translateY(-7px) scale(1.12) } }
+@keyframes monvyGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,.35) } 50% { box-shadow: 0 0 0 6px rgba(16,185,129,0) } }
 `;
+
+// Animacao da "reuniao" do conselho de robos (avatares deliberando)
+export function CouncilThinking({ robots = [], label = 'Os robôs estão se reunindo...' }) {
+  const list = (robots.length ? robots : [{ emoji: '🤖' }, { emoji: '📊' }, { emoji: '📅' }]).slice(0, 5);
+  return (
+    <div className="flex items-center gap-3">
+      <style>{CSS}</style>
+      <div className="flex -space-x-1.5">
+        {list.map((r, i) => (
+          <span key={i} className="w-8 h-8 rounded-xl flex items-center justify-center text-lg ring-2 ring-[hsl(var(--card))]" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)', animation: `monvyBounce 1s ease-in-out ${i * 0.15}s infinite, monvyGlow 1.4s ease-in-out ${i * 0.15}s infinite` }}>{r.emoji || '🤖'}</span>
+        ))}
+      </div>
+      <span className="text-sm text-muted">{label}</span>
+    </div>
+  );
+}
 
 function Mark({ size = 84 }) {
   return (
