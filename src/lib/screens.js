@@ -65,7 +65,7 @@ export const NAV_GROUPS = [
     items: [
       { key: 'reports', label: 'Relatorios', path: '/relatorios', icon: FileText },
       { key: 'notifications', label: 'Notificacoes', path: '/notificacoes', icon: Bell },
-      { key: 'triggers', label: 'Gatilhos & Automacoes', path: '/gatilhos', icon: Zap },
+      { key: 'triggers', label: 'Agentes & Robos', path: '/agentes', icon: Bot },
       { key: 'help', label: 'Ajuda & Suporte', path: '/ajuda', icon: LifeBuoy },
       { key: 'tickets', label: 'Central de Tickets', path: '/chamados', icon: Ticket },
       { key: 'settings', label: 'Configuracoes', path: '/configuracoes', icon: Settings },

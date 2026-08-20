@@ -4,6 +4,7 @@ import { Account, Transaction, Subscription, CreditCardInvoice, Debt } from '../
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Spinner, Badge, Select } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
+import { LoadingScreen } from '../components/Splash.jsx';
 import { formatCurrency } from '../lib/utils.js';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, ReferenceDot } from 'recharts';
 import { Activity, AlertTriangle, Wallet, CalendarClock, ArrowUpRight, ArrowDownRight, ShieldCheck, RefreshCw, CreditCard, Landmark, Repeat, Receipt, Sparkles } from 'lucide-react';
@@ -130,7 +131,7 @@ export default function CashFlow() {
   const toggle = (k) => setOff((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const healthy = !firstNeg;
 
-  if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
+  if (isLoading) return <LoadingScreen label="Projetando seu fluxo de caixa..." />;
 
   return (
     <div className="space-y-5 animate-fadeIn">

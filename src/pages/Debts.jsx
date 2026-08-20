@@ -4,6 +4,7 @@ import { Debt, BankRate, Transaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Badge, Textarea } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
+import { LoadingScreen } from '../components/Splash.jsx';
 import { toast } from '../lib/toast.js';
 import { formatCurrency, todayIso } from '../lib/utils.js';
 import { analyzeCredit, subtiposDe, rulesFor, STATUS_META, INDEXERS, toMonthly, effectiveMonthly, BANK_PRESETS } from '../lib/credit.js';
@@ -86,7 +87,7 @@ export default function Debts() {
     setSchedule({ name: d.name, inst: d.inst, rows });
   };
 
-  if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
+  if (isLoading) return <LoadingScreen label="Carregando suas dividas e simulacoes..." />;
 
   return (
     <div className="space-y-5 animate-fadeIn">

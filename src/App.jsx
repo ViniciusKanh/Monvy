@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { Spinner } from './components/ui';
 import { AppLayout } from './layout/AppLayout.jsx';
+import { Splash } from './components/Splash.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Verify from './pages/Verify.jsx';
@@ -30,7 +31,7 @@ import Holidays from './pages/Holidays.jsx';
 import Cnpj from './pages/Cnpj.jsx';
 import Help from './pages/Help.jsx';
 import OnboardingConfig from './pages/OnboardingConfig.jsx';
-import Triggers from './pages/Triggers.jsx';
+import Agents from './pages/Agents.jsx';
 import TicketsCenter from './pages/TicketsCenter.jsx';
 import Investments from './pages/Investments.jsx';
 import Debts from './pages/Debts.jsx';
@@ -47,7 +48,7 @@ import { Placeholder } from './pages/Placeholder.jsx';
 import Enroll2FA from './pages/Enroll2FA.jsx';
 
 function FullLoader() {
-  return <div className="h-screen flex items-center justify-center"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
+  return <Splash />;
 }
 
 function Protected({ screenKey, children }) {
@@ -103,7 +104,8 @@ export default function App() {
         <Route path="/cnpj" element={<Protected screenKey="cnpj"><Cnpj /></Protected>} />
         <Route path="/ajuda" element={<Protected screenKey="help"><Help /></Protected>} />
         <Route path="/config-novos-usuarios" element={<Protected screenKey="newusers"><OnboardingConfig /></Protected>} />
-        <Route path="/gatilhos" element={<Protected screenKey="triggers"><Triggers /></Protected>} />
+        <Route path="/agentes" element={<Protected screenKey="triggers"><Agents /></Protected>} />
+        <Route path="/gatilhos" element={<Protected screenKey="triggers"><Agents /></Protected>} />
         <Route path="/chamados" element={<Protected screenKey="tickets"><TicketsCenter /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
         <Route path="/importar" element={<Protected screenKey="bankImport"><BankImport /></Protected>} />
