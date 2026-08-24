@@ -304,6 +304,7 @@ export const SCHEMA_STATEMENTS = [
     title TEXT,
     text TEXT,
     path TEXT,
+    ref TEXT,
     read INTEGER DEFAULT 0,
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
@@ -366,6 +367,7 @@ export const MIGRATIONS = [
   { id: '012_ticket_number', statements: [`ALTER TABLE SupportTicket ADD COLUMN number INTEGER`] },
   { id: '013_category_ir_deductible', statements: [`ALTER TABLE Category ADD COLUMN ir_deductible TEXT DEFAULT ''`] },
   { id: '014_trigger_lastfired', statements: [`ALTER TABLE Trigger ADD COLUMN last_fired TEXT`] },
+  { id: '016_notification_ref', statements: [`ALTER TABLE Notification ADD COLUMN ref TEXT`] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
     `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,

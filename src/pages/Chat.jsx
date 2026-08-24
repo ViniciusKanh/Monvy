@@ -10,7 +10,7 @@ import { deliberate, suggestFor } from '../lib/assistant.js';
 import { CouncilThinking } from '../components/Splash.jsx';
 import { MessagesSquare, Send, Sparkles, User, Bot, Cpu, Users } from 'lucide-react';
 
-const SUGGESTIONS = ['Onde gasto mais?', 'Como esta minha saude financeira?', 'O que vence essa semana?', 'Qual meu patrimonio?', 'Como esta o dolar?', 'Onde posso economizar?'];
+const SUGGESTIONS = ['Onde gasto mais?', 'Como esta minha saude financeira?', 'O que vence essa semana?', 'Qual meu patrimônio?', 'Como esta o dolar?', 'Onde posso economizar?'];
 
 export default function Chat() {
   const navigate = useNavigate();
@@ -74,7 +74,7 @@ export default function Chat() {
             <div className="h-full flex flex-col items-center justify-center text-center text-muted">
               <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-3"><MessagesSquare className="w-8 h-8 text-indigo-500" /></div>
               <p className="font-semibold text-[hsl(var(--text))]">Fale com seus robos</p>
-              <p className="text-sm mt-1 max-w-sm">Eu analiso sua pergunta e encaminho pro robo com a especialidade certa (saldo, gastos, patrimonio, mercado, vencimentos).</p>
+              <p className="text-sm mt-1 max-w-sm">Eu analiso sua pergunta e encaminho pro robo com a especialidade certa (saldo, gastos, patrimônio, mercado, vencimentos).</p>
               <div className="flex flex-wrap gap-2 justify-center mt-4">
                 {SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)} className="px-3 py-1.5 rounded-full border border-[hsl(var(--border))] text-sm hover:bg-black/5 dark:hover:bg-white/5">{s}</button>)}
               </div>
@@ -106,7 +106,7 @@ export default function Chat() {
           {loading && <div className="rounded-2xl px-4 py-3 bg-black/5 dark:bg-white/5 w-fit">{thinking.length > 1 ? <CouncilThinking robots={thinking} /> : <Spinner className="w-4 h-4 text-indigo-500" />}</div>}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); send(); }} className="border-t border-[hsl(var(--border))] p-3 flex gap-2">
-          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Pergunte algo sobre suas financas..." disabled={loading} />
+          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Pergunte algo sobre suas finanças..." disabled={loading} />
           <Button type="submit" disabled={loading || !input.trim()}><Send className="w-4 h-4" /></Button>
         </form>
       </Card>

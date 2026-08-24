@@ -43,8 +43,12 @@ async function categorySpend(uid, ym, catId) {
   const c = await q1(`SELECT COALESCE(SUM(amount),0) t FROM CreditCardTransaction WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) AND category_id=? AND COALESCE(competence_month,substr(date,1,7))=?`, [uid, catId, ym]);
   return a + c;
 }
-async function notify(uid, { kind = 'alert', title, text = '', path = '/agentes' }) {
-  await db().execute({ sql: `INSERT INTO Notification (id,kind,title,text,path,read,is_deleted,created_date,updated_date,created_by_id) VALUES (?,?,?,?,?,0,0,?,?,?)`, args: [newId(), kind, title, text, path, nowIso(), nowIso(), uid] });
+async function notify(uid, { kind = 'alert', title, text = '', path = '/agentes', ref = null }) {
+  await db().execute({ sql: `INSERT INTO Notification (id,kind,title,text,path,ref,read,is_deleted,created_date,updated_date,created_by_id) VALUES (?,?,?,?,?,?,0,0,?,?,?)`, args: [newId(), kind, title, text, path, ref, nowIso(), nowIso(), uid] });
+}
+// remove alertas pendentes de um robo (quando a condicao deixou de valer)
+async function resolveNotifs(uid, ref) {
+  try { await db().execute({ sql: `UPDATE Notification SET is_deleted=1, read=1, updated_date=? WHERE created_by_id=? AND ref=? AND (is_deleted IS NULL OR is_deleted=0)`, args: [nowIso(), uid, ref] }); } catch { /* */ }
 }
 const parseCfg = (t) => { try { return t.config ? (typeof t.config === 'string' ? JSON.parse(t.config) : t.config) : null; } catch { return null; } };
 
@@ -65,10 +69,6 @@ export async function evaluateAgentsEvent(uid) {
       const conditions = Array.isArray(c.conditions) ? c.conditions : [];
       if (!conditions.length) continue; // sem condicao = digest (fica pro cron)
 
-      // cooldown: nao repetir dentro da janela (cooldownDays dias, ou 6h por padrao)
-      const gapMs = (Number(c.cooldownDays) > 0 ? Number(c.cooldownDays) * 86400000 : 6 * 3600000);
-      if (tr.last_fired) { const last = new Date(String(tr.last_fired)).getTime(); if (isFinite(last) && (now - last) < gapMs) continue; }
-
       if (!ctx) ctx = await buildCtx(uid, ym);
       const evals = [];
       for (const cond of conditions) {
@@ -76,7 +76,17 @@ export async function evaluateAgentsEvent(uid) {
         evals.push({ cond, val, ok: opTest(cond.op, val, Number(cond.value)) });
       }
       const pass = c.match === 'any' ? evals.some((e) => e.ok) : evals.every((e) => e.ok);
-      if (!pass) continue;
+
+      // condicao deixou de valer -> resolve alertas pendentes deste robo e libera novo disparo
+      if (!pass) {
+        await resolveNotifs(uid, tr.id);
+        if (tr.last_fired) await db().execute({ sql: `UPDATE Trigger SET last_fired=NULL WHERE id=?`, args: [tr.id] }).catch(() => {});
+        continue;
+      }
+
+      // cooldown: condicao verdadeira, mas nao repetir dentro da janela (cooldownDays dias, ou 6h por padrao)
+      const gapMs = (Number(c.cooldownDays) > 0 ? Number(c.cooldownDays) * 86400000 : 6 * 3600000);
+      if (tr.last_fired) { const last = new Date(String(tr.last_fired)).getTime(); if (isFinite(last) && (now - last) < gapMs) continue; }
 
       if (mail === null) mail = await getMailConfig();
       const acts = Array.isArray(c.actions) && c.actions.length ? c.actions : (c.action ? [{ action: c.action, subject: c.subject, message: c.message }] : [{ action: 'notify' }]);
@@ -96,11 +106,11 @@ export async function evaluateAgentsEvent(uid) {
             const id = newId(); const number = Math.round(await q1(`SELECT COALESCE(MAX(number),1000) t FROM SupportTicket`, [])) + 1;
             await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subj, 'open', act.ticketCategory || 'Financeiro', 'alta', user.full_name || '', user.email, uid, nowIso(), nowIso()] });
             await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), id, uid, 'user', `${emoji} ${robo}`, `${msg}\n\nSituacao: ${situacaoTxt}`, nowIso()] });
-            await notify(uid, { kind: 'ticket', title: `${emoji} ${robo} abriu o chamado #${number}`, text: subj, path: '/chamados' });
+            await notify(uid, { kind: 'ticket', title: `${emoji} ${robo} abriu o chamado #${number}`, text: subj, path: '/chamados', ref: tr.id });
             did++;
           }
         } else if (act.action === 'email_alert') {
-          await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}` });
+          await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}`, ref: tr.id });
           if (mail.enabled && user.email) {
             const rows = evals.map((e) => itemRow(METRIC_LABEL[e.cond.metric] || e.cond.metric, `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
             const corpo = `Oi${primeiroNome ? ' ' + primeiroNome : ''}, aqui é o <b>${robo}</b>, seu robô de ${setor}.<br/><br/>${String(msg).replace(/</g, '&lt;')}<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}`;
@@ -108,7 +118,7 @@ export async function evaluateAgentsEvent(uid) {
           }
           did++;
         } else { // notify (padrao)
-          await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}` });
+          await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}`, ref: tr.id });
           did++;
         }
       }

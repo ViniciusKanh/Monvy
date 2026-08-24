@@ -169,8 +169,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <RobotsSummaryCard />
-
       {customize && (
         <Card>
           <div className="flex items-center justify-between mb-2"><h3 className="font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4 text-emerald-500" /> Personalizar painel</h3><button onClick={() => setCustomize(false)} className="text-sm text-emerald-600 font-semibold">Concluir</button></div>
@@ -280,6 +278,8 @@ export default function Dashboard() {
         <Reveal i={2}><Kpi label="Saldo do mes" amount={cur.bal} hidden={hide} icon={Wallet} tone={cur.bal < 0 ? 'rose' : 'indigo'} pct={pctChange(cur.bal, prev.bal)} good="up" spark={series6.map((s) => s.net)} /></Reveal>
         <Reveal i={3}><Kpi label="Taxa de poupanca" amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
       </div>
+
+      <RobotsSummaryCard />
 
       <div style={{ order: ordOf('charts') }} className={vis('charts') ? '' : 'hidden'}>
       {/* Charts */}

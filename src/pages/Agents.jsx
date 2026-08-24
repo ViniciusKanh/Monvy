@@ -13,14 +13,14 @@ import { CouncilThinking } from '../components/Splash.jsx';
 import { Bot, Plus, Pencil, Trash2, MessageSquare, Send, Sparkles, X, Filter, Play, Clock, Zap, Wallet, BarChart3, TrendingUp, Globe, CalendarClock, RefreshCw } from 'lucide-react';
 
 const FOCUS = [
-  { k: 'geral', label: 'Assistente geral', emoji: '🤖', icon: Bot, desc: 'Responde sobre tudo: saldo, gastos, dividas, patrimonio, metas...' },
+  { k: 'geral', label: 'Assistente geral', emoji: '🤖', icon: Bot, desc: 'Responde sobre tudo: saldo, gastos, dividas, patrimônio, metas...' },
   { k: 'saldo', label: 'Saldo & Contas', emoji: '💰', icon: Wallet, desc: 'De olho no seu saldo e movimentacao das contas.' },
-  { k: 'gastos', label: 'Gastos & Categorias', emoji: '📊', icon: BarChart3, desc: 'Monitora onde voce mais gasta e estouros.' },
+  { k: 'gastos', label: 'Gastos & Categorias', emoji: '📊', icon: BarChart3, desc: 'Monitora onde você mais gasta e estouros.' },
   { k: 'entradas', label: 'Entradas & Renda', emoji: '💵', icon: TrendingUp, desc: 'Acompanha o que entra: salarios e recebimentos.' },
-  { k: 'patrimonio', label: 'Patrimonio & Investimentos', emoji: '📈', icon: TrendingUp, desc: 'Acompanha patrimonio liquido e carteira.' },
-  { k: 'mercado', label: 'Mercado & Impostos', emoji: '🌎', icon: Globe, desc: 'Cotacoes (dolar, euro, cripto), Selic/IPCA e Imposto de Renda.' },
+  { k: 'patrimonio', label: 'Patrimônio & Investimentos', emoji: '📈', icon: TrendingUp, desc: 'Acompanha patrimônio líquido e carteira.' },
+  { k: 'mercado', label: 'Mercado & Impostos', emoji: '🌎', icon: Globe, desc: 'Cotações (dolar, euro, cripto), Selic/IPCA e Imposto de Renda.' },
   { k: 'vencimentos', label: 'Vencimentos & Contas', emoji: '📅', icon: CalendarClock, desc: 'Avisa o que esta pra vencer.' },
-  { k: 'inteligencia', label: 'Inteligencia & Analise', emoji: '🧠', icon: BarChart3, desc: 'Raio-X, saude financeira, comportamento e recomendacoes.' },
+  { k: 'inteligencia', label: 'Inteligencia & Análise', emoji: '🧠', icon: BarChart3, desc: 'Raio-X, saude financeira, comportamento e recomendacoes.' },
   { k: 'metas', label: 'Metas & Objetivos', emoji: '🎯', icon: TrendingUp, desc: 'Acompanha o progresso das suas metas e cobra.' },
 ];
 const focusOf = (k) => FOCUS.find((f) => f.k === k) || FOCUS[0];
@@ -34,7 +34,7 @@ const METRICS = [
   { k: 'savings_rate', label: 'Taxa de poupanca do mes', unit: '%' },
   { k: 'category_spend', label: 'Gasto em uma categoria (mes)', unit: 'R$', needsCategory: true },
   { k: 'pending_count', label: 'Lancamentos vencidos nao pagos', unit: 'un' },
-  { k: 'net_worth', label: 'Patrimonio liquido', unit: 'R$' },
+  { k: 'net_worth', label: 'Patrimônio liquido', unit: 'R$' },
   { k: 'debt_monthly', label: 'Parcelas de dividas por mes', unit: 'R$' },
   { k: 'goals_saved', label: 'Guardado em metas/cofres', unit: 'R$' },
   { k: 'card_invoice_total', label: 'Faturas de cartao em aberto', unit: 'R$' },
@@ -67,28 +67,28 @@ const normConfig = (c) => ({
   actions: Array.isArray(c?.actions) && c.actions.length ? c.actions.map((a) => ({ action: a.action || 'notify', subject: a.subject || '', message: a.message || '', ticketCategory: a.ticketCategory || '', aiWrite: !!a.aiWrite })) : [{ action: c?.action || 'notify', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '', aiWrite: false }],
 });
 
-// Galeria de robos prontos (1 clique). Acao padrao = notificacao no app (nao exige e-mail).
+// Galeria de robos prontos (1 clique). Acao padrao = notificação no app (nao exige e-mail).
 const GALLERY = [
   { name: 'Vigia dos Gastos', emoji: '📊', tag: 'Gastos', desc: 'Avisa quando seus gastos do mes passam de R$ 3.000.', frequency: 'weekly',
     config: { focus: 'gastos', emoji: '📊', greeting: 'Fico de olho nos seus gastos.', monitor: true, match: 'all', conditions: [{ metric: 'month_expense', op: 'gt', value: 3000 }], actions: [{ action: 'notify', subject: 'Gastos acima do previsto', message: 'Seus gastos do mes passaram de R$ 3.000.' }] } },
   { name: 'Radar de Vencimentos', emoji: '📅', tag: 'Vencimentos', desc: 'Avisa quando ha contas vencidas ou a vencer.', frequency: 'weekly',
-    config: { focus: 'vencimentos', emoji: '📅', greeting: 'Nao deixo nenhuma conta passar.', monitor: true, match: 'all', conditions: [{ metric: 'pending_count', op: 'gte', value: 1 }], actions: [{ action: 'notify', subject: 'Voce tem contas a pagar', message: 'Ha lancamentos vencidos ou proximos do vencimento.' }] } },
+    config: { focus: 'vencimentos', emoji: '📅', greeting: 'Nao deixo nenhuma conta passar.', monitor: true, match: 'all', conditions: [{ metric: 'pending_count', op: 'gte', value: 1 }], actions: [{ action: 'notify', subject: 'Você tem contas a pagar', message: 'Ha lancamentos vencidos ou proximos do vencimento.' }] } },
   { name: 'Guardiao do Saldo', emoji: '🛡️', tag: 'Saldo', desc: 'Alerta na hora se o saldo total ficar abaixo de R$ 500.', frequency: 'daily',
     config: { focus: 'saldo', emoji: '🛡️', greeting: 'Protejo seu saldo de sustos.', monitor: true, match: 'all', conditions: [{ metric: 'total_balance', op: 'lt', value: 500 }], actions: [{ action: 'notify', subject: 'Saldo baixo', message: 'Seu saldo total nas contas ficou baixo.' }] } },
   { name: 'Vigia do Cartao', emoji: '💳', tag: 'Cartao', desc: 'Avisa quando as faturas de cartao em aberto passam de R$ 2.000.', frequency: 'weekly',
     config: { focus: 'vencimentos', emoji: '💳', greeting: 'Fico de olho nas faturas do cartao.', monitor: true, match: 'all', conditions: [{ metric: 'card_invoice_total', op: 'gt', value: 2000 }], actions: [{ action: 'notify', subject: 'Faturas de cartao altas', message: 'Suas faturas de cartao em aberto passaram de R$ 2.000.' }] } },
   { name: 'Guardiao das Entradas', emoji: '💵', tag: 'Entradas', desc: 'Resumo mensal do que entrou (salarios e recebimentos).', frequency: 'monthly',
-    config: { focus: 'entradas', emoji: '💵', greeting: 'Acompanho tudo que entra na sua conta.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo de entradas', message: 'Confira o que voce recebeu no ultimo periodo.' }], dayOfMonth: 1 } },
-  { name: 'Analista de Mercado & Impostos', emoji: '🌎', tag: 'Mercado', desc: 'Tira duvidas de dolar, euro, cripto, Selic/IPCA e Imposto de Renda no chat.', frequency: 'weekly',
-    config: { focus: 'mercado', emoji: '🌎', greeting: 'Pergunte sobre cotacoes, taxas e impostos.', monitor: false } },
-  { name: 'Consultor de Patrimonio', emoji: '📈', tag: 'Patrimonio', desc: 'Alerta na hora se seu patrimonio zerar ou ficar negativo.', frequency: 'daily',
-    config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimonio.', monitor: true, match: 'all', conditions: [{ metric: 'net_worth', op: 'lte', value: 0 }], actions: [{ action: 'notify', subject: 'Patrimonio zerado ou negativo', message: 'Seu patrimonio liquido chegou a zero ou ficou negativo. Vale revisar contas, dividas e gastos.' }] } },
+    config: { focus: 'entradas', emoji: '💵', greeting: 'Acompanho tudo que entra na sua conta.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo de entradas', message: 'Confira o que você recebeu no ultimo periodo.' }], dayOfMonth: 1 } },
+  { name: 'Analista de Mercado & Impostos', emoji: '🌎', tag: 'Mercado', desc: 'Tira dúvidas de dolar, euro, cripto, Selic/IPCA e Imposto de Renda no chat.', frequency: 'weekly',
+    config: { focus: 'mercado', emoji: '🌎', greeting: 'Pergunte sobre cotações, taxas e impostos.', monitor: false } },
+  { name: 'Consultor de Patrimônio', emoji: '📈', tag: 'Patrimônio', desc: 'Alerta na hora se seu patrimônio zerar ou ficar negativo.', frequency: 'daily',
+    config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimônio.', monitor: true, match: 'all', conditions: [{ metric: 'net_worth', op: 'lte', value: 0 }], actions: [{ action: 'notify', subject: 'Patrimônio zerado ou negativo', message: 'Seu patrimônio líquido chegou a zero ou ficou negativo. Vale revisar contas, dívidas e gastos.' }] } },
   { name: 'Analista de Inteligencia', emoji: '🧠', tag: 'Inteligencia', desc: 'Faz o raio-X: saude financeira, comportamento, previsao e recomendacoes.', frequency: 'monthly',
-    config: { focus: 'inteligencia', emoji: '🧠', greeting: 'Peca um raio-X das suas financas quando quiser.', monitor: false } },
+    config: { focus: 'inteligencia', emoji: '🧠', greeting: 'Peca um raio-X das suas finanças quando quiser.', monitor: false } },
   { name: 'Coach de Metas', emoji: '🎯', tag: 'Metas', desc: 'Acompanha suas metas e te lembra de guardar todo mes.', frequency: 'monthly',
     config: { focus: 'metas', emoji: '🎯', greeting: 'Bora bater suas metas? Me pergunte como elas estao.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Hora de guardar', message: 'Lembrete do mes: separe um valor para suas metas.' }], dayOfMonth: 5 } },
-  { name: 'Alfred', emoji: '🦾', tag: 'Geral', desc: 'Assistente geral: responde qualquer pergunta sobre suas financas.', frequency: 'weekly',
-    config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas financas.', monitor: false } },
+  { name: 'Alfred', emoji: '🦾', tag: 'Geral', desc: 'Assistente geral: responde qualquer pergunta sobre suas finanças.', frequency: 'weekly',
+    config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas finanças.', monitor: false } },
 ];
 
 const SECTOR_COLOR = { gastos: '#f43f5e', entradas: '#10b981', vencimentos: '#f59e0b', patrimonio: '#6366f1', mercado: '#0ea5e9', inteligencia: '#a855f7', metas: '#ec4899', saldo: '#14b8a6', geral: '#8b5cf6' };
@@ -121,7 +121,7 @@ export default function Agents() {
   const save = useMutation({ mutationFn: (p) => editing ? Trigger.update(editing.id, p) : Trigger.create(p), onSuccess: () => { inval(); setModal(false); toast.success('Agente salvo'); }, onError: (e) => toast.error(e.message || 'Falha') });
   const del = useMutation({ mutationFn: (id) => Trigger.remove(id), onSuccess: inval });
   const toggle = useMutation({ mutationFn: ({ id, enabled }) => Trigger.update(id, { enabled }), onSuccess: inval });
-  const quickCreate = useMutation({ mutationFn: (p) => Trigger.create({ name: p.name, frequency: p.frequency || 'weekly', weekday: 1, enabled: true, type: 'agent', config: normConfig(p.config) }), onSuccess: () => { inval(); toast.success('Robo adicionado! Ja esta trabalhando pra voce.'); }, onError: (e) => toast.error(e.message || 'Falha') });
+  const quickCreate = useMutation({ mutationFn: (p) => Trigger.create({ name: p.name, frequency: p.frequency || 'weekly', weekday: 1, enabled: true, type: 'agent', config: normConfig(p.config) }), onSuccess: () => { inval(); toast.success('Robo adicionado! Ja esta trabalhando pra você.'); }, onError: (e) => toast.error(e.message || 'Falha') });
 
   const openNew = () => { setEditing(null); setForm(emptyForm()); setModal(true); };
   const openEdit = (t) => { setEditing(t); setForm({ name: t.name || '', frequency: t.frequency || 'weekly', weekday: t.weekday ?? 1, enabled: t.enabled !== false, config: normConfig(t.config) }); setModal(true); };
@@ -144,7 +144,7 @@ export default function Agents() {
     const cfg = form.config;
     if (cfg.monitor) {
       const directOnly = cfg.actions.every((a) => a.action === 'email_summary' || a.action === 'email_bills');
-      if (!directOnly && cfg.conditions.length === 0) return toast.error('Adicione ao menos uma condicao ou use apenas acoes de envio direto');
+      if (!directOnly && cfg.conditions.length === 0) return toast.error('Adicione ao menos uma condição ou use apenas ações de envio direto');
     }
     save.mutate({ ...form, weekday: Number(form.weekday), type: 'agent' });
   };
@@ -155,7 +155,7 @@ export default function Agents() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader
         title={<span className="flex items-center gap-2"><Bot className="w-6 h-6 text-emerald-500" /> Agentes & Robos</span>}
-        subtitle="Crie robos com nome e foco. Eles monitoram suas financas e conversam com voce."
+        subtitle="Crie robos com nome e foco. Eles monitoram suas finanças e conversam com você."
         actions={<div className="flex gap-2"><Button variant="outline" onClick={runCheck} disabled={checking}>{checking ? <Spinner className="w-4 h-4" /> : <><RefreshCw className="w-4 h-4" /> Verificar agora</>}</Button><Button onClick={openNew}><Plus className="w-4 h-4" /> Novo robo</Button></div>}
       />
 
@@ -182,11 +182,11 @@ export default function Agents() {
         );
       })()}
 
-      {/* ORGANOGRAMA: voce (CEO) -> departamentos */}
+      {/* ORGANOGRAMA: você (CEO) -> departamentos */}
       <div className="flex flex-col items-center">
         <div className="px-4 py-2 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-sm flex items-center gap-2">
           <span className="w-9 h-9 rounded-xl text-white flex items-center justify-center text-sm font-bold" style={{ background: 'linear-gradient(135deg,#10b981,#6366f1)' }}>{((user?.first_name || user?.full_name || 'V')[0] || 'V').toUpperCase()}</span>
-          <div><p className="text-sm font-semibold leading-tight">{user?.full_name || 'Voce'}</p><p className="text-[11px] text-muted">CEO · comanda a equipe</p></div>
+          <div><p className="text-sm font-semibold leading-tight">{user?.full_name || 'Você'}</p><p className="text-[11px] text-muted">CEO · comanda a equipe</p></div>
         </div>
         <div className="w-px h-5" style={{ background: 'hsl(var(--border))' }} />
         <div className="w-full max-w-4xl h-px" style={{ background: 'hsl(var(--border))' }} />
@@ -216,7 +216,7 @@ export default function Agents() {
                         <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10" title="Ajustar"><Pencil className="w-3.5 h-3.5" /></button>
                         <button onClick={() => del.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10" title="Demitir"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
-                      {c.monitor && <p className="text-[11px] text-muted mt-1.5 truncate"><Filter className="w-3 h-3 inline mr-1" />{c.conditions.length ? c.conditions.map((x) => `${mInfo(x.metric).label} ${opLabel(x.op)} ${x.value}`).join(c.match === 'any' ? ' ou ' : ' e ') : 'resumo periodico'}</p>}
+                      {c.monitor && <p className="text-[11px] text-muted mt-1.5 truncate"><Filter className="w-3 h-3 inline mr-1" />{c.conditions.length ? c.conditions.map((x) => `${mInfo(x.metric).label} ${opLabel(x.op)} ${x.value}`).join(c.match === 'any' ? ' ou ' : ' e ') : 'resumo periódico'}</p>}
                       <div className="flex items-center gap-2 mt-2">
                         <Button size="sm" className="flex-1" onClick={() => setChatFor(t)}><MessageSquare className="w-4 h-4" /> Conversar</Button>
                         {c.monitor && <label className="flex items-center gap-1 text-[11px] cursor-pointer" title="Ativar/pausar"><input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={on} onChange={(e) => toggle.mutate({ id: t.id, enabled: e.target.checked })} /></label>}
@@ -270,11 +270,11 @@ export default function Agents() {
             <Select value={cfg.focus} onChange={(e) => setC('focus', e.target.value)}>{FOCUS.map((f) => <option key={f.k} value={f.k}>{f.emoji} {f.label}</option>)}</Select>
           </Field>
           <p className="text-xs text-muted -mt-2">{focusOf(cfg.focus).desc}</p>
-          <Field label="Mensagem de boas-vindas (opcional)"><Input value={cfg.greeting} onChange={(e) => setC('greeting', e.target.value)} placeholder="Ex: Pergunte o que quiser sobre suas financas." /></Field>
+          <Field label="Mensagem de boas-vindas (opcional)"><Input value={cfg.greeting} onChange={(e) => setC('greeting', e.target.value)} placeholder="Ex: Pergunte o que quiser sobre suas finanças." /></Field>
           <Field label="Personalidade / estilo (opcional)"><Textarea rows={2} value={cfg.personality} onChange={(e) => setC('personality', e.target.value)} placeholder="Ex: direto e objetivo; ou bem-humorado e motivador. Usado quando a IA (Gemini) esta ativa." /></Field>
 
           <label className="flex items-center justify-between p-3 rounded-xl border border-[hsl(var(--border))] cursor-pointer">
-            <span className="text-sm font-medium flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> Monitoramento automatico</span>
+            <span className="text-sm font-medium flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> Monitoramento automático</span>
             <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={cfg.monitor} onChange={(e) => setC('monitor', e.target.checked)} />
           </label>
 
@@ -292,11 +292,11 @@ export default function Agents() {
 
               <div className="rounded-xl border border-[hsl(var(--border))] p-3">
                 <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                  <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 rounded px-1.5 py-0.5">SE</span><span className="text-sm font-medium">Condicoes</span></div>
+                  <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 rounded px-1.5 py-0.5">SE</span><span className="text-sm font-medium">Condições</span></div>
                   {cfg.conditions.length > 1 && <div className="inline-flex p-0.5 rounded-lg bg-black/5 dark:bg-white/5 text-xs">{[['all', 'TODAS'], ['any', 'QUALQUER']].map(([v, l]) => <button key={v} type="button" onClick={() => setC('match', v)} className={`px-2 py-1 rounded-md font-semibold ${cfg.match === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>)}</div>}
                 </div>
                 <div className="space-y-2">
-                  {cfg.conditions.length === 0 && <p className="text-xs text-muted">Sem condicoes = dispara sempre na frequencia (util para resumo/vencimentos).</p>}
+                  {cfg.conditions.length === 0 && <p className="text-xs text-muted">Sem condições = dispara sempre na frequencia (util para resumo/vencimentos).</p>}
                   {cfg.conditions.map((c, i) => { const mi = mInfo(c.metric); return (
                     <div key={i} className="rounded-lg bg-black/5 dark:bg-white/5 p-2 space-y-2">
                       <div className="flex items-center gap-2">
@@ -311,12 +311,12 @@ export default function Agents() {
                       </div>
                     </div>
                   ); })}
-                  <Button size="sm" variant="outline" onClick={addCond}><Plus className="w-4 h-4" /> Adicionar condicao</Button>
+                  <Button size="sm" variant="outline" onClick={addCond}><Plus className="w-4 h-4" /> Adicionar condição</Button>
                 </div>
               </div>
 
               <div className="rounded-xl border border-[hsl(var(--border))] p-3">
-                <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-sm font-medium">Acoes ({cfg.actions.length})</span></div><Button size="sm" variant="outline" onClick={addAct}><Plus className="w-4 h-4" /> Acao</Button></div>
+                <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 rounded px-1.5 py-0.5">ENTAO</span><span className="text-sm font-medium">Ações ({cfg.actions.length})</span></div><Button size="sm" variant="outline" onClick={addAct}><Plus className="w-4 h-4" /> Acao</Button></div>
                 <div className="space-y-3">
                   {cfg.actions.map((a, i) => (
                     <div key={i} className="rounded-lg bg-black/5 dark:bg-white/5 p-2.5 space-y-2">
@@ -331,9 +331,9 @@ export default function Agents() {
                             <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={!!a.aiWrite} onChange={(e) => setAct(i, { aiWrite: e.target.checked })} />
                             <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Escrever titulo e conteudo com IA (Gemini) — se houver chave configurada
                           </label>
-                          {!a.aiWrite && <><Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificacao' : 'Assunto do e-mail'} />
+                          {!a.aiWrite && <><Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificação' : 'Assunto do e-mail'} />
                           <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Mensagem (os valores avaliados sao incluidos)" /></>}
-                          {a.aiWrite && <p className="text-[11px] text-muted">A IA vai gerar o titulo e o texto com base na situacao avaliada. Voce pode escrever uma instrucao/tom abaixo (opcional).</p>}
+                          {a.aiWrite && <p className="text-[11px] text-muted">A IA vai gerar o titulo e o texto com base na situação avaliada. Você pode escrever uma instrucao/tom abaixo (opcional).</p>}
                           {a.aiWrite && <Input value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Instrucao pra IA (opcional): ex. tom motivador, foco em economia" />}
                         </div>
                       )}
@@ -368,7 +368,7 @@ function ChatModal({ agent, agents = [], user, catMap, onClose }) {
   const ctx = useMemo(() => ({ user, transactions, accounts, categories: Object.values(catMap), catMap, investments, debts, goals, subs, invoices }), [user, transactions, accounts, catMap, investments, debts, goals, subs, invoices]);
   const persona = { name: agent.name, focus: c.focus, focusLabel: foc.label, emoji: c.emoji, personality: c.personality };
 
-  const [msgs, setMsgs] = useState(() => [{ role: 'agent', text: c.greeting || `${agent.name} na area! Pergunte o que quiser sobre suas financas.` }]);
+  const [msgs, setMsgs] = useState(() => [{ role: 'agent', text: c.greeting || `${agent.name} na area! Pergunte o que quiser sobre suas finanças.` }]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [thinkers, setThinkers] = useState([]);
@@ -376,10 +376,10 @@ function ChatModal({ agent, agents = [], user, catMap, onClose }) {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, busy]);
 
   const suggByFocus = {
-    geral: ['Como esta minha saude financeira?', 'Onde gasto mais?', 'Qual meu patrimonio?'],
+    geral: ['Como esta minha saude financeira?', 'Onde gasto mais?', 'Qual meu patrimônio?'],
     saldo: ['Quanto tenho?', 'Qual meu saldo total?'],
     gastos: ['Onde gasto mais?', 'Quanto gastei esse mes?'],
-    patrimonio: ['Qual meu patrimonio?', 'Como estao meus investimentos?'],
+    patrimonio: ['Qual meu patrimônio?', 'Como estão meus investimentos?'],
     mercado: ['Como esta o dolar?', 'E o bitcoin?'],
     vencimentos: ['O que vence essa semana?', 'Quanto devo?'],
   };
