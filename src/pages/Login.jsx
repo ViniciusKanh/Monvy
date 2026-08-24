@@ -8,8 +8,8 @@ import { toast } from '../lib/toast.js';
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, TrendingUp, Sparkles, Check } from 'lucide-react';
 
 const FEATURES = [
-  { icon: TrendingUp, title: 'Controle total', text: 'Contas, cartoes, metas e orcamento em um so lugar.' },
-  { icon: Sparkles, title: 'Analises inteligentes', text: 'Relatorios, previsoes e alertas para planejar melhor.' },
+  { icon: TrendingUp, title: 'Controle total', text: 'Contas, cartões, metas e orcamento em um só lugar.' },
+  { icon: Sparkles, title: 'Analises inteligentes', text: 'Relatórios, previsões e alertas para planejar melhor.' },
   { icon: ShieldCheck, title: 'Seguro e privado', text: 'Seus dados protegidos com criptografia.' },
 ];
 
@@ -43,7 +43,7 @@ export default function Login() {
       setSuccess(true);
     } catch (err) {
       if (err.message === '2FA_REQUIRED') { setNeeds2fa(true); setError(''); setLoading(false); return; }
-      if (err.message === '2FA_INVALID') { setError('Codigo de verificacao invalido.'); setLoading(false); return; }
+      if (err.message === '2FA_INVALID') { setError('Código de verificacao invalido.'); setLoading(false); return; }
       if (err.status === 403) { setNeedVerify(true); setError('Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.'); }
       else setError(err.message || 'Falha no login');
       setLoading(false);
@@ -85,13 +85,13 @@ export default function Login() {
             {error && (
               <div className="mb-4 text-sm text-rose-600 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg px-3 py-2">
                 {error}
-                {needVerify && <button type="button" onClick={async () => { try { await Auth.resend(email); toast.success('E-mail de confirmacao reenviado.'); } catch { toast.error('Nao foi possivel reenviar.'); } }} className="block mt-1 font-semibold underline">Reenviar confirmacao</button>}
+                {needVerify && <button type="button" onClick={async () => { try { await Auth.resend(email); toast.success('E-mail de confirmacao reenviado.'); } catch { toast.error('Nao foi possível reenviar.'); } }} className="block mt-1 font-semibold underline">Reenviar confirmacao</button>}
               </div>
             )}
 
             <form onSubmit={submit} className="space-y-4">
               <Field label="E-mail">
-                <div className="relative"><Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" /><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" className="pl-10" autoComplete="email" /></div>
+                <div className="relative"><Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" /><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="você@email.com" className="pl-10" autoComplete="email" /></div>
               </Field>
               <Field label="Senha">
                 <div className="relative">
@@ -101,7 +101,7 @@ export default function Login() {
                 </div>
               </Field>
               {needs2fa && (
-                <Field label="Codigo de verificacao (app autenticador)">
+                <Field label="Código de verificacao (app autenticador)">
                   <Input inputMode="numeric" autoFocus maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="tracking-[0.4em] text-center text-lg" />
                   <span className="block text-xs text-muted mt-1">Abra seu app autenticador e digite o codigo de 6 digitos.</span>
                 </Field>

@@ -52,7 +52,7 @@ export default function Chat() {
       parts.forEach((p, i) => additions.push({ role: 'assistant', text: p.text, via: p.via, robot: p.robot, actions: i === parts.length - 1 ? acts : [] }));
       setMessages((m) => [...m, ...additions]);
     } catch (e) {
-      setMessages((m) => [...m, { role: 'assistant', text: 'Ops, nao consegui responder agora. ' + (e.message || ''), robot: { name: 'Assistente', focusLabel: '', emoji: '🤖' } }]);
+      setMessages((m) => [...m, { role: 'assistant', text: 'Ops, não consegui responder agora. ' + (e.message || ''), robot: { name: 'Assistente', focusLabel: '', emoji: '🤖' } }]);
     } finally { setLoading(false); }
   };
 
@@ -64,7 +64,7 @@ export default function Chat() {
       <Card className="py-2.5 mb-3">
         <p className="text-xs text-muted flex items-center gap-2">
           {apiKey ? <><Sparkles className="w-4 h-4 text-emerald-500" /> IA generativa ativa (Gemini). As respostas usam seus dados reais.</>
-            : <><Cpu className="w-4 h-4 text-sky-500" /> Modo local (sem custo). Para respostas generativas, configure a chave Gemini em <Link to="/configuracoes" className="underline font-medium">Configuracoes</Link>.</>}
+            : <><Cpu className="w-4 h-4 text-sky-500" /> Modo local (sem custo). Para respostas generativas, configure a chave Gemini em <Link to="/configuracoes" className="underline font-medium">Configurações</Link>.</>}
         </p>
       </Card>
 

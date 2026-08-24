@@ -14,13 +14,13 @@ import { Bot, Plus, Pencil, Trash2, MessageSquare, Send, Sparkles, X, Filter, Pl
 
 const FOCUS = [
   { k: 'geral', label: 'Assistente geral', emoji: '🤖', icon: Bot, desc: 'Responde sobre tudo: saldo, gastos, dividas, patrimônio, metas...' },
-  { k: 'saldo', label: 'Saldo & Contas', emoji: '💰', icon: Wallet, desc: 'De olho no seu saldo e movimentacao das contas.' },
+  { k: 'saldo', label: 'Saldo & Contas', emoji: '💰', icon: Wallet, desc: 'De olho no seu saldo e movimentação das contas.' },
   { k: 'gastos', label: 'Gastos & Categorias', emoji: '📊', icon: BarChart3, desc: 'Monitora onde você mais gasta e estouros.' },
-  { k: 'entradas', label: 'Entradas & Renda', emoji: '💵', icon: TrendingUp, desc: 'Acompanha o que entra: salarios e recebimentos.' },
+  { k: 'entradas', label: 'Entradas & Renda', emoji: '💵', icon: TrendingUp, desc: 'Acompanha o que entra: salários e recebimentos.' },
   { k: 'patrimonio', label: 'Patrimônio & Investimentos', emoji: '📈', icon: TrendingUp, desc: 'Acompanha patrimônio líquido e carteira.' },
   { k: 'mercado', label: 'Mercado & Impostos', emoji: '🌎', icon: Globe, desc: 'Cotações (dolar, euro, cripto), Selic/IPCA e Imposto de Renda.' },
   { k: 'vencimentos', label: 'Vencimentos & Contas', emoji: '📅', icon: CalendarClock, desc: 'Avisa o que esta pra vencer.' },
-  { k: 'inteligencia', label: 'Inteligencia & Análise', emoji: '🧠', icon: BarChart3, desc: 'Raio-X, saude financeira, comportamento e recomendacoes.' },
+  { k: 'inteligencia', label: 'Inteligência & Análise', emoji: '🧠', icon: BarChart3, desc: 'Raio-X, saude financeira, comportamento e recomendações.' },
   { k: 'metas', label: 'Metas & Objetivos', emoji: '🎯', icon: TrendingUp, desc: 'Acompanha o progresso das suas metas e cobra.' },
 ];
 const focusOf = (k) => FOCUS.find((f) => f.k === k) || FOCUS[0];
@@ -28,16 +28,16 @@ const EMOJIS = ['🤖', '💰', '📊', '📈', '🌎', '📅', '🦾', '🧠', 
 
 const METRICS = [
   { k: 'total_balance', label: 'Saldo total das contas', unit: 'R$' },
-  { k: 'month_balance', label: 'Saldo do mes (receita - despesa)', unit: 'R$' },
-  { k: 'month_income', label: 'Receita do mes', unit: 'R$' },
-  { k: 'month_expense', label: 'Despesa do mes (inclui cartao)', unit: 'R$' },
-  { k: 'savings_rate', label: 'Taxa de poupanca do mes', unit: '%' },
+  { k: 'month_balance', label: 'Saldo do mês (receita - despesa)', unit: 'R$' },
+  { k: 'month_income', label: 'Receita do mês', unit: 'R$' },
+  { k: 'month_expense', label: 'Despesa do mês (inclui cartao)', unit: 'R$' },
+  { k: 'savings_rate', label: 'Taxa de poupança do mês', unit: '%' },
   { k: 'category_spend', label: 'Gasto em uma categoria (mes)', unit: 'R$', needsCategory: true },
-  { k: 'pending_count', label: 'Lancamentos vencidos nao pagos', unit: 'un' },
+  { k: 'pending_count', label: 'Lançamentos vencidos não pagos', unit: 'un' },
   { k: 'net_worth', label: 'Patrimônio liquido', unit: 'R$' },
-  { k: 'debt_monthly', label: 'Parcelas de dividas por mes', unit: 'R$' },
+  { k: 'debt_monthly', label: 'Parcelas de dividas por mês', unit: 'R$' },
   { k: 'goals_saved', label: 'Guardado em metas/cofres', unit: 'R$' },
-  { k: 'card_invoice_total', label: 'Faturas de cartao em aberto', unit: 'R$' },
+  { k: 'card_invoice_total', label: 'Faturas de cartão em aberto', unit: 'R$' },
   { k: 'investments_total', label: 'Total investido', unit: 'R$' },
   { k: 'open_tickets', label: 'Chamados em aberto', unit: 'un' },
 ];
@@ -49,10 +49,10 @@ const ACTIONS = [
   { k: 'email_alert', label: 'Enviar alerta por e-mail' },
   { k: 'open_ticket', label: 'Abrir um chamado' },
   { k: 'email_summary', label: 'Enviar resumo financeiro' },
-  { k: 'email_bills', label: 'Enviar vencimentos proximos' },
+  { k: 'email_bills', label: 'Enviar vencimentos próximos' },
 ];
 const actLabel = (k) => (ACTIONS.find((a) => a.k === k) || ACTIONS[0]).label;
-const FREQ = [['daily', 'Todo dia'], ['weekly', 'Toda semana'], ['monthly', 'Todo mes']];
+const FREQ = [['daily', 'Todo dia'], ['weekly', 'Toda semana'], ['monthly', 'Todo mês']];
 const freqLabel = (f) => (FREQ.find((x) => x[0] === f) || FREQ[0])[1];
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
@@ -67,26 +67,26 @@ const normConfig = (c) => ({
   actions: Array.isArray(c?.actions) && c.actions.length ? c.actions.map((a) => ({ action: a.action || 'notify', subject: a.subject || '', message: a.message || '', ticketCategory: a.ticketCategory || '', aiWrite: !!a.aiWrite })) : [{ action: c?.action || 'notify', subject: c?.subject || '', message: c?.message || '', ticketCategory: c?.ticketCategory || '', aiWrite: false }],
 });
 
-// Galeria de robos prontos (1 clique). Acao padrao = notificação no app (nao exige e-mail).
+// Galeria de robos prontos (1 clique). Acao padrão = notificação no app (não exige e-mail).
 const GALLERY = [
-  { name: 'Vigia dos Gastos', emoji: '📊', tag: 'Gastos', desc: 'Avisa quando seus gastos do mes passam de R$ 3.000.', frequency: 'weekly',
-    config: { focus: 'gastos', emoji: '📊', greeting: 'Fico de olho nos seus gastos.', monitor: true, match: 'all', conditions: [{ metric: 'month_expense', op: 'gt', value: 3000 }], actions: [{ action: 'notify', subject: 'Gastos acima do previsto', message: 'Seus gastos do mes passaram de R$ 3.000.' }] } },
+  { name: 'Vigia dos Gastos', emoji: '📊', tag: 'Gastos', desc: 'Avisa quando seus gastos do mês passam de R$ 3.000.', frequency: 'weekly',
+    config: { focus: 'gastos', emoji: '📊', greeting: 'Fico de olho nos seus gastos.', monitor: true, match: 'all', conditions: [{ metric: 'month_expense', op: 'gt', value: 3000 }], actions: [{ action: 'notify', subject: 'Gastos acima do previsto', message: 'Seus gastos do mês passaram de R$ 3.000.' }] } },
   { name: 'Radar de Vencimentos', emoji: '📅', tag: 'Vencimentos', desc: 'Avisa quando ha contas vencidas ou a vencer.', frequency: 'weekly',
-    config: { focus: 'vencimentos', emoji: '📅', greeting: 'Nao deixo nenhuma conta passar.', monitor: true, match: 'all', conditions: [{ metric: 'pending_count', op: 'gte', value: 1 }], actions: [{ action: 'notify', subject: 'Você tem contas a pagar', message: 'Ha lancamentos vencidos ou proximos do vencimento.' }] } },
+    config: { focus: 'vencimentos', emoji: '📅', greeting: 'Nao deixo nenhuma conta passar.', monitor: true, match: 'all', conditions: [{ metric: 'pending_count', op: 'gte', value: 1 }], actions: [{ action: 'notify', subject: 'Você tem contas a pagar', message: 'Ha lançamentos vencidos ou próximos do vencimento.' }] } },
   { name: 'Guardiao do Saldo', emoji: '🛡️', tag: 'Saldo', desc: 'Alerta na hora se o saldo total ficar abaixo de R$ 500.', frequency: 'daily',
     config: { focus: 'saldo', emoji: '🛡️', greeting: 'Protejo seu saldo de sustos.', monitor: true, match: 'all', conditions: [{ metric: 'total_balance', op: 'lt', value: 500 }], actions: [{ action: 'notify', subject: 'Saldo baixo', message: 'Seu saldo total nas contas ficou baixo.' }] } },
-  { name: 'Vigia do Cartao', emoji: '💳', tag: 'Cartao', desc: 'Avisa quando as faturas de cartao em aberto passam de R$ 2.000.', frequency: 'weekly',
-    config: { focus: 'vencimentos', emoji: '💳', greeting: 'Fico de olho nas faturas do cartao.', monitor: true, match: 'all', conditions: [{ metric: 'card_invoice_total', op: 'gt', value: 2000 }], actions: [{ action: 'notify', subject: 'Faturas de cartao altas', message: 'Suas faturas de cartao em aberto passaram de R$ 2.000.' }] } },
-  { name: 'Guardiao das Entradas', emoji: '💵', tag: 'Entradas', desc: 'Resumo mensal do que entrou (salarios e recebimentos).', frequency: 'monthly',
-    config: { focus: 'entradas', emoji: '💵', greeting: 'Acompanho tudo que entra na sua conta.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo de entradas', message: 'Confira o que você recebeu no ultimo periodo.' }], dayOfMonth: 1 } },
+  { name: 'Vigia do Cartão', emoji: '💳', tag: 'Cartão', desc: 'Avisa quando as faturas de cartão em aberto passam de R$ 2.000.', frequency: 'weekly',
+    config: { focus: 'vencimentos', emoji: '💳', greeting: 'Fico de olho nas faturas do cartão.', monitor: true, match: 'all', conditions: [{ metric: 'card_invoice_total', op: 'gt', value: 2000 }], actions: [{ action: 'notify', subject: 'Faturas de cartão altas', message: 'Suas faturas de cartão em aberto passaram de R$ 2.000.' }] } },
+  { name: 'Guardiao das Entradas', emoji: '💵', tag: 'Entradas', desc: 'Resumo mensal do que entrou (salários e recebimentos).', frequency: 'monthly',
+    config: { focus: 'entradas', emoji: '💵', greeting: 'Acompanho tudo que entra na sua conta.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Resumo de entradas', message: 'Confira o que você recebeu no último período.' }], dayOfMonth: 1 } },
   { name: 'Analista de Mercado & Impostos', emoji: '🌎', tag: 'Mercado', desc: 'Tira dúvidas de dolar, euro, cripto, Selic/IPCA e Imposto de Renda no chat.', frequency: 'weekly',
     config: { focus: 'mercado', emoji: '🌎', greeting: 'Pergunte sobre cotações, taxas e impostos.', monitor: false } },
   { name: 'Consultor de Patrimônio', emoji: '📈', tag: 'Patrimônio', desc: 'Alerta na hora se seu patrimônio zerar ou ficar negativo.', frequency: 'daily',
     config: { focus: 'patrimonio', emoji: '📈', greeting: 'Cuido do crescimento do seu patrimônio.', monitor: true, match: 'all', conditions: [{ metric: 'net_worth', op: 'lte', value: 0 }], actions: [{ action: 'notify', subject: 'Patrimônio zerado ou negativo', message: 'Seu patrimônio líquido chegou a zero ou ficou negativo. Vale revisar contas, dívidas e gastos.' }] } },
-  { name: 'Analista de Inteligencia', emoji: '🧠', tag: 'Inteligencia', desc: 'Faz o raio-X: saude financeira, comportamento, previsao e recomendacoes.', frequency: 'monthly',
+  { name: 'Analista de Inteligência', emoji: '🧠', tag: 'Inteligência', desc: 'Faz o raio-X: saude financeira, comportamento, previsao e recomendações.', frequency: 'monthly',
     config: { focus: 'inteligencia', emoji: '🧠', greeting: 'Peca um raio-X das suas finanças quando quiser.', monitor: false } },
-  { name: 'Coach de Metas', emoji: '🎯', tag: 'Metas', desc: 'Acompanha suas metas e te lembra de guardar todo mes.', frequency: 'monthly',
-    config: { focus: 'metas', emoji: '🎯', greeting: 'Bora bater suas metas? Me pergunte como elas estao.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Hora de guardar', message: 'Lembrete do mes: separe um valor para suas metas.' }], dayOfMonth: 5 } },
+  { name: 'Coach de Metas', emoji: '🎯', tag: 'Metas', desc: 'Acompanha suas metas e te lembra de guardar todo mês.', frequency: 'monthly',
+    config: { focus: 'metas', emoji: '🎯', greeting: 'Bora bater suas metas? Me pergunte como elas estao.', monitor: true, match: 'all', conditions: [], actions: [{ action: 'notify', subject: 'Hora de guardar', message: 'Lembrete do mês: separe um valor para suas metas.' }], dayOfMonth: 5 } },
   { name: 'Alfred', emoji: '🦾', tag: 'Geral', desc: 'Assistente geral: responde qualquer pergunta sobre suas finanças.', frequency: 'weekly',
     config: { focus: 'geral', emoji: '🦾', greeting: 'Pergunte o que quiser sobre suas finanças.', monitor: false } },
 ];
@@ -296,7 +296,7 @@ export default function Agents() {
                   {cfg.conditions.length > 1 && <div className="inline-flex p-0.5 rounded-lg bg-black/5 dark:bg-white/5 text-xs">{[['all', 'TODAS'], ['any', 'QUALQUER']].map(([v, l]) => <button key={v} type="button" onClick={() => setC('match', v)} className={`px-2 py-1 rounded-md font-semibold ${cfg.match === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>)}</div>}
                 </div>
                 <div className="space-y-2">
-                  {cfg.conditions.length === 0 && <p className="text-xs text-muted">Sem condições = dispara sempre na frequencia (util para resumo/vencimentos).</p>}
+                  {cfg.conditions.length === 0 && <p className="text-xs text-muted">Sem condições = dispara sempre na frequencia (útil para resumo/vencimentos).</p>}
                   {cfg.conditions.map((c, i) => { const mi = mInfo(c.metric); return (
                     <div key={i} className="rounded-lg bg-black/5 dark:bg-white/5 p-2 space-y-2">
                       <div className="flex items-center gap-2">
@@ -331,8 +331,8 @@ export default function Agents() {
                             <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={!!a.aiWrite} onChange={(e) => setAct(i, { aiWrite: e.target.checked })} />
                             <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Escrever titulo e conteudo com IA (Gemini) — se houver chave configurada
                           </label>
-                          {!a.aiWrite && <><Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificação' : 'Assunto do e-mail'} />
-                          <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Mensagem (os valores avaliados sao incluidos)" /></>}
+                          {!a.aiWrite && <><Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Título da notificação' : 'Assunto do e-mail'} />
+                          <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Mensagem (os valores avaliados são incluidos)" /></>}
                           {a.aiWrite && <p className="text-[11px] text-muted">A IA vai gerar o titulo e o texto com base na situação avaliada. Você pode escrever uma instrucao/tom abaixo (opcional).</p>}
                           {a.aiWrite && <Input value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder="Instrucao pra IA (opcional): ex. tom motivador, foco em economia" />}
                         </div>

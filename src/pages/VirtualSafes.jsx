@@ -14,8 +14,8 @@ const CATS = [
   { v: 'travel', label: 'Viagem', icon: Plane },
   { v: 'home', label: 'Casa', icon: Home },
   { v: 'car', label: 'Carro', icon: Car },
-  { v: 'education', label: 'Educacao', icon: GraduationCap },
-  { v: 'health', label: 'Saude', icon: HeartPulse },
+  { v: 'education', label: 'Educação', icon: GraduationCap },
+  { v: 'health', label: 'Saúde', icon: HeartPulse },
   { v: 'other', label: 'Outro', icon: Wallet },
 ];
 const iconFor = (c) => (CATS.find((x) => x.v === c)?.icon || Vault);
@@ -50,7 +50,7 @@ export default function VirtualSafes() {
     mutationFn: async ({ g, type, value, accountId }) => {
       const cur = Number(g.current_amount || 0);
       if (!(value > 0)) throw new Error('Informe um valor valido');
-      if (type === 'out' && value > cur) throw new Error('Valor maior que o disponivel no cofre');
+      if (type === 'out' && value > cur) throw new Error('Valor maior que o disponível no cofre');
       // guardar debita a conta; retirar credita a conta (via transferencia -> recalcula saldos)
       await Transaction.create({
         type: 'transfer', amount: value, status: 'completed', date: todayIso(),
@@ -62,8 +62,8 @@ export default function VirtualSafes() {
       const status = next >= Number(g.target_amount || Infinity) && Number(g.target_amount) > 0 ? 'completed' : 'active';
       await Goal.update(g.id, { current_amount: next, status });
     },
-    onSuccess: () => { inval(); setMove(null); setMoveVal(''); setMoveAccount(''); toast.success('Movimentacao registrada'); },
-    onError: (e) => toast.error(e.message || 'Falha na movimentacao'),
+    onSuccess: () => { inval(); setMove(null); setMoveVal(''); setMoveAccount(''); toast.success('Movimentação registrada'); },
+    onError: (e) => toast.error(e.message || 'Falha na movimentação'),
   });
   const openMove = (g, type) => { setMove({ g, type }); setMoveVal(''); setMoveAccount(g.account_id || accounts[0]?.id || ''); };
 
@@ -157,7 +157,7 @@ export default function VirtualSafes() {
             <Field label={move?.type === 'in' ? 'Debitar da conta' : 'Creditar na conta'} hint={move?.type === 'in' ? 'O valor sai desta conta e vai para o cofre' : 'O valor sai do cofre e entra nesta conta'}>
               <Select value={moveAccount} onChange={(e) => setMoveAccount(e.target.value)}><option value="">Selecione a conta</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {formatCurrency(a.current_balance || 0)}</option>)}</Select>
             </Field>
-            {move?.type === 'out' && <p className="text-xs text-muted">Disponivel no cofre: {formatCurrency(move.g.current_amount || 0)}</p>}
+            {move?.type === 'out' && <p className="text-xs text-muted">Disponível no cofre: {formatCurrency(move.g.current_amount || 0)}</p>}
           </div>
         )}
       </Modal>

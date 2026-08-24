@@ -7,17 +7,17 @@ import { toast } from '../lib/toast.js';
 import { Sparkles, Wallet, Tags, Check } from 'lucide-react';
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Alimentacao', type: 'expense', color: '#f43f5e' },
+  { name: 'Alimentação', type: 'expense', color: '#f43f5e' },
   { name: 'Moradia', type: 'expense', color: '#6366f1' },
   { name: 'Transporte', type: 'expense', color: '#0ea5e9' },
-  { name: 'Saude', type: 'expense', color: '#14b8a6' },
+  { name: 'Saúde', type: 'expense', color: '#14b8a6' },
   { name: 'Lazer', type: 'expense', color: '#8b5cf6' },
-  { name: 'Educacao', type: 'expense', color: '#f59e0b' },
-  { name: 'Contas & Servicos', type: 'expense', color: '#64748b' },
+  { name: 'Educação', type: 'expense', color: '#f59e0b' },
+  { name: 'Contas & Serviços', type: 'expense', color: '#64748b' },
   { name: 'Compras', type: 'expense', color: '#ec4899' },
   { name: 'Assinaturas', type: 'expense', color: '#a855f7' },
   { name: 'Outros', type: 'expense', color: '#94a3b8' },
-  { name: 'Salario', type: 'income', color: '#10b981' },
+  { name: 'Salário', type: 'income', color: '#10b981' },
   { name: 'Freelance', type: 'income', color: '#22c55e' },
   { name: 'Investimentos', type: 'income', color: '#16a34a' },
 ];
@@ -63,7 +63,7 @@ export function OnboardingWizard() {
           <div className="flex items-center gap-2 text-sm font-semibold"><Wallet className="w-4 h-4 text-emerald-500" /> Sua primeira conta</div>
           <Field label="Nome da conta"><Input value={acc.name} onChange={(e) => setAcc((a) => ({ ...a, name: e.target.value }))} placeholder="Ex: Nubank, Carteira" autoFocus /></Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Tipo"><Select value={acc.account_type} onChange={(e) => setAcc((a) => ({ ...a, account_type: e.target.value }))}><option value="checking">Conta Corrente</option><option value="savings">Poupanca</option><option value="wallet">Carteira</option></Select></Field>
+            <Field label="Tipo"><Select value={acc.account_type} onChange={(e) => setAcc((a) => ({ ...a, account_type: e.target.value }))}><option value="checking">Conta Corrente</option><option value="savings">Poupança</option><option value="wallet">Carteira</option></Select></Field>
             <Field label="Saldo atual"><Input type="number" step="0.01" value={acc.initial_balance} onChange={(e) => setAcc((a) => ({ ...a, initial_balance: e.target.value }))} placeholder="0,00" /></Field>
           </div>
           <div className="flex gap-2 pt-2">
@@ -75,8 +75,8 @@ export function OnboardingWizard() {
 
       {step === 2 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm font-semibold"><Tags className="w-4 h-4 text-indigo-500" /> Categorias padrao</div>
-          <p className="text-sm text-muted">Vamos criar categorias comuns (Alimentacao, Moradia, Transporte, Salario...). Voce ajusta depois.</p>
+          <div className="flex items-center gap-2 text-sm font-semibold"><Tags className="w-4 h-4 text-indigo-500" /> Categorias padrão</div>
+          <p className="text-sm text-muted">Vamos criar categorias comuns (Alimentação, Moradia, Transporte, Salário...). Você ajusta depois.</p>
           <div className="flex flex-wrap gap-1.5">
             {DEFAULT_CATEGORIES.map((c) => <span key={c.name} className="text-xs px-2 py-1 rounded-full" style={{ background: `${c.color}22`, color: c.color }}>{c.name}</span>)}
           </div>
@@ -91,7 +91,7 @@ export function OnboardingWizard() {
         <div className="text-center py-4">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center mb-4 check-pop"><Check className="w-8 h-8 text-emerald-500" /></div>
           <h3 className="font-display font-bold text-lg">Pronto para comecar!</h3>
-          <p className="text-sm text-muted mt-2">Sua conta e categorias foram criadas. Agora e so lancar suas receitas e despesas.</p>
+          <p className="text-sm text-muted mt-2">Sua conta e categorias foram criadas. Agora e só lancar suas receitas e despesas.</p>
           <Button className="w-full mt-5" onClick={finish}><Sparkles className="w-4 h-4" /> Comecar a usar</Button>
         </div>
       )}

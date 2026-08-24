@@ -30,7 +30,7 @@ export function AlertsBell({ dark }) {
   const { data: notifications = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => Notification.list({ _limit: 50 }), refetchInterval: 60_000, refetchOnWindowFocus: true });
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
-  // Ao mudar dados (lancamento etc.), os robos podem ter gerado notificacoes: atualiza o sino na hora.
+  // Ao mudar dados (lançamento etc.), os robos podem ter gerado notificacoes: atualiza o sino na hora.
   useEffect(() => {
     const onChange = () => { setTimeout(() => qc.invalidateQueries({ queryKey: ['notifications'] }), 900); };
     window.addEventListener('monvy:data-changed', onChange);
@@ -44,7 +44,7 @@ export function AlertsBell({ dark }) {
     return getFxAlerts().map((a) => {
       const cur = Number((fx[`${a.code}BRL`] || {}).bid) || 0;
       if (!isHit(a, cur)) return null;
-      return { id: a.id, kind: 'fx', severity: 'info', title: `${a.code} ${a.dir === 'above' ? 'passou de' : 'caiu abaixo de'} ${fmtBRL(a.value)}`, text: `Cotacao atual: ${fmtBRL(cur)}`, path: '/mercado' };
+      return { id: a.id, kind: 'fx', severity: 'info', title: `${a.code} ${a.dir === 'above' ? 'passou de' : 'caiu abaixo de'} ${fmtBRL(a.value)}`, text: `Cotação atual: ${fmtBRL(cur)}`, path: '/mercado' };
     }).filter(Boolean);
   }, [fx]);
 
@@ -72,7 +72,7 @@ export function AlertsBell({ dark }) {
       {open && (
         <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] card p-0 z-50 overflow-hidden animate-[popIn_.15s_ease]">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))]">
-            <h4 className="font-semibold text-sm text-[hsl(var(--text))] flex items-center gap-2"><Bell className="w-4 h-4" /> Notificacoes</h4>
+            <h4 className="font-semibold text-sm text-[hsl(var(--text))] flex items-center gap-2"><Bell className="w-4 h-4" /> Notificações</h4>
             {unread.length > 0 && <button onClick={() => markAll.mutate()} className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCheck className="w-3.5 h-3.5" /> Marcar lidas</button>}
           </div>
           <div className="max-h-96 overflow-y-auto">

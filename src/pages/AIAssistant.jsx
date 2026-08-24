@@ -9,7 +9,7 @@ import { monthTotals, categoryBreakdown, lastMonths, monthlySeries } from '../li
 import { Bot, Send, Sparkles, User } from 'lucide-react';
 
 const SUGGESTIONS = [
-  'Quanto gastei este mes?',
+  'Quanto gastei este mês?',
   'Onde posso economizar?',
   'Como esta minha saude financeira?',
   'Quais minhas maiores despesas?',
@@ -51,7 +51,7 @@ export default function AIAssistant() {
   const send = async (q) => {
     const question = (q ?? input).trim();
     if (!question || loading) return;
-    if (!apiKey) { setMessages((m) => [...m, { role: 'assistant', text: 'Configure a chave da API Gemini em Configuracoes para usar o assistente.' }]); return; }
+    if (!apiKey) { setMessages((m) => [...m, { role: 'assistant', text: 'Configure a chave da API Gemini em Configurações para usar o assistente.' }]); return; }
     const history = messages.slice(-6);
     setMessages((m) => [...m, { role: 'user', text: question }]);
     setInput(''); setLoading(true);
@@ -59,7 +59,7 @@ export default function AIAssistant() {
       const { answer } = await Ai.ask(question, buildContext(), apiKey, history);
       setMessages((m) => [...m, { role: 'assistant', text: answer }]);
     } catch (e) {
-      setMessages((m) => [...m, { role: 'assistant', text: 'Ops, nao consegui responder agora. ' + (e.message || '') }]);
+      setMessages((m) => [...m, { role: 'assistant', text: 'Ops, não consegui responder agora. ' + (e.message || '') }]);
     } finally { setLoading(false); }
   };
 
@@ -70,7 +70,7 @@ export default function AIAssistant() {
 
       {!apiKey && (
         <Card className="mb-4 border-amber-500/30 bg-amber-50 dark:bg-amber-500/10">
-          <p className="text-sm text-amber-700 dark:text-amber-300">Configure sua chave gratuita do Gemini em <Link to="/configuracoes" className="font-semibold underline">Configuracoes</Link> para conversar com o assistente.</p>
+          <p className="text-sm text-amber-700 dark:text-amber-300">Configure sua chave gratuita do Gemini em <Link to="/configuracoes" className="font-semibold underline">Configurações</Link> para conversar com o assistente.</p>
         </Card>
       )}
 

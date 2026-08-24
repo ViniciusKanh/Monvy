@@ -24,13 +24,13 @@ export default function Verify() {
         {state === 'ok' && <>
           <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center mb-4"><CheckCircle2 className="w-8 h-8 text-emerald-500" /></div>
           <h1 className="font-display font-bold text-xl">E-mail confirmado! 🎉</h1>
-          <p className="text-sm text-muted mt-2">Sua conta esta ativa. Agora e so entrar.</p>
+          <p className="text-sm text-muted mt-2">Sua conta esta ativa. Agora e só entrar.</p>
           <Button className="w-full mt-6" onClick={() => navigate('/login')}>Entrar no Monvy</Button>
         </>}
         {state === 'error' && <>
           <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-500/15 flex items-center justify-center mb-4"><XCircle className="w-8 h-8 text-rose-500" /></div>
           <h1 className="font-display font-bold text-xl">Link invalido</h1>
-          <p className="text-sm text-muted mt-2">Este link de confirmacao e invalido ou ja foi usado. Tente reenviar na tela de login.</p>
+          <p className="text-sm text-muted mt-2">Este link de confirmacao e invalido ou já foi usado. Tente reenviar na tela de login.</p>
           <Button variant="outline" className="w-full mt-6" onClick={() => navigate('/login')}>Ir para o login</Button>
         </>}
       </div>

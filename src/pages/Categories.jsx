@@ -9,7 +9,7 @@ import { Plus, Tags, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-rea
 
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e', '#64748b'];
 const emptyForm = { name: '', type: 'expense', color: '#10b981', budget_limit: '', ir_deductible: '' };
-const IR_OPTS = [['', 'Nao dedutivel'], ['saude', 'Saude'], ['educacao', 'Educacao'], ['previdencia', 'Previdencia'], ['outras', 'Outras deducoes']];
+const IR_OPTS = [['', 'Nao dedutível'], ['saude', 'Saúde'], ['educacao', 'Educação'], ['previdencia', 'Previdência'], ['outras', 'Outras deduções']];
 const IR_LABEL = Object.fromEntries(IR_OPTS);
 
 export default function Categories() {
@@ -55,7 +55,7 @@ export default function Categories() {
         </div>
         <div className="flex gap-3 text-sm">
           <Badge>{filtered.length} categoria(s)</Badge>
-          <span className="text-muted">Total no mes: <b className={tab === 'expense' ? 'text-rose-500' : 'text-emerald-500'}>{formatCurrency(totalSpent)}</b></span>
+          <span className="text-muted">Total no mês: <b className={tab === 'expense' ? 'text-rose-500' : 'text-emerald-500'}>{formatCurrency(totalSpent)}</b></span>
         </div>
       </div>
 
@@ -76,7 +76,7 @@ export default function Categories() {
                         <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: c.color }}><Tags className="w-5 h-5" /></span>
                         <div>
                           <p className="font-semibold flex items-center gap-1.5">{c.name}{c.ir_deductible && <Badge color="indigo">IR: {IR_LABEL[c.ir_deductible]}</Badge>}</p>
-                          <p className="text-xs text-muted">{formatCurrency(sp)} este mes</p>
+                          <p className="text-xs text-muted">{formatCurrency(sp)} este mês</p>
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -100,10 +100,10 @@ export default function Categories() {
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? 'Editar categoria' : 'Nova categoria'}
         footer={<><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
         <form onSubmit={submit} className="space-y-4">
-          <Field label="Nome"><Input required value={form.name} onChange={set('name')} placeholder="Ex: Alimentacao" /></Field>
+          <Field label="Nome"><Input required value={form.name} onChange={set('name')} placeholder="Ex: Alimentação" /></Field>
           <Field label="Tipo"><Select value={form.type} onChange={set('type')}><option value="expense">Despesa</option><option value="income">Receita</option></Select></Field>
           {form.type === 'expense' && <Field label="Limite mensal (opcional)"><Input type="number" step="0.01" value={form.budget_limit} onChange={set('budget_limit')} placeholder="0,00" /></Field>}
-          {form.type === 'expense' && <Field label="Dedutivel no Imposto de Renda"><Select value={form.ir_deductible} onChange={set('ir_deductible')}>{IR_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>}
+          {form.type === 'expense' && <Field label="Dedutível no Imposto de Renda"><Select value={form.ir_deductible} onChange={set('ir_deductible')}>{IR_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>}
           <Field label="Cor">
             <div className="flex gap-2 flex-wrap">{COLORS.map((c) => <button key={c} type="button" onClick={() => setForm((f) => ({ ...f, color: c }))} className={`w-8 h-8 rounded-full border-2 transition ${form.color === c ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />)}</div>
           </Field>

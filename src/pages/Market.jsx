@@ -29,7 +29,7 @@ async function fetchRates() {
 }
 async function fetchHistory() {
   const r = await fetch('https://economia.awesomeapi.com.br/json/daily/USD-BRL/180');
-  if (!r.ok) throw new Error('Falha ao buscar historico');
+  if (!r.ok) throw new Error('Falha ao buscar histórico');
   return r.json();
 }
 
@@ -56,7 +56,7 @@ export default function Market() {
   const hMax = history.length ? Math.max(...history.map((h) => h.v)) : 0;
   const hNow = history.length ? history[history.length - 1].v : 0;
 
-  // perfil financeiro do usuario
+  // perfil financeiro do usuário
   const series = useMemo(() => monthlySeries(transactions, lastMonths(6)), [transactions]);
   const avgInc = series.reduce((a, s) => a + s.inc, 0) / (series.length || 1);
   const avgExp = series.reduce((a, s) => a + s.exp, 0) / (series.length || 1);
@@ -88,15 +88,15 @@ export default function Market() {
   }, [ipca, totalBalance]);
 
   // metricas de apoio (validadas): taxa mensal do CDI, ganho real vs inflacao e exemplo de R$1.000
-  const cdiM = cdi != null ? (Math.pow(1 + cdi / 100, 1 / 12) - 1) * 100 : null; // % ao mes
+  const cdiM = cdi != null ? (Math.pow(1 + cdi / 100, 1 / 12) - 1) * 100 : null; // % ao mês
   const realRate = (cdi != null && ipca != null) ? (((1 + cdi / 100) / (1 + ipca / 100)) - 1) * 100 : null; // ganho real anual
   const ex1000 = ipca != null ? 1000 / (1 + ipca / 100) : null; // poder de compra de R$1.000 em 1 ano
-  const poupYear = 6.17; // rendimento aproximado da poupanca a.a. (referencia)
+  const poupYear = 6.17; // rendimento aproximado da poupança a.a. (referência)
 
   const loading = quotesQ.isLoading && ratesQ.isLoading;
   const refetchAll = () => { quotesQ.refetch(); ratesQ.refetch(); histQ.refetch(); };
 
-  // Alertas de cambio (watchlist local)
+  // Alertas de câmbio (watchlist local)
   const [fxAlerts, setFxAlertsState] = useState(() => getFxAlerts());
   const [nf, setNf] = useState({ code: 'USD', dir: 'above', value: '' });
   const currentOf = (code) => Number((q[`${code}BRL`] || {}).bid) || 0;
@@ -107,18 +107,18 @@ export default function Market() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader
         title={<span className="flex items-center gap-2"><TrendingUp className="w-6 h-6 text-emerald-500" /> Mercado & Indicadores</span>}
-        subtitle="Cotacoes e indices oficiais conectados as suas financas"
+        subtitle="Cotações e indices oficiais conectados as suas financas"
         actions={<button onClick={refetchAll} className="p-2.5 rounded-xl card hover:bg-black/5 dark:hover:bg-white/10" title="Atualizar"><RefreshCw className={`w-5 h-5 ${(quotesQ.isFetching || ratesQ.isFetching) ? 'animate-spin' : ''}`} /></button>}
       />
 
-      {/* Cotacoes */}
+      {/* Cotações */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold">Cotacoes de hoje</h3>
+          <h3 className="font-semibold">Cotações de hoje</h3>
           {quotes[0]?.name && <span className="text-xs text-muted">fonte: AwesomeAPI</span>}
         </div>
         {quotesQ.isError ? (
-          <Card className="py-6 text-center text-sm text-muted"><AlertTriangle className="w-6 h-6 mx-auto mb-2 text-amber-500" />Nao foi possivel carregar as cotacoes. Verifique sua conexao e tente atualizar.</Card>
+          <Card className="py-6 text-center text-sm text-muted"><AlertTriangle className="w-6 h-6 mx-auto mb-2 text-amber-500" />Nao foi possível carregar as cotacoes. Verifique sua conexao e tente atualizar.</Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {quotes.map((c, i) => (
@@ -139,7 +139,7 @@ export default function Market() {
         )}
       </div>
 
-      {/* Historico do dolar */}
+      {/* Histórico do dolar */}
       <Card className="hover-lift">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="font-semibold flex items-center gap-2"><DollarSign className="w-4 h-4 text-emerald-500" /> Dolar — ultimos 180 dias</h3>
@@ -154,7 +154,7 @@ export default function Market() {
         {histQ.isLoading ? (
           <div className="h-[240px] flex items-center justify-center"><Spinner className="w-6 h-6 text-emerald-500" /></div>
         ) : histQ.isError || history.length === 0 ? (
-          <div className="h-[200px] flex flex-col items-center justify-center text-sm text-muted"><AlertTriangle className="w-6 h-6 mb-2 text-amber-500" />Nao foi possivel carregar o historico.</div>
+          <div className="h-[200px] flex flex-col items-center justify-center text-sm text-muted"><AlertTriangle className="w-6 h-6 mb-2 text-amber-500" />Nao foi possível carregar o histórico.</div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={history} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
@@ -176,37 +176,37 @@ export default function Market() {
           {rates.length > 0 && <span className="text-xs text-muted">fonte: BrasilAPI · % ao ano</span>}
         </div>
         {ratesQ.isError ? (
-          <Card className="py-6 text-center text-sm text-muted"><AlertTriangle className="w-6 h-6 mx-auto mb-2 text-amber-500" />Nao foi possivel carregar os indicadores. Tente atualizar.</Card>
+          <Card className="py-6 text-center text-sm text-muted"><AlertTriangle className="w-6 h-6 mx-auto mb-2 text-amber-500" />Nao foi possível carregar os indicadores. Tente atualizar.</Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <RateCard label="Selic" hint="Taxa basica de juros" value={selic} loading={ratesQ.isLoading} icon={Landmark} color="#6366f1" />
-            <RateCard label="CDI" hint="Referencia da renda fixa" value={cdi} loading={ratesQ.isLoading} icon={Percent} color="#10b981" />
+            <RateCard label="CDI" hint="Referência da renda fixa" value={cdi} loading={ratesQ.isLoading} icon={Percent} color="#10b981" />
             <RateCard label="IPCA" hint="Inflacao oficial (acum. 12m)" value={ipca} loading={ratesQ.isLoading} icon={TrendingUp} color="#f43f5e" />
           </div>
         )}
       </div>
 
-      {/* O que isso significa para voce */}
+      {/* O que isso significa para você */}
       <div>
-        <h3 className="font-semibold mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500" /> O que isso significa para voce</h3>
+        <h3 className="font-semibold mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500" /> O que isso significa para você</h3>
         <div className="grid md:grid-cols-3 gap-4">
           <Card className="hover-lift">
             <div className="flex items-center gap-2 mb-2"><span className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center"><PiggyBank className="w-4 h-4" /></span><h4 className="font-semibold">Rendimento potencial</h4></div>
             {cdiFut ? (
               <>
                 <p className="text-sm text-muted leading-relaxed">
-                  Guardando sua sobra media de <b className="text-[hsl(var(--text))]">{fmt(surplus)}/mes</b> num investimento que rende o CDI ({cdi?.toFixed(2)}% ao ano, ou <b>{cdiM?.toFixed(2)}% ao mes</b>), em 12 meses voce teria <b className="text-emerald-500">{fmt(cdiFut.bal)}</b>.
+                  Guardando sua sobra media de <b className="text-[hsl(var(--text))]">{fmt(surplus)}/mês</b> num investimento que rende o CDI ({cdi?.toFixed(2)}% ao ano, ou <b>{cdiM?.toFixed(2)}% ao mês</b>), em 12 meses você teria <b className="text-emerald-500">{fmt(cdiFut.bal)}</b>.
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-black/5 dark:bg-white/5 p-2"><p className="text-[11px] text-muted">Voce aporta</p><p className="font-bold text-sm">{fmt(cdiFut.aportado)}</p></div>
+                  <div className="rounded-lg bg-black/5 dark:bg-white/5 p-2"><p className="text-[11px] text-muted">Você aporta</p><p className="font-bold text-sm">{fmt(cdiFut.aportado)}</p></div>
                   <div className="rounded-lg bg-emerald-500/10 p-2"><p className="text-[11px] text-muted">So de rendimento</p><p className="font-bold text-sm text-emerald-500">+{fmt(cdiFut.rendimento)}</p></div>
                 </div>
-                <p className="text-[11px] text-muted mt-2">Calculo: cada aporte rende juros compostos mes a mes ate o 12º mes. Referencia, sem impostos.</p>
+                <p className="text-[11px] text-muted mt-2">Calculo: cada aporte rende juros compostos mes a mes até o 12º mes. Referência, sem impostos.</p>
               </>
             ) : (
               <p className="text-sm text-muted">Registre receitas e despesas para o Monvy estimar quanto sua sobra mensal renderia no CDI.</p>
             )}
-            <p className="mt-3 text-xs"><Badge color={savingsRate >= 20 ? 'emerald' : 'amber'}>Sua taxa de poupanca: {savingsRate.toFixed(0)}%</Badge></p>
+            <p className="mt-3 text-xs"><Badge color={savingsRate >= 20 ? 'emerald' : 'amber'}>Sua taxa de poupança: {savingsRate.toFixed(0)}%</Badge></p>
           </Card>
 
           <Card className="hover-lift">
@@ -225,13 +225,13 @@ export default function Market() {
           </Card>
 
           <Card className="hover-lift">
-            <div className="flex items-center gap-2 mb-2"><span className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center"><Percent className="w-4 h-4" /></span><h4 className="font-semibold">Ganho real & comparacao</h4></div>
+            <div className="flex items-center gap-2 mb-2"><span className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center"><Percent className="w-4 h-4" /></span><h4 className="font-semibold">Ganho real & comparação</h4></div>
             {realRate != null ? (
               <>
                 <p className="text-sm text-muted leading-relaxed">O que importa e o <b className="text-[hsl(var(--text))]">ganho real</b> (acima da inflacao). Rendendo o CDI ({cdi?.toFixed(2)}%) com IPCA de {ipca?.toFixed(2)}%, seu ganho real e de <b className={realRate >= 0 ? 'text-emerald-500' : 'text-rose-500'}>{realRate >= 0 ? '+' : ''}{realRate.toFixed(2)}% ao ano</b>.</p>
                 <div className="mt-2 space-y-1.5 text-xs">
                   <div className="flex justify-between"><span className="text-muted">CDI (renda fixa)</span><b>{cdi?.toFixed(2)}% a.a.</b></div>
-                  <div className="flex justify-between"><span className="text-muted">Poupanca (ref.)</span><b>~{poupYear.toFixed(2)}% a.a.</b></div>
+                  <div className="flex justify-between"><span className="text-muted">Poupança (ref.)</span><b>~{poupYear.toFixed(2)}% a.a.</b></div>
                   <div className="flex justify-between"><span className="text-muted">Inflacao (IPCA)</span><b className="text-rose-500">{ipca?.toFixed(2)}% a.a.</b></div>
                 </div>
                 <p className="text-[11px] text-muted mt-2">Ganho real = ((1+CDI) / (1+IPCA)) − 1. Acima de zero, seu dinheiro cresce de verdade.</p>
@@ -243,9 +243,9 @@ export default function Market() {
         </div>
       </div>
 
-      {/* Alertas de cambio */}
+      {/* Alertas de câmbio */}
       <Card className="hover-lift">
-        <h3 className="font-semibold flex items-center gap-2 mb-1"><Bell className="w-4 h-4 text-amber-500" /> Alertas de cambio</h3>
+        <h3 className="font-semibold flex items-center gap-2 mb-1"><Bell className="w-4 h-4 text-amber-500" /> Alertas de câmbio</h3>
         <p className="text-xs text-muted mb-3">Defina um alvo e o sino de notificacoes avisa quando a cotacao bater.</p>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <Select value={nf.code} onChange={(e) => setNf((s) => ({ ...s, code: e.target.value }))}><option value="USD">Dolar (USD)</option><option value="EUR">Euro (EUR)</option><option value="BTC">Bitcoin (BTC)</option></Select>
@@ -269,7 +269,7 @@ export default function Market() {
         )}
       </Card>
 
-      <p className="text-xs text-muted text-center pt-2">Dados de fontes publicas (AwesomeAPI e BrasilAPI). Conteudo informativo — nao e recomendacao de investimento.</p>
+      <p className="text-xs text-muted text-center pt-2">Dados de fontes publicas (AwesomeAPI e BrasilAPI). Conteudo informativo — não e recomendacao de investimento.</p>
     </div>
   );
 }

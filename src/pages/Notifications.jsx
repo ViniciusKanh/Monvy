@@ -27,8 +27,8 @@ export default function Notifications() {
 
   return (
     <div className="space-y-5 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><Bell className="w-6 h-6 text-emerald-500" /> Notificacoes</span>}
-        subtitle="Historico de alertas e automacoes"
+      <PageHeader title={<span className="flex items-center gap-2"><Bell className="w-6 h-6 text-emerald-500" /> Notificações</span>}
+        subtitle="Histórico de alertas e automacoes"
         actions={<div className="flex gap-2">{unread.length > 0 && <Button variant="outline" onClick={() => markAll.mutate()}><CheckCheck className="w-4 h-4" /> Marcar lidas</Button>}{list.some((n) => n.read) && <Button variant="outline" onClick={() => clearRead.mutate()}><Trash2 className="w-4 h-4" /> Limpar lidas</Button>}</div>} />
 
       {isLoading ? <div className="flex justify-center py-16"><Spinner className="w-6 h-6 text-emerald-500" /></div>

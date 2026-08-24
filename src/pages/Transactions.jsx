@@ -63,14 +63,14 @@ export default function Transactions() {
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Lancamentos" subtitle="Receitas, despesas e transferencias"
+      <PageHeader title="Lançamentos" subtitle="Receitas, despesas e transferencias"
         actions={<>
           <Button variant="outline" onClick={() => openNew('transfer')}><ArrowLeftRight className="w-4 h-4 text-indigo-500" /> Transferir</Button>
           <Button variant="outline" onClick={() => openNew('income')}><ArrowUpRight className="w-4 h-4 text-emerald-500" /> Receita</Button>
           <Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Despesa</Button>
         </>} />
 
-      {/* Hero do mes */}
+      {/* Hero do mês */}
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>
         <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full glow-pulse pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,.28), transparent 68%)' }} />
         <div className="absolute inset-0 grid-bg opacity-25" />
@@ -99,7 +99,7 @@ export default function Transactions() {
       <div className="flex flex-col md:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por descricao ou categoria..." className="pl-9" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por descrição ou categoria..." className="pl-9" />
         </div>
         <div className="flex gap-2 overflow-x-auto">
           <div className="inline-flex p-1 rounded-xl bg-black/5 dark:bg-white/5 shrink-0">
@@ -112,7 +112,7 @@ export default function Transactions() {
       </div>
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : filtered.length === 0 ? <Card><EmptyState icon={ArrowLeftRight} title="Nenhum lancamento" subtitle="Adicione uma receita ou despesa neste mes." action={<Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Novo lancamento</Button>} /></Card>
+        : filtered.length === 0 ? <Card><EmptyState icon={ArrowLeftRight} title="Nenhum lançamento" subtitle="Adicione uma receita ou despesa neste mês." action={<Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Novo lançamento</Button>} /></Card>
         : (
           <div className="space-y-5">
             {Object.entries(grouped).map(([date, items], gi) => {
@@ -135,7 +135,7 @@ export default function Transactions() {
                               {isTransfer ? <ArrowLeftRight className="w-4 h-4" /> : isInc ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium truncate">{t.description || cat?.name || (isTransfer ? 'Transferencia' : 'Lancamento')}</p>
+                              <p className="font-medium truncate">{t.description || cat?.name || (isTransfer ? 'Transferencia' : 'Lançamento')}</p>
                               <div className="flex items-center gap-1.5 text-xs text-muted flex-wrap">
                                 <span className="truncate">{isTransfer ? `${accMap[t.account_id]?.name || ''} → ${accMap[t.account_to_id]?.name || ''}` : (cat?.name || 'Sem categoria')}</span>
                                 {t.is_fixed && <Badge color="blue">Fixo</Badge>}
@@ -170,7 +170,7 @@ export default function Transactions() {
           : <img src={viewReceipt} alt="Comprovante" className="w-full rounded-lg" />)}
       </Modal>
 
-      <Modal open={!!toDelete} onClose={() => setToDelete(null)} title="Excluir lancamento" maxWidth="max-w-md"
+      <Modal open={!!toDelete} onClose={() => setToDelete(null)} title="Excluir lançamento" maxWidth="max-w-md"
         footer={<><Button variant="outline" onClick={() => setToDelete(null)}>Cancelar</Button><Button variant="danger" onClick={() => del.mutate(toDelete.id)} disabled={del.isPending}>{del.isPending ? <Spinner className="w-4 h-4" /> : 'Excluir'}</Button></>}>
         <p className="text-sm text-muted">Tem certeza? O saldo da conta sera recalculado automaticamente.</p>
       </Modal>

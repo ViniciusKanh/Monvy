@@ -12,10 +12,10 @@ import { fetchMarketRate, amToAa } from '../lib/bcbRates.js';
 import { Landmark, Plus, Pencil, Trash2, CheckCircle2, Table, Zap, Calculator, Building2, Download, XCircle, AlertTriangle, Gauge, ScrollText, Wallet, Sparkles } from 'lucide-react';
 
 const TYPES = [
-  { v: 'emprestimo', label: 'Emprestimo' },
+  { v: 'emprestimo', label: 'Empréstimo' },
   { v: 'financiamento', label: 'Financiamento' },
-  { v: 'consorcio', label: 'Consorcio' },
-  { v: 'cartao', label: 'Parcelamento de cartao' },
+  { v: 'consorcio', label: 'Consórcio' },
+  { v: 'cartao', label: 'Parcelamento de cartão' },
   { v: 'outro', label: 'Outro' },
 ];
 const tLabel = (v) => (TYPES.find((t) => t.v === v) || TYPES[0]).label;
@@ -24,10 +24,10 @@ const balanceAfter = (inst, iPct, remaining) => { const i = Number(iPct) / 100; 
 const empty = { name: '', type: 'financiamento', principal: '', interest_rate: '1.5', installments: '12', paid_installments: '0', start_date: todayIso(), due_day: '10', institution: '' };
 
 const KINDS = [
-  { v: 'imovel', label: 'Financiamento imobiliario' },
-  { v: 'veiculo', label: 'Financiamento de veiculo' },
-  { v: 'pessoal', label: 'Emprestimo pessoal' },
-  { v: 'consignado', label: 'Emprestimo consignado' },
+  { v: 'imovel', label: 'Financiamento imobiliário' },
+  { v: 'veiculo', label: 'Financiamento de veículo' },
+  { v: 'pessoal', label: 'Empréstimo pessoal' },
+  { v: 'consignado', label: 'Empréstimo consignado' },
 ];
 const LS_SIM = 'monvy_credit_sim_v1';
 const loadSim = () => { try { return JSON.parse(localStorage.getItem(LS_SIM) || 'null'); } catch { return null; } };
@@ -60,7 +60,7 @@ export default function Debts() {
   const monthly = withCalc.filter((d) => d.remaining > 0).reduce((s, d) => s + d.inst, 0);
   const interestAll = withCalc.reduce((s, d) => s + Math.max(0, d.interestTotal), 0);
 
-  // renda mensal estimada (mediana das receitas por mes)
+  // renda mensal estimada (mediana das receitas por mês)
   const rendaEstimada = useMemo(() => {
     const byMonth = {};
     for (const t of transactions) if (t.type === 'income') { const m = String(t.date).slice(0, 7); byMonth[m] = (byMonth[m] || 0) + Number(t.amount || 0); }
@@ -91,12 +91,12 @@ export default function Debts() {
 
   return (
     <div className="space-y-5 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><Landmark className="w-6 h-6 text-rose-500" /> Dividas & Credito</span>}
+      <PageHeader title={<span className="flex items-center gap-2"><Landmark className="w-6 h-6 text-rose-500" /> Dívidas & Crédito</span>}
         subtitle="Controle o que deve e simule se um financiamento ou emprestimo cabe no seu bolso"
         actions={tab === 'lista' && <Button onClick={openNew}><Plus className="w-4 h-4" /> Nova divida</Button>} />
 
       <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 w-fit">
-        {[['lista', 'Minhas dividas', Landmark], ['sim', 'Simulador de credito', Calculator]].map(([id, label, Ic]) => (
+        {[['lista', 'Minhas dividas', Landmark], ['sim', 'Simulador de crédito', Calculator]].map(([id, label, Ic]) => (
           <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === id ? 'bg-white dark:bg-neutral-800 shadow text-emerald-600 dark:text-emerald-400' : 'text-muted'}`}><Ic className="w-4 h-4" /> {label}</button>
         ))}
       </div>
@@ -104,7 +104,7 @@ export default function Debts() {
       {tab === 'lista' && (<>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <Reveal i={0}><Card className="py-4 hover-lift"><p className="text-xs text-muted">Saldo devedor total</p><p className="font-display text-2xl font-bold text-rose-500"><AnimatedValue value={totalOwed} format={formatCurrency} /></p></Card></Reveal>
-          <Reveal i={1}><Card className="py-4 hover-lift"><p className="text-xs text-muted">Comprometido/mes</p><p className="font-display text-2xl font-bold text-amber-500"><AnimatedValue value={monthly} format={formatCurrency} /></p></Card></Reveal>
+          <Reveal i={1}><Card className="py-4 hover-lift"><p className="text-xs text-muted">Comprometido/mês</p><p className="font-display text-2xl font-bold text-amber-500"><AnimatedValue value={monthly} format={formatCurrency} /></p></Card></Reveal>
           <Reveal i={2}><Card className="py-4 hover-lift"><p className="text-xs text-muted">Juros totais (contratos)</p><p className="font-display text-2xl font-bold"><AnimatedValue value={interestAll} format={formatCurrency} /></p></Card></Reveal>
         </div>
 
@@ -124,7 +124,7 @@ export default function Debts() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       <div><p className="text-[11px] text-muted">Saldo devedor</p><p className="font-bold text-rose-500">{formatCurrency(d.balance)}</p></div>
-                      <div><p className="text-[11px] text-muted">Parcela</p><p className="font-bold">{formatCurrency(d.inst)}/mes</p></div>
+                      <div><p className="text-[11px] text-muted">Parcela</p><p className="font-bold">{formatCurrency(d.inst)}/mês</p></div>
                     </div>
                     <div className="mt-3">
                       <div className="flex justify-between text-xs mb-1"><span className="text-muted">{d.paid} de {d.n} parcelas</span><span className="text-muted">{d.pct}%</span></div>
@@ -160,10 +160,10 @@ export default function Debts() {
           <div className="grid grid-cols-3 gap-3">
             <Field label="Parcelas pagas"><Input type="number" value={form.paid_installments} onChange={(e) => set('paid_installments', e.target.value)} /></Field>
             <Field label="Dia vencimento"><Input type="number" value={form.due_day} onChange={(e) => set('due_day', e.target.value)} /></Field>
-            <Field label="Instituicao"><Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Banco" /></Field>
+            <Field label="Instituição"><Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Banco" /></Field>
           </div>
           <div className="rounded-xl bg-indigo-50 dark:bg-indigo-500/10 p-3 text-sm text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-            <Zap className="w-4 h-4 shrink-0" /> Parcela estimada (Tabela Price): <b>{formatCurrency(formInst)}/mes</b> · total {formatCurrency(formInst * Number(form.installments || 0))}
+            <Zap className="w-4 h-4 shrink-0" /> Parcela estimada (Tabela Price): <b>{formatCurrency(formInst)}/mês</b> · total {formatCurrency(formInst * Number(form.installments || 0))}
           </div>
         </form>
       </Modal>
@@ -224,7 +224,7 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
 
   const buscarTaxa = async () => {
     setFetching(true);
-    try { const r = await fetchMarketRate(f.tipo); set('taxaMes', r.am.toFixed(2)); toast.success(r.source === 'bcb' ? `Taxa media do BCB: ${r.aa.toFixed(1)}% a.a.` : 'Usei uma taxa de referencia (BCB indisponivel).'); }
+    try { const r = await fetchMarketRate(f.tipo); set('taxaMes', r.am.toFixed(2)); toast.success(r.source === 'bcb' ? `Taxa media do BCB: ${r.aa.toFixed(1)}% a.a.` : 'Usei uma taxa de referência (BCB indisponível).'); }
     catch { toast.error('Nao consegui buscar a taxa agora.'); } finally { setFetching(false); }
   };
   const usarTaxaTipica = () => { if (rules.taxaTipicaAm) { set('taxaMes', Number(rules.taxaTipicaAm).toFixed(2)); toast.success('Taxa tipica aplicada. Ajuste conforme sua proposta.'); } };
@@ -232,7 +232,7 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
     const b = kindBanks.find((x) => x.id === id); if (!b) return;
     const rm = b.base_rate != null && b.base_rate !== '' ? toMonthly(Number(b.base_rate), b.periodicity || 'anual') : Number(b.rate_month || 0);
     setF((s) => { const next = { ...s, taxaMes: rm.toFixed(3), indexer: b.indexer || 'prefixado', indexerAnnual: '', sistema: (b.system && b.system !== 'ambos') ? b.system : s.sistema, ltvOverride: b.max_ltv ? String(b.max_ltv) : '', prazoMaxOverride: b.prazo_max ? String(b.prazo_max) : '', bankName: b.name }; try { localStorage.setItem(LS_SIM, JSON.stringify(next)); } catch { /* */ } return next; });
-    toast.success(`Condicoes de ${b.name} aplicadas.`);
+    toast.success(`Condições de ${b.name} aplicadas.`);
   };
   const clearBank = () => setF((s) => ({ ...s, ltvOverride: '', prazoMaxOverride: '', bankName: '' }));
 
@@ -240,14 +240,14 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
     <div className="space-y-4">
       <Card>
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <h3 className="font-semibold flex items-center gap-2"><Calculator className="w-4 h-4 text-emerald-500" /> Simular credito</h3>
+          <h3 className="font-semibold flex items-center gap-2"><Calculator className="w-4 h-4 text-emerald-500" /> Simular crédito</h3>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={buscarTaxa} disabled={fetching}>{fetching ? <Spinner className="w-4 h-4" /> : <><Download className="w-4 h-4" /> Taxa media (BCB)</>}</Button>
             <Button size="sm" variant="outline" onClick={() => setBankModal(true)}><Building2 className="w-4 h-4" /> Bancos</Button>
           </div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <Field label="Tipo de credito"><Select value={f.tipo} onChange={(e) => setTipo(e.target.value)}>{KINDS.map((k) => <option key={k.v} value={k.v}>{k.label}</option>)}</Select></Field>
+          <Field label="Tipo de crédito"><Select value={f.tipo} onChange={(e) => setTipo(e.target.value)}>{KINDS.map((k) => <option key={k.v} value={k.v}>{k.label}</option>)}</Select></Field>
           {subs.length > 0 && <Field label="Modalidade"><Select value={f.subtipo} onChange={(e) => set('subtipo', e.target.value)}>{subs.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></Field>}
           {kindBanks.length > 0 && <Field label="Banco cadastrado"><Select defaultValue="" onChange={(e) => pickBank(e.target.value)}><option value="">Escolher taxa...</option>{kindBanks.map((b) => <option key={b.id} value={b.id}>{b.name} — {Number(b.rate_month).toFixed(2)}% a.m.</option>)}</Select></Field>}
           {isFin ? (<>
@@ -263,23 +263,23 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
           {f.indexer !== 'prefixado' && <Field label={`${INDEXERS[f.indexer]?.label || 'Indexador'} estimado (% a.a.)`}><Input type="number" step="0.01" value={f.indexerAnnual} onChange={(e) => set('indexerAnnual', e.target.value)} placeholder={String(idxAnnualDefault)} /></Field>}
           <Field label="Sistema"><Select value={f.sistema} onChange={(e) => set('sistema', e.target.value)}><option value="price">Price (parcela fixa)</option><option value="sac">SAC (parcela decrescente)</option></Select></Field>
           <Field label="Sua renda mensal (R$)"><Input type="number" value={f.rendaMensal} onChange={(e) => set('rendaMensal', e.target.value)} placeholder="0,00" /></Field>
-          <Field label="Outras parcelas/mes (R$)"><Input type="number" value={f.outrasParcelas} onChange={(e) => set('outrasParcelas', e.target.value)} placeholder="0,00" /></Field>
+          <Field label="Outras parcelas/mês (R$)"><Input type="number" value={f.outrasParcelas} onChange={(e) => set('outrasParcelas', e.target.value)} placeholder="0,00" /></Field>
           {f.tipo === 'imovel' && <Field label="Sua idade (anos)"><Input type="number" value={f.idadeAnos} onChange={(e) => set('idadeAnos', e.target.value)} placeholder="ex: 35" /></Field>}
-          {f.tipo === 'veiculo' && f.subtipo === 'usado' && <Field label="Idade do veiculo (anos)"><Input type="number" value={f.idadeVeiculoAnos} onChange={(e) => set('idadeVeiculoAnos', e.target.value)} placeholder="ex: 5" /></Field>}
+          {f.tipo === 'veiculo' && f.subtipo === 'usado' && <Field label="Idade do veículo (anos)"><Input type="number" value={f.idadeVeiculoAnos} onChange={(e) => set('idadeVeiculoAnos', e.target.value)} placeholder="ex: 5" /></Field>}
         </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           {f.taxaMes && <span className="text-xs text-muted">Juros {baseM.toFixed(3)}% a.m.{f.indexer !== 'prefixado' ? ` + ${INDEXERS[f.indexer]?.label || 'indexador'} ~${idxM.toFixed(3)}% a.m.` : ''} → <b className="text-[hsl(var(--text))]">efetiva ~{effM.toFixed(3)}% a.m.</b> (~{amToAa(effM).toFixed(1)}% a.a.)</span>}
           {rules.taxaTipicaAm ? <button onClick={usarTaxaTipica} className="text-xs font-medium text-emerald-600 hover:underline">usar taxa tipica ({Number(rules.taxaTipicaAm).toFixed(2)}% a.m.)</button> : null}
         </div>
         {f.bankName && <div className="mt-2 flex items-center gap-2 text-xs"><Badge color="emerald"><Building2 className="w-3 h-3" /> {f.bankName}</Badge><span className="text-muted">LTV {f.ltvOverride || rules.ltvMax * 100}% · prazo max {f.prazoMaxOverride || rules.prazoMaxMeses}m</span><button onClick={clearBank} className="text-rose-500 hover:underline">remover</button></div>}
-        {f.indexer === 'IPCA' && <p className="text-[11px] text-muted mt-1">No IPCA o saldo devedor e corrigido pela inflacao a cada mes; a parcela nao e fixa de verdade — aqui usamos uma estimativa com o IPCA informado.</p>}
+        {f.indexer === 'IPCA' && <p className="text-[11px] text-muted mt-1">No IPCA o saldo devedor e corrigido pela inflacao a cada mes; a parcela não e fixa de verdade — aqui usamos uma estimativa com o IPCA informado.</p>}
       </Card>
 
       {/* VEREDITO ESTILIZADO */}
       <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}cc)` }}>
         <div className="absolute -right-6 -top-6 opacity-20"><Gauge className="w-32 h-32" /></div>
         <div className="relative">
-          <div className="flex items-center gap-2 text-sm font-medium opacity-90"><span className="text-lg">{meta.emoji}</span> Analise de aprovacao — {rules.tipoLabel}{f.subtipo ? ` · ${(subs.find((s) => s.key === f.subtipo) || {}).label || ''}` : ''}</div>
+          <div className="flex items-center gap-2 text-sm font-medium opacity-90"><span className="text-lg">{meta.emoji}</span> Análise de aprovação — {rules.tipoLabel}{f.subtipo ? ` · ${(subs.find((s) => s.key === f.subtipo) || {}).label || ''}` : ''}</div>
           <p className="font-display text-3xl font-bold mt-1">{meta.label}</p>
           <p className="text-sm opacity-90 mt-1">{meta.hint}</p>
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -317,7 +317,7 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
               <Row label="Recursos a vista (entrada+custos-FGTS)" value={formatCurrency(res.recursosNecessarios)} strong />
             </>}
           </div>
-          <p className="text-xs text-muted mt-3">Estimativa educativa. Bancos avaliam ainda score de credito, relacionamento e comprovacao de renda.</p>
+          <p className="text-xs text-muted mt-3">Estimativa educativa. Bancos avaliam ainda score de crédito, relacionamento e comprovacao de renda.</p>
         </Card>
       </div>
 
@@ -325,18 +325,18 @@ function CreditSimulator({ banks, rendaEstimada, outrasParcelas, qc }) {
       <Card>
         <h3 className="font-semibold mb-3 flex items-center gap-2"><ScrollText className="w-4 h-4 text-indigo-500" /> Regras aplicadas nesta modalidade</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
-          {isFin && <RuleCard label="Financia ate (LTV)" value={`${(rules.ltvMax * 100).toFixed(0)}%`} />}
+          {isFin && <RuleCard label="Financia até (LTV)" value={`${(rules.ltvMax * 100).toFixed(0)}%`} />}
           {isFin && <RuleCard label="Entrada minima" value={`${(rules.entradaMinPct * 100).toFixed(0)}%`} />}
-          <RuleCard label="Prazo maximo" value={`${rules.prazoMaxMeses} meses`} />
+          <RuleCard label="Prazo máximo" value={`${rules.prazoMaxMeses} meses`} />
           <RuleCard label="Comprometimento max" value={`${(rules.comprometimentoMax * 100).toFixed(0)}% da renda`} />
           <RuleCard label="Taxa tipica" value={`~${Number(rules.taxaTipicaAm).toFixed(2)}% a.m.`} />
-          {rules.idadeRule && <RuleCard label="Idade + prazo" value="ate 80 anos e 6 meses" />}
-          {rules.veiculoMaxAnos && <RuleCard label="Idade max do veiculo" value={`${rules.veiculoMaxAnos} anos`} />}
+          {rules.idadeRule && <RuleCard label="Idade + prazo" value="até 80 anos e 6 meses" />}
+          {rules.veiculoMaxAnos && <RuleCard label="Idade max do veículo" value={`${rules.veiculoMaxAnos} anos`} />}
           {rules.rendaMax && <RuleCard label="Teto de renda (MCMV)" value={formatCurrency(rules.rendaMax)} />}
           {rules.tetoSFH ? <RuleCard label="Teto SFH (com FGTS)" value={formatCurrency(rules.tetoSFH)} /> : null}
         </div>
         {rules.obs && <p className="text-xs text-muted mt-3 flex items-start gap-2"><Wallet className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-500" /> {rules.obs}</p>}
-        <p className="text-xs text-muted mt-2">Valores de referencia do mercado brasileiro; cada banco tem politica propria. Cadastre bancos para usar taxas reais.</p>
+        <p className="text-xs text-muted mt-2">Valores de referência do mercado brasileiro; cada banco tem politica propria. Cadastre bancos para usar taxas reais.</p>
       </Card>
 
       {bankModal && <BankModal banks={banks} qc={qc} onClose={() => setBankModal(false)} />}
@@ -352,7 +352,7 @@ function Row({ label, value, strong, color = '' }) {
   return <div className="flex justify-between"><span className="text-muted">{label}</span><span className={`${strong ? 'font-bold' : 'font-medium'} ${color}`}>{value}</span></div>;
 }
 
-const PERIODS = [['mensal', 'ao mes'], ['anual', 'ao ano']];
+const PERIODS = [['mensal', 'ao mês'], ['anual', 'ao ano']];
 const emptyBank = { name: '', kind: 'imovel', base_rate: '', periodicity: 'anual', indexer: 'TR', max_ltv: '', prazo_max: '', system: 'sac', notes: '' };
 
 function BankModal({ banks, qc, onClose }) {
@@ -363,7 +363,7 @@ function BankModal({ banks, qc, onClose }) {
   const del = useMutation({ mutationFn: (id) => BankRate.remove(id), onSuccess: inval });
   const seed = useMutation({
     mutationFn: async () => { const have = new Set(banks.map((b) => `${(b.name || '').toLowerCase()}|${b.kind}`)); let n = 0; for (const p of BANK_PRESETS) { if (have.has(`${p.name.toLowerCase()}|${p.kind}`)) continue; await BankRate.create(build(p)); n++; } return n; },
-    onSuccess: (n) => { inval(); toast.success(n ? `${n} banco(s) de referencia adicionados.` : 'Os bancos de referencia ja estao cadastrados.'); },
+    onSuccess: (n) => { inval(); toast.success(n ? `${n} banco(s) de referência adicionados.` : 'Os bancos de referência já estao cadastrados.'); },
   });
   const submit = () => { if (!form.name || !form.base_rate) return toast.error('Informe nome e taxa'); save.mutate(build(form)); };
   const eff = form.base_rate ? effectiveMonthly(Number(form.base_rate), form.periodicity, form.indexer) : null;
@@ -372,7 +372,7 @@ function BankModal({ banks, qc, onClose }) {
     <Modal open onClose={onClose} title="Bancos & Taxas" maxWidth="max-w-lg" footer={<Button onClick={onClose}>Fechar</Button>}>
       <div className="space-y-3">
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-emerald-700 dark:text-emerald-300">Comece com condicoes publicas de referencia (13/08/2026): Caixa, Santander, Itau, Inter (TR e IPCA) e BB.</p>
+          <p className="text-xs text-emerald-700 dark:text-emerald-300">Comece com condições publicas de referência (13/08/2026): Caixa, Santander, Itau, Inter (TR e IPCA) e BB.</p>
           <Button size="sm" onClick={() => seed.mutate()} disabled={seed.isPending}>{seed.isPending ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4" /> Importar</>}</Button>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -382,11 +382,11 @@ function BankModal({ banks, qc, onClose }) {
           <Field label="Periodicidade"><Select value={form.periodicity} onChange={(e) => setForm((s) => ({ ...s, periodicity: e.target.value }))}>{PERIODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
           <Field label="Indexador"><Select value={form.indexer} onChange={(e) => setForm((s) => ({ ...s, indexer: e.target.value }))}>{Object.entries(INDEXERS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></Field>
           <Field label="Sistema"><Select value={form.system} onChange={(e) => setForm((s) => ({ ...s, system: e.target.value }))}><option value="sac">SAC</option><option value="price">Price</option><option value="ambos">Ambos</option></Select></Field>
-          <Field label="LTV maximo (%)"><Input type="number" value={form.max_ltv} onChange={(e) => setForm((s) => ({ ...s, max_ltv: e.target.value }))} placeholder="90" /></Field>
+          <Field label="LTV máximo (%)"><Input type="number" value={form.max_ltv} onChange={(e) => setForm((s) => ({ ...s, max_ltv: e.target.value }))} placeholder="90" /></Field>
           <Field label="Prazo max (meses)"><Input type="number" value={form.prazo_max} onChange={(e) => setForm((s) => ({ ...s, prazo_max: e.target.value }))} placeholder="420" /></Field>
         </div>
         {eff && <p className="text-xs text-muted">{Number(form.base_rate).toFixed(2)}% {form.periodicity === 'anual' ? 'a.a.' : 'a.m.'} = juros ~{eff.baseM.toFixed(3)}% a.m.{form.indexer !== 'prefixado' ? ` + ${INDEXERS[form.indexer]?.label || 'indexador'} (estimado ~${eff.idxM.toFixed(3)}% a.m.) → efetiva ~${eff.eff.toFixed(3)}% a.m.` : ''}</p>}
-        <Field label="Observacao"><Textarea rows={2} value={form.notes} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} placeholder="Condicoes, relacionamento, etc." /></Field>
+        <Field label="Observação"><Textarea rows={2} value={form.notes} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} placeholder="Condições, relacionamento, etc." /></Field>
         <Button onClick={submit} disabled={save.isPending} className="w-full">{save.isPending ? <Spinner className="w-4 h-4" /> : <><Plus className="w-4 h-4" /> Cadastrar banco</>}</Button>
         {banks.length > 0 && (
           <div className="pt-2 border-t border-[hsl(var(--border))]">

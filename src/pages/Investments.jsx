@@ -9,7 +9,7 @@ import { toast } from '../lib/toast.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, LineChart, Wallet, Coins, RefreshCw } from 'lucide-react';
 
-// mapa de simbolos cripto -> id CoinGecko (para cotacao automatica, gratis e sem chave)
+// mapa de simbolos cripto -> id CoinGecko (para cotacao automática, gratis e sem chave)
 const CG = { btc: 'bitcoin', eth: 'ethereum', usdt: 'tether', bnb: 'binancecoin', sol: 'solana', xrp: 'ripple', ada: 'cardano', doge: 'dogecoin', usdc: 'usd-coin', matic: 'matic-network', dot: 'polkadot', ltc: 'litecoin', link: 'chainlink', avax: 'avalanche-2', trx: 'tron', shib: 'shiba-inu', ton: 'the-open-network', bch: 'bitcoin-cash', xlm: 'stellar', near: 'near' };
 
 const TYPES = [
@@ -57,7 +57,7 @@ export default function Investments() {
         } catch { failed += stocks.length; }
       }
       inval();
-      toast.success(`${updated} cotacao(oes) atualizada(s)${failed ? `. ${failed} nao encontrada(s) — confira o ticker.` : '.'}`);
+      toast.success(`${updated} cotacao(oes) atualizada(s)${failed ? `. ${failed} não encontrada(s) — confira o ticker.` : '.'}`);
     } catch { toast.error('Falha ao buscar cotacoes'); } finally { setQuoting(false); }
   };
 
@@ -97,7 +97,7 @@ export default function Investments() {
           <div className="grid grid-cols-3 gap-3 mt-4 max-w-lg">
             <div className="rounded-xl bg-white/5 border border-white/10 p-2.5"><p className="text-[11px] text-slate-300">Contas</p><p className="font-bold text-emerald-300">{formatCurrency(totalAccounts)}</p></div>
             <div className="rounded-xl bg-white/5 border border-white/10 p-2.5"><p className="text-[11px] text-slate-300">Investido (atual)</p><p className="font-bold text-indigo-300">{formatCurrency(current)}</p></div>
-            <div className="rounded-xl bg-white/5 border border-white/10 p-2.5"><p className="text-[11px] text-slate-300">Dividas</p><p className="font-bold text-rose-300">−{formatCurrency(totalDebt)}</p></div>
+            <div className="rounded-xl bg-white/5 border border-white/10 p-2.5"><p className="text-[11px] text-slate-300">Dívidas</p><p className="font-bold text-rose-300">−{formatCurrency(totalDebt)}</p></div>
           </div>
           <p className="text-[11px] text-slate-400 mt-2">Patrimonio = contas + investimentos − dividas em aberto.</p>
         </div>
@@ -161,7 +161,7 @@ export default function Investments() {
             <Field label="Valor investido (R$)"><Input type="number" step="0.01" value={form.invested_amount} onChange={(e) => set('invested_amount', e.target.value)} placeholder="0,00" /></Field>
             <Field label="Valor atual (R$)" hint="Deixe vazio = igual ao investido"><Input type="number" step="0.01" value={form.current_value} onChange={(e) => set('current_value', e.target.value)} placeholder="0,00" /></Field>
           </div>
-          <Field label="Instituicao"><Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Ex: Nubank, XP..." /></Field>
+          <Field label="Instituição"><Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Ex: Nubank, XP..." /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ticker / simbolo"><Input value={form.ticker} onChange={(e) => set('ticker', e.target.value)} placeholder="Ex: BTC, PETR4, MXRF11" /></Field>
             <Field label="Quantidade"><Input type="number" step="0.00000001" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="0" /></Field>

@@ -23,7 +23,7 @@ export default function OnboardingConfig() {
 
   const save = useMutation({
     mutationFn: () => Admin.saveDefaultScreens(sel),
-    onSuccess: (r) => { setDirty(false); qc.setQueryData(['default-screens'], { screens: r?.screens || sel }); toast.success('Padrao salvo! Novos usuarios ja recebem essas telas.'); },
+    onSuccess: (r) => { setDirty(false); qc.setQueryData(['default-screens'], { screens: r?.screens || sel }); toast.success('Padrão salvo! Novos usuários já recebem essas telas.'); },
     onError: (e) => toast.error(e.message || 'Falha ao salvar'),
   });
 
@@ -37,9 +37,9 @@ export default function OnboardingConfig() {
   return (
     <div className="space-y-5 animate-fadeIn">
       <PageHeader
-        title={<span className="flex items-center gap-2"><UserPlus className="w-6 h-6 text-emerald-500" /> Onboarding de novos usuarios</span>}
-        subtitle="Defina as telas que cada novo usuario recebe automaticamente ao se cadastrar"
-        actions={<Button onClick={() => save.mutate()} disabled={save.isPending || count === 0}>{save.isPending ? <Spinner className="w-4 h-4" /> : <><Check className="w-4 h-4" /> {dirty ? 'Salvar alteracoes' : 'Salvar padrao'}</>}</Button>}
+        title={<span className="flex items-center gap-2"><UserPlus className="w-6 h-6 text-emerald-500" /> Onboarding de novos usuários</span>}
+        subtitle="Defina as telas que cada novo usuário recebe automaticamente ao se cadastrar"
+        actions={<Button onClick={() => save.mutate()} disabled={save.isPending || count === 0}>{save.isPending ? <Spinner className="w-4 h-4" /> : <><Check className="w-4 h-4" /> {dirty ? 'Salvar alteracoes' : 'Salvar padrão'}</>}</Button>}
       />
 
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#059669 0%,#0d9488 55%,#6366f1 100%)' }}>
@@ -48,7 +48,7 @@ export default function OnboardingConfig() {
           <div>
             <div className="flex items-center gap-2 text-[11px] tracking-[0.28em] font-medium text-emerald-100"><Rocket className="w-3.5 h-3.5" /> AUTOMATICO</div>
             <p className="font-display text-2xl font-extrabold mt-1">{count} de {ALL_KEYS.length} telas liberadas</p>
-            <p className="text-emerald-50 text-sm mt-1">Ao cadastrar, o usuario ja entra com essas telas — voce nao precisa liberar uma a uma.</p>
+            <p className="text-emerald-50 text-sm mt-1">Ao cadastrar, o usuário já entra com essas telas — você não precisa liberar uma a uma.</p>
           </div>
           <button onClick={() => setAll(allOn ? [] : ALL_KEYS)} className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition font-semibold text-sm flex items-center gap-2"><LayoutGrid className="w-4 h-4" /> {allOn ? 'Desmarcar todas' : 'Selecionar todas'}</button>
         </div>
@@ -77,7 +77,7 @@ export default function OnboardingConfig() {
         ))}
       </div>
 
-      <p className="text-xs text-muted">Ajuda & Suporte esta sempre disponivel para todos. Voce continua podendo ajustar as telas de cada usuario individualmente em Usuarios & Acessos.</p>
+      <p className="text-xs text-muted">Ajuda & Suporte esta sempre disponível para todos. Você continua podendo ajustar as telas de cada usuário individualmente em Usuários & Acessos.</p>
     </div>
   );
 }

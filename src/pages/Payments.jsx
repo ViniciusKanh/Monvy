@@ -75,13 +75,13 @@ export default function Payments() {
               <select value={mk} onChange={(e) => setMk(e.target.value)} className="bg-transparent text-sm font-semibold outline-none cursor-pointer px-1 capitalize [&>option]:text-slate-800">{monthRange(11, 4).map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select>
               <button onClick={() => shift(1)} className="p-1.5 rounded-lg hover:bg-white/10"><ChevronRight className="w-4 h-4" /></button>
             </div>
-            <span className="text-xs text-slate-300">Saldo previsto do mes: <b className={totals.forecast < 0 ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(totals.forecast)}</b></span>
+            <span className="text-xs text-slate-300">Saldo previsto do mês: <b className={totals.forecast < 0 ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(totals.forecast)}</b></span>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
             <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-3"><p className="text-xs text-rose-300">A pagar</p><p className="font-display text-xl font-bold"><AnimatedValue value={totals.toPay} format={formatCurrency} /></p></div>
             <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3"><p className="text-xs text-emerald-300">A receber</p><p className="font-display text-xl font-bold"><AnimatedValue value={totals.toReceive} format={formatCurrency} /></p></div>
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-3"><p className="text-xs text-slate-400">Pago no mes</p><p className="font-display text-xl font-bold">{formatCurrency(totals.paid)}</p></div>
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-3"><p className="text-xs text-slate-400">Recebido no mes</p><p className="font-display text-xl font-bold">{formatCurrency(totals.received)}</p></div>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-3"><p className="text-xs text-slate-400">Pago no mês</p><p className="font-display text-xl font-bold">{formatCurrency(totals.paid)}</p></div>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-3"><p className="text-xs text-slate-400">Recebido no mês</p><p className="font-display text-xl font-bold">{formatCurrency(totals.received)}</p></div>
           </div>
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function Payments() {
                       {done ? <CircleCheck className="w-4 h-4" /> : (isInc ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />)}
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className={`font-medium truncate ${done ? 'line-through opacity-60' : ''}`}>{t.description || cat?.name || 'Lancamento'}</p>
+                      <p className={`font-medium truncate ${done ? 'line-through opacity-60' : ''}`}>{t.description || cat?.name || 'Lançamento'}</p>
                       <div className="flex items-center gap-1.5 text-xs text-muted flex-wrap">
                         <span>{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')}</span>
                         <span>· {cat?.name || 'Sem categoria'}</span>

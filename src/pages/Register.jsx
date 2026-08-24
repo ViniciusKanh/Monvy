@@ -18,7 +18,7 @@ export default function Register() {
     e.preventDefault();
     setError('');
     if (form.password.length < 8) return setError('A senha deve ter ao menos 8 caracteres.');
-    if (form.password !== form.confirm) return setError('As senhas nao conferem.');
+    if (form.password !== form.confirm) return setError('As senhas não conferem.');
     setLoading(true);
     try {
       const res = await register({ full_name: form.full_name, email: form.email, password: form.password });
@@ -62,9 +62,9 @@ export default function Register() {
               <Input required value={form.full_name} onChange={set('full_name')} placeholder="Seu nome" />
             </Field>
             <Field label="Email">
-              <Input type="email" required value={form.email} onChange={set('email')} placeholder="voce@email.com" />
+              <Input type="email" required value={form.email} onChange={set('email')} placeholder="você@email.com" />
             </Field>
-            <Field label="Senha" hint="Minimo de 8 caracteres">
+            <Field label="Senha" hint="Mínimo de 8 caracteres">
               <Input type="password" required value={form.password} onChange={set('password')} placeholder="********" />
             </Field>
             <Field label="Confirmar senha">

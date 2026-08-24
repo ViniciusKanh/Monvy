@@ -39,17 +39,17 @@ export default function Budget() {
 
   const donut = expenseCats.map((c) => ({ name: c.name, value: spentByCat[c.id] || 0, color: c.color })).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
 
-  // dica inteligente: % gasto vs % do mes decorrido
+  // dica inteligente: % gasto vs % do mês decorrido
   const now = new Date();
   const dayPct = isCurrent ? Math.round((now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100) : 100;
   const spentPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
   const projected = isCurrent && dayPct > 0 ? Math.round(totalSpent / (dayPct / 100)) : totalSpent;
   const tip = totalBudget === 0 ? { t: 'info', m: 'Defina limites nas suas categorias de despesa para acompanhar o orçamento.' }
-    : spentPct > dayPct + 10 ? { t: 'warn', m: `Voce ja usou ${spentPct}% do orçamento, mas o mes esta em ${dayPct}%. Ritmo acima do ideal — segure os gastos.` }
-    : spentPct < dayPct - 10 ? { t: 'ok', m: `Otimo ritmo! ${spentPct}% do orçamento usado com o mes em ${dayPct}%. Voce esta economizando.` }
+    : spentPct > dayPct + 10 ? { t: 'warn', m: `Você já usou ${spentPct}% do orçamento, mas o mes esta em ${dayPct}%. Ritmo acima do ideal — segure os gastos.` }
+    : spentPct < dayPct - 10 ? { t: 'ok', m: `Ótimo ritmo! ${spentPct}% do orçamento usado com o mes em ${dayPct}%. Você esta economizando.` }
     : { t: 'ok', m: `No ritmo: ${spentPct}% do orçamento usado, mes em ${dayPct}%.` };
 
-  // Metodo 50/30/20 (necessidades / desejos / poupanca) sobre a renda do mes
+  // Metodo 50/30/20 (necessidades / desejos / poupança) sobre a renda do mês
   const ESSENTIAL = ['aluguel', 'moradia', 'casa', 'agua', 'água', 'luz', 'energia', 'internet', 'mercado', 'aliment', 'saude', 'saúde', 'transporte', 'educa', 'conta', 'financ', 'condominio', 'condomínio', 'gas', 'gás', 'farmac', 'plano'];
   const catName = (id) => (categories.find((c) => c.id === id)?.name || '').toLowerCase();
   const method = useMemo(() => {
@@ -81,15 +81,15 @@ export default function Budget() {
           <h3 className="font-semibold flex items-center gap-2"><PiggyBank className="w-4 h-4 text-emerald-500" /> Metodo 50/30/20</h3>
           <span className="text-xs text-muted">sobre a renda de {monthLabel(mk)}: {formatCurrency(method.income)}</span>
         </div>
-        {method.income === 0 ? <p className="text-sm text-muted">Registre receitas no mes para ver a divisao ideal do seu dinheiro.</p>
+        {method.income === 0 ? <p className="text-sm text-muted">Registre receitas no mês para ver a divisao ideal do seu dinheiro.</p>
           : (
             <div className="grid sm:grid-cols-3 gap-3">
               {[
                 { label: 'Necessidades', sub: 'essenciais', got: method.needsPct, gotV: method.needs, target: 50, color: '#0ea5e9' },
                 { label: 'Desejos', sub: 'variaveis/lazer', got: method.wantsPct, gotV: method.wants, target: 30, color: '#8b5cf6' },
-                { label: 'Poupanca/Investir', sub: 'o que sobra', got: method.savingsPct, gotV: method.savings, target: 20, color: '#10b981' },
+                { label: 'Poupança/Investir', sub: 'o que sobra', got: method.savingsPct, gotV: method.savings, target: 20, color: '#10b981' },
               ].map((x) => {
-                const ok = x.label === 'Poupanca/Investir' ? x.got >= x.target : x.got <= x.target;
+                const ok = x.label === 'Poupança/Investir' ? x.got >= x.target : x.got <= x.target;
                 return (
                   <div key={x.label} className="rounded-xl border border-[hsl(var(--border))] p-3">
                     <div className="flex items-center justify-between"><p className="font-medium text-sm">{x.label}</p><span className={`text-xs font-bold ${ok ? 'text-emerald-500' : 'text-amber-500'}`}>{x.got}% <span className="text-muted font-normal">/ {x.target}%</span></span></div>
@@ -103,7 +103,7 @@ export default function Budget() {
               })}
             </div>
           )}
-        <p className="text-xs text-muted mt-3">Guia: ate <b>50%</b> em necessidades, ate <b>30%</b> em desejos e ao menos <b>20%</b> para poupar/investir. A linha tracejada marca a meta.</p>
+        <p className="text-xs text-muted mt-3">Guia: até <b>50%</b> em necessidades, até <b>30%</b> em desejos e ao menos <b>20%</b> para poupar/investir. A linha tracejada marca a meta.</p>
       </Card>
 
       {/* Hero: medidor geral do orçamento */}
@@ -121,7 +121,7 @@ export default function Budget() {
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5"><p className="text-[11px] text-amber-300">Em atencao</p><p className="font-bold">{attention}</p></div>
             </div>
             {totalBudget > 0 && isCurrent && (
-              <p className="text-xs text-slate-400 mt-3">Projecao para o fim do mes: <b className={projected > totalBudget ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(projected)}</b> {projected > totalBudget ? `(${formatCurrency(projected - totalBudget)} acima)` : '(dentro do orçamento)'}</p>
+              <p className="text-xs text-slate-400 mt-3">Projeção para o fim do mês: <b className={projected > totalBudget ? 'text-rose-300' : 'text-emerald-300'}>{formatCurrency(projected)}</b> {projected > totalBudget ? `(${formatCurrency(projected - totalBudget)} acima)` : '(dentro do orçamento)'}</p>
             )}
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function Budget() {
                           <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${c.color}22` }}><span className="w-3 h-3 rounded-full" style={{ background: c.color }} /></span>
                           <span className="font-semibold">{c.name}</span>
                           {pct >= 100 && <Badge color="rose"><AlertTriangle className="w-3 h-3" /> Excedido</Badge>}
-                          {pct >= 80 && pct < 100 && <Badge color="amber">Atencao</Badge>}
+                          {pct >= 80 && pct < 100 && <Badge color="amber">Atenção</Badge>}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted">{budget ? `${formatCurrency(sp)} / ${formatCurrency(budget)}` : formatCurrency(sp)}</span>
@@ -170,7 +170,7 @@ export default function Budget() {
             <Card className="hover-lift h-fit">
               <h3 className="font-semibold mb-1">Distribuicao dos gastos</h3>
               <p className="text-xs text-muted mb-2 capitalize">{monthLabel(mk)}</p>
-              {donut.length === 0 ? <div className="flex items-center justify-center h-[220px] text-muted text-sm">Sem gastos no mes</div>
+              {donut.length === 0 ? <div className="flex items-center justify-center h-[220px] text-muted text-sm">Sem gastos no mês</div>
                 : (<>
                   <div className="relative">
                     <ResponsiveContainer width="100%" height={200}>

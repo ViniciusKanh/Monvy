@@ -108,7 +108,7 @@ export default function CreditCards() {
     qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
     const credits = rows.filter((r) => r.amount < 0).length;
-    toast.success(`${rows.length} lancamentos (${source})${credits ? ` incl. ${credits} estorno(s)` : ''} · total ${formatCurrency(total)}. Confira com o PDF.`);
+    toast.success(`${rows.length} lançamentos (${source})${credits ? ` incl. ${credits} estorno(s)` : ''} · total ${formatCurrency(total)}. Confira com o PDF.`);
   }
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
@@ -123,18 +123,18 @@ export default function CreditCards() {
           const base64 = await fileToBase64(file);
           const { items = [] } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
           if (items.length) { await importRows(items, 'IA'); setImporting(false); return; }
-          toast.info('A IA nao encontrou lancamentos — tentando leitura local...');
+          toast.info('A IA não encontrou lançamentos — tentando leitura local...');
         } catch (aiErr) {
-          toast.info('IA indisponivel (' + (aiErr.message || 'erro') + ') — tentando leitura local...');
+          toast.info('IA indisponível (' + (aiErr.message || 'erro') + ') — tentando leitura local...');
         }
       } else {
-        toast.info('Chave de IA nao configurada. Usando leitura local — configure a chave em Configuracoes para melhor precisao.');
+        toast.info('Chave de IA não configurada. Usando leitura local — configure a chave em Configurações para melhor precisao.');
       }
       // 2) Fallback local (offline)
       const { parseInvoicePdf } = await import('../lib/invoiceParser.js');
       const { isInvoice, items } = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode demorar)...') });
-      if (!isInvoice && items.length < 2) { toast.error('Este PDF nao parece uma fatura de cartao de credito.'); setImporting(false); return; }
-      if (!items.length) { toast.error('Nao encontrei lancamentos na fatura.'); setImporting(false); return; }
+      if (!isInvoice && items.length < 2) { toast.error('Este PDF não parece uma fatura de cartão de crédito.'); setImporting(false); return; }
+      if (!items.length) { toast.error('Nao encontrei lançamentos na fatura.'); setImporting(false); return; }
       await importRows(items, 'local');
     } catch (err) { toast.error('Falha ao ler o PDF: ' + (err.message || err)); } finally { setImporting(false); }
   }
@@ -148,14 +148,14 @@ export default function CreditCards() {
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Cartoes" subtitle="Gestao de cartoes de credito e faturas"
+      <PageHeader title="Cartões" subtitle="Gestao de cartões de crédito e faturas"
         actions={<><Button variant="outline" onClick={() => genInvoices.mutate()} disabled={genInvoices.isPending}>{genInvoices.isPending ? <Spinner className="w-4 h-4" /> : <><FileText className="w-4 h-4" /> Gerar faturas</>}</Button><Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartao</Button></>} />
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : cards.length === 0 ? <Card><EmptyState icon={CardIcon} title="Nenhum cartao" subtitle="Cadastre um cartao de credito para controlar faturas e limites." action={<Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartao</Button>} /></Card>
+        : cards.length === 0 ? <Card><EmptyState icon={CardIcon} title="Nenhum cartao" subtitle="Cadastre um cartao de crédito para controlar faturas e limites." action={<Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartao</Button>} /></Card>
         : (
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Lista de cartoes */}
+            {/* Lista de cartões */}
             <div className="space-y-4">
               {cards.map((c, i) => {
                 const cUsage = c.credit_limit ? Math.min(100, Math.round((txs.filter((t) => t.card_id === c.id && (t.competence_month === mk || String(t.date).slice(0, 7) === mk)).reduce((s, t) => s + Number(t.amount), 0) / Number(c.credit_limit)) * 100)) : 0;
@@ -187,7 +187,7 @@ export default function CreditCards() {
               })}
             </div>
 
-            {/* Detalhe do cartao selecionado */}
+            {/* Detalhe do cartão selecionado */}
             {selected && (
               <div className="lg:col-span-2 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
@@ -204,8 +204,8 @@ export default function CreditCards() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <Card className="py-3"><p className="text-xs text-muted">Fatura</p><p className="font-display text-lg font-bold"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p></Card>
-                  <Card className="py-3"><p className="text-xs text-muted">Limite disponivel</p><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '-'}</p></Card>
-                  <Card className="py-3"><p className="text-xs text-muted">Lancamentos</p><p className="font-display text-lg font-bold">{monthTxs.length}</p></Card>
+                  <Card className="py-3"><p className="text-xs text-muted">Limite disponível</p><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '-'}</p></Card>
+                  <Card className="py-3"><p className="text-xs text-muted">Lançamentos</p><p className="font-display text-lg font-bold">{monthTxs.length}</p></Card>
                   <Card className="py-3"><p className="text-xs text-muted">Vencimento</p><p className="font-display text-lg font-bold">dia {selected.due_day}</p></Card>
                 </div>
 
@@ -213,7 +213,7 @@ export default function CreditCards() {
                   <Card className="py-3">
                     <div className="flex justify-between text-xs mb-1"><span className="text-muted">Uso do limite</span><span className="font-semibold">{usage}% de {formatCurrency(selected.credit_limit)}</span></div>
                     <div className="h-2.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${usage}%`, background: usage >= 90 ? '#f43f5e' : usage >= 70 ? '#f59e0b' : '#10b981' }} /></div>
-                    {usage >= 80 && <p className="text-xs text-amber-500 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Voce ja usou {usage}% do limite deste cartao.</p>}
+                    {usage >= 80 && <p className="text-xs text-amber-500 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Você já usou {usage}% do limite deste cartao.</p>}
                   </Card>
                 )}
 
@@ -239,7 +239,7 @@ export default function CreditCards() {
 
                 {topCats.length > 0 && (
                   <Card>
-                    <h3 className="font-semibold mb-3 text-sm">Onde voce gastou neste cartao</h3>
+                    <h3 className="font-semibold mb-3 text-sm">Onde você gastou neste cartao</h3>
                     <div className="space-y-2.5">
                       {topCats.slice(0, 5).map((c, i) => (
                         <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />{c.name}</span><span className="font-semibold">{formatCurrency(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(c.value / maxCat) * 100}%`, background: c.color }} /></div></div>
@@ -249,16 +249,16 @@ export default function CreditCards() {
                 )}
 
                 <div className="flex justify-between items-center flex-wrap gap-2">
-                  <h3 className="font-semibold">Lancamentos</h3>
+                  <h3 className="font-semibold">Lançamentos</h3>
                   <div className="flex gap-2">
                     <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleInvoiceFile} />
                     <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>{importing ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Importar fatura</>}</Button>
-                    {monthTxs.some((t) => t.imported_from_pdf) && <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir os lancamentos importados desta fatura?')) delImported.mutate(); }} disabled={delImported.isPending}>{delImported.isPending ? <Spinner className="w-4 h-4" /> : <><Trash2 className="w-4 h-4 text-rose-500" /> Excluir fatura</>}</Button>}
+                    {monthTxs.some((t) => t.imported_from_pdf) && <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir os lançamentos importados desta fatura?')) delImported.mutate(); }} disabled={delImported.isPending}>{delImported.isPending ? <Spinner className="w-4 h-4" /> : <><Trash2 className="w-4 h-4 text-rose-500" /> Excluir fatura</>}</Button>}
                     <Button size="sm" onClick={() => { setTxForm({ ...emptyTx }); setTxModal(true); }}><Plus className="w-4 h-4" /> Compra</Button>
                   </div>
                 </div>
 
-                {monthTxs.length === 0 ? <Card><EmptyState icon={CardIcon} title="Sem lancamentos" subtitle="Adicione compras ou importe a fatura em PDF." /></Card>
+                {monthTxs.length === 0 ? <Card><EmptyState icon={CardIcon} title="Sem lançamentos" subtitle="Adicione compras ou importe a fatura em PDF." /></Card>
                   : (
                     <Card className="p-0 divide-y divide-[hsl(var(--border))]">
                       {monthTxs.map((t) => (
@@ -282,7 +282,7 @@ export default function CreditCards() {
         <form onSubmit={submitCard} className="space-y-4">
           <Field label="Nome"><Input required value={cardForm.name} onChange={setCf('name')} placeholder="Ex: Nubank" /></Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ultimos 4 digitos"><Input maxLength={4} value={cardForm.last_digits} onChange={setCf('last_digits')} /></Field>
+            <Field label="Últimos 4 digitos"><Input maxLength={4} value={cardForm.last_digits} onChange={setCf('last_digits')} /></Field>
             <Field label="Bandeira"><Select value={cardForm.brand} onChange={setCf('brand')}>{BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -291,7 +291,7 @@ export default function CreditCards() {
           </div>
           <Field label="Limite"><Input type="number" step="0.01" value={cardForm.credit_limit} onChange={setCf('credit_limit')} /></Field>
           <Field label="Conta para pagamento"><Select value={cardForm.account_id} onChange={setCf('account_id')}><option value="">Nenhuma</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
-          <Field label="Cor do cartao"><div className="flex gap-2 flex-wrap">{CARD_COLORS.map((c) => <button key={c} type="button" onClick={() => setCardForm((f) => ({ ...f, color: c }))} className={`w-8 h-8 rounded-full border-2 ${cardForm.color === c ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />)}</div></Field>
+          <Field label="Cor do cartão"><div className="flex gap-2 flex-wrap">{CARD_COLORS.map((c) => <button key={c} type="button" onClick={() => setCardForm((f) => ({ ...f, color: c }))} className={`w-8 h-8 rounded-full border-2 ${cardForm.color === c ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />)}</div></Field>
         </form>
       </Modal>
 
@@ -312,7 +312,7 @@ export default function CreditCards() {
             </div>
           </Field>
           {payMode === 'partial' && <Field label="Valor a pagar"><Input type="number" step="0.01" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="0,00" /></Field>}
-          <p className="text-xs text-muted">Cria um lancamento "Fatura {payModal ? payModal.competence_month : ''}" debitando a conta escolhida.</p>
+          <p className="text-xs text-muted">Cria um lançamento "Fatura {payModal ? payModal.competence_month : ''}" debitando a conta escolhida.</p>
         </div>
       </Modal>
 
@@ -320,7 +320,7 @@ export default function CreditCards() {
       <Modal open={txModal} onClose={() => setTxModal(false)} title="Nova compra"
         footer={<><Button variant="outline" onClick={() => setTxModal(false)}>Cancelar</Button><Button onClick={(e) => { e.preventDefault(); saveTx.mutate(txForm); }} disabled={saveTx.isPending}>{saveTx.isPending ? <Spinner className="w-4 h-4" /> : 'Adicionar'}</Button></>}>
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); saveTx.mutate(txForm); }}>
-          <Field label="Descricao"><Input required value={txForm.description} onChange={setTf('description')} placeholder="Ex: Amazon" /></Field>
+          <Field label="Descrição"><Input required value={txForm.description} onChange={setTf('description')} placeholder="Ex: Amazon" /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Valor total"><Input type="number" step="0.01" required value={txForm.amount} onChange={setTf('amount')} /></Field>
             <Field label="Data"><Input type="date" value={txForm.date} onChange={setTf('date')} /></Field>

@@ -17,10 +17,10 @@ export default function ResetPassword() {
   const submit = async (e) => {
     e.preventDefault();
     if (pw.next.length < 8) return toast.error('A senha deve ter ao menos 8 caracteres');
-    if (pw.next !== pw.confirm) return toast.error('As senhas nao conferem');
+    if (pw.next !== pw.confirm) return toast.error('As senhas não conferem');
     setLoading(true);
     try { await Auth.reset(token, pw.next); setDone(true); }
-    catch (err) { toast.error(err.message || 'Nao foi possivel redefinir'); }
+    catch (err) { toast.error(err.message || 'Nao foi possível redefinir'); }
     finally { setLoading(false); }
   };
 
@@ -33,7 +33,7 @@ export default function ResetPassword() {
           <div className="text-center">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center mb-4 check-pop"><CheckCircle2 className="w-8 h-8 text-emerald-500" /></div>
             <h1 className="font-display font-bold text-xl">Senha redefinida!</h1>
-            <p className="text-sm text-muted mt-2">Agora e so entrar com a nova senha.</p>
+            <p className="text-sm text-muted mt-2">Agora e só entrar com a nova senha.</p>
             <Button className="w-full mt-6" onClick={() => navigate('/login')}>Ir para o login</Button>
           </div>
         ) : !token ? (

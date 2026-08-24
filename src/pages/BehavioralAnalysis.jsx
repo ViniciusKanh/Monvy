@@ -21,7 +21,7 @@ export default function BehavioralAnalysis() {
   const b = useMemo(() => behaviorProfile({ transactions: tx, months, catMap }), [tx, months, catMap]);
   const maxDist = b.distribution[0]?.value || 1;
 
-  // recorrente (assinaturas detectadas) vs variavel + concentracao no mes
+  // recorrente (assinaturas detectadas) vs variavel + concentracao no mês
   const subs = useMemo(() => detectSubscriptions(tx), [tx]);
   const recurringMonthly = subs.reduce((s, x) => s + Number(x.amount || 0), 0);
   const partsOfMonth = useMemo(() => {
@@ -36,8 +36,8 @@ export default function BehavioralAnalysis() {
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 text-violet-500" /> Analise Comportamental</span>}
-        subtitle="Seus padroes de consumo (contas + cartao), decodificados — 100% local" />
+      <PageHeader title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 text-violet-500" /> Análise Comportamental</span>}
+        subtitle="Seus padrões de consumo (contas + cartão), decodificados — 100% local" />
 
       {/* Perfil */}
       <div className="rounded-2xl p-6 shadow-soft" style={{ background: 'linear-gradient(120deg,#eef2ff,#faf5ff)' }}>
@@ -54,7 +54,7 @@ export default function BehavioralAnalysis() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard label="Impulsividade" value={`${b.impulsivity}%`} sub={b.impulsivity < 20 ? 'Baixa' : b.impulsivity < 35 ? 'Moderada' : 'Alta'} color="#10b981" />
         <MetricCard label="Consistencia" value={`${b.consistency}%`} sub={b.consistency >= 70 ? 'Alta' : 'Variavel'} color="#0ea5e9" />
-        <MetricCard label="Taxa Poupanca" value={`${b.savingsRate}%`} sub={b.savingsRate >= 20 ? 'Otima' : 'Baixa'} color="#10b981" />
+        <MetricCard label="Taxa Poupança" value={`${b.savingsRate}%`} sub={b.savingsRate >= 20 ? 'Ótima' : 'Baixa'} color="#10b981" />
         <MetricCard label="Gastos FDS" value={`${b.weekendPct}%`} sub={`Pico: ${b.peakDay}`} color="#8b5cf6" />
       </div>
 
@@ -66,7 +66,7 @@ export default function BehavioralAnalysis() {
           </ResponsiveContainer>
         </Card>
         <Card>
-          <h3 className="font-semibold flex items-center gap-2 mb-3"><BarChart3 className="w-4 h-4 text-indigo-500" /> Padrao por Dia da Semana</h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><BarChart3 className="w-4 h-4 text-indigo-500" /> Padrão por Dia da Semana</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={wd}><CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} /><YAxis width={44} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} /><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /><Bar dataKey="value" radius={[6,6,0,0]} maxBarSize={36}>{wd.map((e, i) => <Cell key={i} fill={e.weekend ? '#f43f5e' : '#6366f1'} />)}</Bar></BarChart>
           </ResponsiveContainer>
@@ -91,14 +91,14 @@ export default function BehavioralAnalysis() {
       </div>
 
       <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-3"><HeartPulse className="w-4 h-4 text-rose-500" /> Padroes Comportamentais Detectados</h3>
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><HeartPulse className="w-4 h-4 text-rose-500" /> Padrões Comportamentais Detectados</h3>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-          <Pattern icon={Clock} color="#0ea5e9" title="Comportamento Temporal" text={`Voce gasta mais as ${b.peakDay}. Fins de semana representam ${b.weekendPct}% do gasto de dias uteis.`} />
-          <Pattern icon={BarChart3} color="#8b5cf6" title="Padrao de Ticket" text={`Ticket medio de ${formatCurrency(b.avgTicket)}. ${b.avgTicket > 200 ? 'Compras de valor elevado.' : 'Compras de valor moderado.'}`} />
+          <Pattern icon={Clock} color="#0ea5e9" title="Comportamento Temporal" text={`Você gasta mais as ${b.peakDay}. Fins de semana representam ${b.weekendPct}% do gasto de dias uteis.`} />
+          <Pattern icon={BarChart3} color="#8b5cf6" title="Padrão de Ticket" text={`Ticket medio de ${formatCurrency(b.avgTicket)}. ${b.avgTicket > 200 ? 'Compras de valor elevado.' : 'Compras de valor moderado.'}`} />
           <Pattern icon={TrendingUp} color="#10b981" title="Consistencia Financeira" text={`${b.consistency}% de consistencia mensal. ${b.consistency >= 70 ? 'Gastos estaveis.' : 'Variacoes moderadas — pode indicar gastos sazonais.'}`} />
-          <Pattern icon={RefreshCw} color="#f59e0b" title="Gastos recorrentes" text={subs.length ? `${subs.length} gasto(s) recorrente(s) somando ${formatCurrency(recurringMonthly)}/mes (fixos). O restante e variavel e mais facil de ajustar.` : 'Nenhum gasto recorrente detectado ainda (aparece com 3+ meses do mesmo lancamento).'} />
-          <Pattern icon={CalendarRange} color="#6366f1" title="Concentracao no mes" text={`Voce concentra os gastos no ${peakPart?.name} (${peakPart?.pct}% do total). ${peakPart?.name?.startsWith('Fim') ? 'Cuidado para nao apertar o orcamento no fim do mes.' : ''}`} />
-          <Pattern icon={HeartPulse} color="#f43f5e" title="Impulsividade" text={`${b.impulsivity}% das compras sao bem acima do ticket medio. ${b.impulsivity >= 35 ? 'Vale esperar 24h antes de compras maiores.' : 'Nivel saudavel de controle.'}`} />
+          <Pattern icon={RefreshCw} color="#f59e0b" title="Gastos recorrentes" text={subs.length ? `${subs.length} gasto(s) recorrente(s) somando ${formatCurrency(recurringMonthly)}/mês (fixos). O restante e variavel e mais facil de ajustar.` : 'Nenhum gasto recorrente detectado ainda (aparece com 3+ meses do mêsmo lançamento).'} />
+          <Pattern icon={CalendarRange} color="#6366f1" title="Concentracao no mês" text={`Você concentra os gastos no ${peakPart?.name} (${peakPart?.pct}% do total). ${peakPart?.name?.startsWith('Fim') ? 'Cuidado para não apertar o orcamento no fim do mês.' : ''}`} />
+          <Pattern icon={HeartPulse} color="#f43f5e" title="Impulsividade" text={`${b.impulsivity}% das compras são bem acima do ticket medio. ${b.impulsivity >= 35 ? 'Vale esperar 24h antes de compras maiores.' : 'Nível saudavel de controle.'}`} />
         </div>
       </Card>
     </div>

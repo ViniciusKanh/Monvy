@@ -9,9 +9,9 @@ import { Plus, Wallet, Landmark, PiggyBank, CreditCard as CardIcon, MoreVertical
 
 const TYPES = [
   { v: 'checking', label: 'Conta Corrente', icon: Landmark },
-  { v: 'savings', label: 'Poupanca', icon: PiggyBank },
+  { v: 'savings', label: 'Poupança', icon: PiggyBank },
   { v: 'wallet', label: 'Carteira', icon: Wallet },
-  { v: 'credit_card', label: 'Cartao', icon: CardIcon },
+  { v: 'credit_card', label: 'Cartão', icon: CardIcon },
 ];
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e'];
 const iconFor = (t) => (TYPES.find((x) => x.v === t)?.icon || Wallet);
@@ -48,7 +48,7 @@ export default function Accounts() {
   const total = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
   const mk = monthKey(new Date());
 
-  // movimentacao do mes por conta
+  // movimentação do mês por conta
   const flow = useMemo(() => {
     const map = {};
     for (const t of transactions) {

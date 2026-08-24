@@ -52,12 +52,12 @@ export default function Converter() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader
         title={<span className="flex items-center gap-2"><ArrowRightLeft className="w-6 h-6 text-indigo-500" /> Conversor de Moedas</span>}
-        subtitle="Cotacao do dia para compras internacionais e viagens"
+        subtitle="Cotação do dia para compras internacionais e viagens"
         actions={<button onClick={() => refetch()} className="p-2.5 rounded-xl card hover:bg-black/5 dark:hover:bg-white/10" title="Atualizar"><RefreshCw className={`w-5 h-5 ${isFetching ? 'animate-spin' : ''}`} /></button>}
       />
 
       {isError ? (
-        <Card className="py-8 text-center text-sm text-muted"><AlertTriangle className="w-7 h-7 mx-auto mb-2 text-amber-500" />Nao foi possivel carregar as cotacoes. Verifique a conexao e tente atualizar.</Card>
+        <Card className="py-8 text-center text-sm text-muted"><AlertTriangle className="w-7 h-7 mx-auto mb-2 text-amber-500" />Nao foi possível carregar as cotacoes. Verifique a conexao e tente atualizar.</Card>
       ) : (
         <div className="grid lg:grid-cols-5 gap-5">
           {/* Conversor */}
@@ -107,9 +107,9 @@ export default function Converter() {
             </div>
           </div>
 
-          {/* Cotacoes do dia */}
+          {/* Cotações do dia */}
           <Card className="lg:col-span-2 hover-lift">
-            <h3 className="font-semibold mb-3">Cotacoes de hoje</h3>
+            <h3 className="font-semibold mb-3">Cotações de hoje</h3>
             <div className="space-y-1.5">
               {CURRENCIES.map((c, i) => { const r = rateOf(c.code); const p = pctOf(c.code); return (
                 <Reveal key={c.code} i={i}>
@@ -124,7 +124,7 @@ export default function Converter() {
                 </Reveal>
               ); })}
             </div>
-            <p className="text-xs text-muted mt-3 text-center">Fonte: AwesomeAPI · valores de referencia</p>
+            <p className="text-xs text-muted mt-3 text-center">Fonte: AwesomeAPI · valores de referência</p>
           </Card>
         </div>
       )}

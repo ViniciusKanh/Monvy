@@ -5,7 +5,7 @@ import { Button, Input, Spinner } from '../components/ui';
 import { toast } from '../lib/toast.js';
 import { ShieldCheck, Smartphone, LogOut } from 'lucide-react';
 
-// Tela bloqueante: o admin exigiu 2FA e o usuario ainda nao ativou.
+// Tela bloqueante: o admin exigiu 2FA e o usuário ainda não ativou.
 export default function Enroll2FA() {
   const { user, logout, refreshUser } = useAuth();
   const [state, setState] = useState({ secret: '', otpauth: '', qr: '', loading: true });
@@ -33,7 +33,7 @@ export default function Enroll2FA() {
       await refreshUser();
       toast.success('Verificacao em duas etapas ativada');
     } catch (e) {
-      toast.error(e.message === '2FA_INVALID' ? 'Codigo invalido' : (e.message || 'Falha ao ativar'));
+      toast.error(e.message === '2FA_INVALID' ? 'Código invalido' : (e.message || 'Falha ao ativar'));
       setBusy(false);
     }
   };
@@ -44,7 +44,7 @@ export default function Enroll2FA() {
         <div className="text-center">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/15 flex items-center justify-center text-indigo-500 mb-3"><ShieldCheck className="w-7 h-7" /></div>
           <h1 className="text-xl font-bold">Ative a verificacao em duas etapas</h1>
-          <p className="text-sm text-muted mt-1">O administrador tornou esta protecao obrigatoria para a conta <b>{user?.email}</b>. Configure agora para continuar.</p>
+          <p className="text-sm text-muted mt-1">O administrador tornou esta protecao obrigatória para a conta <b>{user?.email}</b>. Configure agora para continuar.</p>
         </div>
 
         {state.loading ? (

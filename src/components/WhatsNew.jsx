@@ -4,12 +4,12 @@ import { Sparkles, X, ArrowRight, TrendingUp, ArrowRightLeft, CalendarDays, Buil
 
 const KEY = 'monvy_whatsnew_v3';
 const ITEMS = [
-  { icon: TrendingUp, color: '#10b981', title: 'Mercado & Indicadores', desc: 'Cotacoes do dolar/euro/bitcoin e Selic, CDI e IPCA — com o impacto no seu bolso.', path: '/mercado' },
-  { icon: CreditCard, color: '#8b5cf6', title: 'Cartao mais inteligente', desc: 'Importe a fatura em PDF e o Monvy separa e categoriza tudo, ja considerando estornos.', path: '/cartoes' },
+  { icon: TrendingUp, color: '#10b981', title: 'Mercado & Indicadores', desc: 'Cotações do dolar/euro/bitcoin e Selic, CDI e IPCA — com o impacto no seu bolso.', path: '/mercado' },
+  { icon: CreditCard, color: '#8b5cf6', title: 'Cartão mais inteligente', desc: 'Importe a fatura em PDF e o Monvy separa e categoriza tudo, já considerando estornos.', path: '/cartões' },
   { icon: ArrowRightLeft, color: '#6366f1', title: 'Conversor de Moedas', desc: 'Converta Real para dolar, euro e mais com a cotacao do dia.', path: '/conversor' },
-  { icon: CalendarDays, color: '#0ea5e9', title: 'Feriados Nacionais', desc: 'Veja os feriados e saiba quando um vencimento cai em dia nao util.', path: '/feriados' },
+  { icon: CalendarDays, color: '#0ea5e9', title: 'Feriados Nacionais', desc: 'Veja os feriados e saiba quando um vencimento cai em dia não útil.', path: '/feriados' },
   { icon: Building2, color: '#a855f7', title: 'Consulta CNPJ', desc: 'Identifique estabelecimentos e agilize a categorizacao dos gastos.', path: '/cnpj' },
-  { icon: ShieldCheck, color: '#f59e0b', title: 'Verificacao em duas etapas', desc: 'Proteja sua conta com um app autenticador, em Configuracoes.', path: '/configuracoes' },
+  { icon: ShieldCheck, color: '#f59e0b', title: 'Verificacao em duas etapas', desc: 'Proteja sua conta com um app autenticador, em Configurações.', path: '/configuracoes' },
 ];
 
 export function WhatsNew() {

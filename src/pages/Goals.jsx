@@ -12,14 +12,14 @@ const CATS = [
   { v: 'travel', label: 'Viagem', icon: Plane },
   { v: 'home', label: 'Casa', icon: Home },
   { v: 'car', label: 'Carro', icon: Car },
-  { v: 'education', label: 'Educacao', icon: GraduationCap },
-  { v: 'health', label: 'Saude', icon: HeartPulse },
+  { v: 'education', label: 'Educação', icon: GraduationCap },
+  { v: 'health', label: 'Saúde', icon: HeartPulse },
   { v: 'other', label: 'Outro', icon: Wallet },
 ];
 const iconFor = (c) => CATS.find((x) => x.v === c)?.icon || Target;
 const empty = { name: '', category: 'other', target_amount: '', current_amount: 0, monthly_target: '', target_date: '', color: '#10b981' };
 
-// planejamento da meta: quanto guardar/mes e projecao da data no ritmo atual
+// planejamento da meta: quanto guardar/mês e projecao da data no ritmo atual
 function goalPlan(g) {
   const target = Number(g.target_amount || 0), current = Number(g.current_amount || 0);
   const remaining = Math.max(0, target - current);
@@ -119,12 +119,12 @@ export default function Goals() {
                     <div className="mt-3">
                       <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{formatCurrency(g.current_amount)}</span><span className="text-muted">{formatCurrency(g.target_amount)}</span></div>
                       <div className="h-2.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${p}%`, background: g.color }} /></div>
-                      <p className="text-xs text-muted mt-1">{p}% concluido{g.target_date ? ` · ate ${new Date(g.target_date + 'T00:00').toLocaleDateString('pt-BR')}` : ''}</p>
+                      <p className="text-xs text-muted mt-1">{p}% concluido{g.target_date ? ` · até ${new Date(g.target_date + 'T00:00').toLocaleDateString('pt-BR')}` : ''}</p>
                     </div>
                     {!completed && (plan.neededPerMonth != null || plan.projDate) && (
                       <div className="mt-2 text-[11px] rounded-lg bg-black/5 dark:bg-white/5 p-2 space-y-0.5">
-                        {plan.neededPerMonth != null && <p>Guarde <b className="text-[hsl(var(--text))]">{formatCurrency(plan.neededPerMonth)}/mes</b> para bater{plan.monthsLeft ? ` em ${plan.monthsLeft} mes(es)` : ' ainda este mes'}.</p>}
-                        {plan.projDate && <p className={plan.onTrack === false ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>No ritmo de {formatCurrency(plan.monthly)}/mes: conclui em {plan.projDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}{plan.onTrack === false ? ' (apos o prazo)' : ''}.</p>}
+                        {plan.neededPerMonth != null && <p>Guarde <b className="text-[hsl(var(--text))]">{formatCurrency(plan.neededPerMonth)}/mês</b> para bater{plan.monthsLeft ? ` em ${plan.monthsLeft} mes(es)` : ' ainda este mês'}.</p>}
+                        {plan.projDate && <p className={plan.onTrack === false ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>No ritmo de {formatCurrency(plan.monthly)}/mês: conclui em {plan.projDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}{plan.onTrack === false ? ' (após o prazo)' : ''}.</p>}
                       </div>
                     )}
                     {!completed && <Button size="sm" variant="outline" className="w-full mt-3" onClick={() => { setDeposit(g); setDepValue(''); }}><PiggyBank className="w-4 h-4" /> Depositar</Button>}
@@ -145,14 +145,14 @@ export default function Goals() {
             <Field label="Ja guardado"><Input type="number" step="0.01" value={form.current_amount} onChange={set('current_amount')} /></Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Meta mensal"><Input type="number" step="0.01" value={form.monthly_target} onChange={set('monthly_target')} placeholder="quanto guardar/mes" /></Field>
+            <Field label="Meta mensal"><Input type="number" step="0.01" value={form.monthly_target} onChange={set('monthly_target')} placeholder="quanto guardar/mês" /></Field>
             <Field label="Data alvo"><Input type="date" value={form.target_date} onChange={set('target_date')} /></Field>
           </div>
           {form.target_date && Number(form.target_amount) > 0 && (() => {
             const m = monthsBetween(form.target_date); const rem = Math.max(0, Number(form.target_amount) - Number(form.current_amount || 0)); const need = m > 0 ? rem / m : rem;
             return (
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-2">
-                <span>Para bater ate {new Date(form.target_date + 'T00:00').toLocaleDateString('pt-BR')} ({m} mes(es)): guarde ~<b>{formatCurrency(need)}/mes</b></span>
+                <span>Para bater até {new Date(form.target_date + 'T00:00').toLocaleDateString('pt-BR')} ({m} mes(es)): guarde ~<b>{formatCurrency(need)}/mês</b></span>
                 <button type="button" onClick={() => setForm((f) => ({ ...f, monthly_target: need.toFixed(2) }))} className="text-xs font-semibold underline shrink-0">usar</button>
               </div>
             );

@@ -17,7 +17,7 @@ const SCENARIOS = [
   { id: 'invest', label: 'Investimento', sub: 'Juros compostos', icon: LineIcon, color: '#8b5cf6' },
 ];
 const STEP_DEFS = [
-  { id: 'collect', label: 'Coletando historico', icon: Database },
+  { id: 'collect', label: 'Coletando histórico', icon: Database },
   { id: 'features', label: 'Engenharia de features', icon: Cpu },
   { id: 'split', label: 'Validacao cruzada (LOO)', icon: Split },
   { id: 'train', label: 'Treinando (OLS)', icon: Brain },
@@ -26,7 +26,7 @@ const STEP_DEFS = [
 ];
 const money = (v) => formatCurrency(v);
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-// mediana: estimativa robusta (ignora picos e nao explode em series curtas)
+// mediana: estimativa robusta (ignora picos e não explode em series curtas)
 const median = (arr) => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
 export default function Simulator() {
@@ -36,9 +36,9 @@ export default function Simulator() {
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
 
   const months = useMemo(() => lastMonths(6), []);
-  // despesa do cartao por competencia (o cartao e onde a maioria gasta)
+  // despesa do cartão por competencia (o cartao e onde a maioria gasta)
   const cardExpByMonth = useMemo(() => { const m = {}; for (const t of cardTxs) { const k = t.competence_month || String(t.date).slice(0, 7); m[k] = (m[k] || 0) + Number(t.amount || 0); } return m; }, [cardTxs]);
-  // serie mensal combinando lancamentos das contas + faturas do cartao
+  // serie mensal combinando lançamentos das contas + faturas do cartão
   const series = useMemo(() => months.map((k) => {
     let inc = 0, exp = 0;
     for (const t of transactions) { if (String(t.date).slice(0, 7) !== k) continue; if (t.type === 'income') inc += Number(t.amount); else if (t.type === 'expense') exp += Number(t.amount); }
@@ -46,7 +46,7 @@ export default function Simulator() {
     const [y, m] = k.split('-').map(Number);
     return { mk: k, name: `${MONTHS_PT[m - 1].slice(0, 3)}/${String(y).slice(2)}`, inc, exp, net: inc - exp };
   }), [transactions, cardExpByMonth, months]);
-  // meses ativos (ignora meses zerados do periodo de adaptacao ao app)
+  // meses ativos (ignora meses zerados do período de adaptacao ao app)
   const active = useMemo(() => series.filter((s) => s.inc > 0 || s.exp > 0), [series]);
   const estIncome = useMemo(() => median(active.map((s) => s.inc)), [active]);
   const estExpense = useMemo(() => median(active.map((s) => s.exp)), [active]);
@@ -67,7 +67,7 @@ export default function Simulator() {
   const [expenseMode, setExpenseMode] = useState('parcelada'); // 'parcelada' | 'fixo'
   const [installments, setInstallments] = useState('10');
 
-  // media mensal da categoria selecionada (corte realista: nao da pra cortar mais do que se gasta)
+  // media mensal da categoria selecionada (corte realista: não da pra cortar mais do que se gasta)
   const catAvg = useMemo(() => {
     if (!cat) return 0;
     const per = {};
@@ -115,14 +115,14 @@ export default function Simulator() {
     for (let p = 0; p <= 100; p += 10) { setProgress(p); await delay(55); }
     const incM = evaluateModel(incSeries);
     const expM = evaluateModel(expSeries);
-    log(`Receita: b1=${incM.slope.toFixed(1)}/mes (${incM.trend}) · Despesa: b1=${expM.slope.toFixed(1)}/mes (${expM.trend})`); setStep('train', 'done');
+    log(`Receita: b1=${incM.slope.toFixed(1)}/mês (${incM.trend}) · Despesa: b1=${expM.slope.toFixed(1)}/mês (${expM.trend})`); setStep('train', 'done');
 
     setStep('eval', 'run'); await delay(500);
     const combined = { model: 'Regressao dupla — receita & despesa (OLS)', n: nn, folds: incM.folds, r2: (incM.r2 + expM.r2) / 2, cvMae: incM.cvMae + expM.cvMae, cvRmse: Math.sqrt(incM.cvRmse ** 2 + expM.cvRmse ** 2), sigma: Math.sqrt(incM.sigma ** 2 + expM.sigma ** 2), slope: expM.slope, intercept: expM.intercept, trend: expM.trend };
     log(`R2 receita=${(incM.r2 * 100).toFixed(0)}% · R2 despesa=${(expM.r2 * 100).toFixed(0)}% · CV-MAE total=${money(combined.cvMae)} · sigma=${money(combined.sigma)}`);
     setModel(combined); setStep('eval', 'done');
 
-    setStep('predict', 'run'); log(`Base robusta (mediana): receita ${money(estIncome)}/mes · despesa ${money(estExpense)}/mes`); await delay(500);
+    setStep('predict', 'run'); log(`Base robusta (mediana): receita ${money(estIncome)}/mês · despesa ${money(estExpense)}/mês`); await delay(500);
 
     const v = Number(value) || 0;
     const r = (Number(rateInput) || 0) / 100;
@@ -134,7 +134,7 @@ export default function Simulator() {
     const isGoal = scenario === 'goal';
     const surplus = Math.max(0, avgInc - avgExp);
 
-    // historico de saldo reconstruido do saldo atual
+    // histórico de saldo reconstruido do saldo atual
     let running2 = totalBalance; const hist = [];
     for (let i = series.length - 1; i >= 0; i--) { hist.unshift({ name: series[i].name, actual: Math.round(running2) }); running2 -= series[i].net; }
 
@@ -177,28 +177,28 @@ export default function Simulator() {
       const surplusAfter = surplus - parcela;
       const endD = new Date(); endD.setMonth(endD.getMonth() + nInst);
       impact = { mode: expenseMode, parcela, nInst, total: expenseMode === 'parcelada' ? v : null, pctIncome: avgInc > 0 ? (parcela / avgInc) * 100 : 0, pctSurplus: surplus > 0 ? (parcela / surplus) * 100 : null, surplusBefore: surplus, surplusAfter, savingsBefore: rate, savingsAfter: avgInc > 0 ? (surplusAfter / avgInc) * 100 : 0, goesNegative: surplusAfter < 0, endLabel: expenseMode === 'parcelada' ? `${MONTHS_PT[endD.getMonth()]}/${endD.getFullYear()}` : null };
-      log(`Nova despesa: ${money(parcela)}/mes${expenseMode === 'parcelada' ? ` x${nInst}` : ' (fixo)'} · sobra ${money(surplus)} -> ${money(surplusAfter)}`);
+      log(`Nova despesa: ${money(parcela)}/mês${expenseMode === 'parcelada' ? ` x${nInst}` : ' (fixo)'} · sobra ${money(surplus)} -> ${money(surplusAfter)}`);
     }
 
     const catName = categories.find((c) => c.id === cat)?.name;
     let summary;
     if (scenario === 'cut') {
-      log(`Corte real: ${money(catCut)}/mes${cat ? ` em ${catName}` : ''} (voce gasta ~${money(cat ? catAvg : avgExp)}/mes)`);
-      summary = `Cortando ${money(catCut)}/mes${cat ? ` em ${catName}` : ' em despesas'}, seu saldo em 12 meses fica em ${money(scenEnd)} — ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia (${money(catCut * 12)} economizados no ano).` + (cat && v > catAvg ? ` Voce so gasta ~${money(catAvg)}/mes nessa categoria, entao o corte real foi limitado a esse valor.` : '');
+      log(`Corte real: ${money(catCut)}/mês${cat ? ` em ${catName}` : ''} (você gasta ~${money(cat ? catAvg : avgExp)}/mês)`);
+      summary = `Cortando ${money(catCut)}/mês${cat ? ` em ${catName}` : ' em despesas'}, seu saldo em 12 meses fica em ${money(scenEnd)} — ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia (${money(catCut * 12)} economizados no ano).` + (cat && v > catAvg ? ` Você só gasta ~${money(catAvg)}/mês nessa categoria, então o corte real foi limitado a esse valor.` : '');
     } else if (scenario === 'income') {
-      summary = `Com +${money(v)}/mes de receita, seu saldo em 12 meses vai a ${money(scenEnd)} — ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia (${money(v * 12)} a mais no ano).`;
+      summary = `Com +${money(v)}/mês de receita, seu saldo em 12 meses vai a ${money(scenEnd)} — ${diff >= 0 ? '+' : ''}${money(diff)} vs a tendencia (${money(v * 12)} a mais no ano).`;
     } else if (scenario === 'expense') {
-      if (expenseMode === 'parcelada') summary = `Parcela de ${money(parcela)}/mes por ${nInst}x (compra de ${money(v)}). Consome ${impact.pctIncome.toFixed(0)}% da renda e ${impact.pctSurplus != null ? impact.pctSurplus.toFixed(0) + '% da sua sobra' : 'mais do que voce sobra'}. Ultima parcela em ${impact.endLabel}.` + (impact.goesNegative ? ' Atencao: deixa o mes no vermelho enquanto durar.' : ' Cabe no orcamento.');
-      else summary = `Gasto fixo de ${money(parcela)}/mes consome ${impact.pctIncome.toFixed(0)}% da renda; a poupanca cai de ${impact.savingsBefore.toFixed(0)}% para ${impact.savingsAfter.toFixed(0)}%.` + (impact.goesNegative ? ' Atencao: o mes fica no vermelho.' : '');
+      if (expenseMode === 'parcelada') summary = `Parcela de ${money(parcela)}/mês por ${nInst}x (compra de ${money(v)}). Consome ${impact.pctIncome.toFixed(0)}% da renda e ${impact.pctSurplus != null ? impact.pctSurplus.toFixed(0) + '% da sua sobra' : 'mais do que você sobra'}. Última parcela em ${impact.endLabel}.` + (impact.goesNegative ? ' Atenção: deixa o mes no vermelho enquanto durar.' : ' Cabe no orcamento.');
+      else summary = `Gasto fixo de ${money(parcela)}/mês consome ${impact.pctIncome.toFixed(0)}% da renda; a poupança cai de ${impact.savingsBefore.toFixed(0)}% para ${impact.savingsAfter.toFixed(0)}%.` + (impact.goesNegative ? ' Atenção: o mes fica no vermelho.' : '');
     } else if (isGoal) {
       const feasible = v <= surplus;
-      summary = `Guardando ${money(v)}/mes, voce reserva ${money(scenEnd)} em 12 meses.` + (feasible ? ` Cabe na sua sobra media de ${money(surplus)}/mes.` : ` Atencao: e mais que sua sobra media (${money(surplus)}/mes) — para manter, precisaria cortar ${money(v - surplus)}/mes.`);
+      summary = `Guardando ${money(v)}/mês, você reserva ${money(scenEnd)} em 12 meses.` + (feasible ? ` Cabe na sua sobra media de ${money(surplus)}/mês.` : ` Atenção: e mais que sua sobra media (${money(surplus)}/mês) — para manter, precisaria cortar ${money(v - surplus)}/mês.`);
     } else {
       const rendimento = bal - totalBalance - v * 12;
-      summary = `Investindo ${money(v)}/mes a ${rateInput}% a.m.${cdi ? ' (CDI atual)' : ''}, em 12 meses: ${money(scenEnd)} — rendimento de ${money(rendimento)} sobre ${money(totalBalance + v * 12)} aportados.`;
+      summary = `Investindo ${money(v)}/mês a ${rateInput}% a.m.${cdi ? ' (CDI atual)' : ''}, em 12 meses: ${money(scenEnd)} — rendimento de ${money(rendimento)} sobre ${money(totalBalance + v * 12)} aportados.`;
     }
 
-    log('Modelo pronto. Previsao gerada.'); setStep('predict', 'done');
+    log('Modelo pronto. Previsão gerada.'); setStep('predict', 'done');
     setResult({ projection, summary, color: sc.color, impact, mode: isGoal ? 'goal' : isInvest ? 'invest' : 'balance' });
     setPhase('done'); running.current = false;
 
@@ -212,18 +212,18 @@ export default function Simulator() {
   return (
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Calculator className="w-6 h-6 text-violet-500" /> Simulador Financeiro</span>}
-        subtitle="Modelo de predicao que aprende com seu historico e projeta cenarios" />
+        subtitle="Modelo de predicao que aprende com seu histórico e projeta cenarios" />
 
       <div className="flex items-start gap-2 text-xs p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
         <Info className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>Como funciona: o simulador aprende com o seu historico de receitas e despesas (incluindo o cartao) e projeta cenarios usando estatistica (regressao + validacao cruzada) com uma base robusta pelos meses ativos. Os valores sao <b>estimativas</b> baseadas no passado — <b>nao sao garantia do futuro</b> nem recomendacao de investimento. Use como apoio a decisao. Quanto mais meses de uso, mais precisa fica a analise.</span>
+        <span>Como funciona: o simulador aprende com o seu histórico de receitas e despesas (incluindo o cartao) e projeta cenarios usando estatística (regressao + validacao cruzada) com uma base robusta pelos meses ativos. Os valores são <b>estimativas</b> baseadas no passado — <b>não são garantia do futuro</b> nem recomendacao de investimento. Use como apoio a decisao. Quanto mais meses de uso, mais precisa fica a analise.</span>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Reveal i={0}><Kpi icon={Wallet} label="Saldo atual" value={totalBalance} color="#6366f1" /></Reveal>
-        <Reveal i={1}><Kpi icon={TrendingUp} label="Receita media/mes" value={avgInc} color="#10b981" /></Reveal>
-        <Reveal i={2}><Kpi icon={TrendingDown} label="Despesa media/mes" value={avgExp} color="#f43f5e" /></Reveal>
-        <Reveal i={3}><Kpi icon={PiggyBank} label="Taxa de poupanca" value={rate} color="#f59e0b" pct /></Reveal>
+        <Reveal i={1}><Kpi icon={TrendingUp} label="Receita media/mês" value={avgInc} color="#10b981" /></Reveal>
+        <Reveal i={2}><Kpi icon={TrendingDown} label="Despesa media/mês" value={avgExp} color="#f43f5e" /></Reveal>
+        <Reveal i={3}><Kpi icon={PiggyBank} label="Taxa de poupança" value={rate} color="#f59e0b" pct /></Reveal>
       </div>
 
       <div>
@@ -241,9 +241,9 @@ export default function Simulator() {
 
       <div className="grid lg:grid-cols-2 gap-5">
         <Card className="hover-lift">
-          <h3 className="font-semibold flex items-center gap-2 mb-4"><sc.icon className="w-4 h-4" style={{ color: sc.color }} /> Configuracao — {sc.label}</h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-4"><sc.icon className="w-4 h-4" style={{ color: sc.color }} /> Configuração — {sc.label}</h3>
           <div className="space-y-4">
-            {scenario === 'cut' && <Field label="Categoria para cortar" hint={cat ? `Voce gasta ~${money(catAvg)}/mes nessa categoria` : 'Opcional — limita o corte ao gasto real da categoria'}><Select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Todas as despesas</option>{expenseCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
+            {scenario === 'cut' && <Field label="Categoria para cortar" hint={cat ? `Você gasta ~${money(catAvg)}/mês nessa categoria` : 'Opcional — limita o corte ao gasto real da categoria'}><Select value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Todas as despesas</option>{expenseCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
             {scenario === 'expense' && (
               <Field label="Tipo de despesa">
                 <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full">
@@ -253,19 +253,19 @@ export default function Simulator() {
                 </div>
               </Field>
             )}
-            <Field label={scenario === 'goal' ? 'Valor a guardar/mes' : scenario === 'income' ? 'Renda extra/mes' : scenario === 'invest' ? 'Aporte mensal' : scenario === 'expense' ? (expenseMode === 'parcelada' ? 'Valor total da compra' : 'Novo gasto/mes') : 'Valor a economizar/mes'}>
+            <Field label={scenario === 'goal' ? 'Valor a guardar/mês' : scenario === 'income' ? 'Renda extra/mês' : scenario === 'invest' ? 'Aporte mensal' : scenario === 'expense' ? (expenseMode === 'parcelada' ? 'Valor total da compra' : 'Novo gasto/mês') : 'Valor a economizar/mês'}>
               <Input type="number" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} placeholder="R$ 0,00" />
             </Field>
             {scenario === 'expense' && expenseMode === 'parcelada' && (
-              <Field label="Numero de parcelas" hint={Number(value) > 0 && Number(installments) > 0 ? `${money(Number(value) / Math.max(1, Number(installments)))}/mes` : null}>
+              <Field label="Número de parcelas" hint={Number(value) > 0 && Number(installments) > 0 ? `${money(Number(value) / Math.max(1, Number(installments)))}/mês` : null}>
                 <Input type="number" min="1" step="1" value={installments} onChange={(e) => setInstallments(e.target.value)} placeholder="10" />
               </Field>
             )}
-            {scenario === 'invest' && <Field label="Rendimento mensal (%)" hint={cdiMonthly ? `CDI atual ~${cdiMonthly.toFixed(2)}% a.m. (${cdi.toFixed(2)}% a.a.)` : 'Ex: poupanca ~0,5% · CDI varia'}><Input type="number" step="0.01" value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="0.8" /></Field>}
+            {scenario === 'invest' && <Field label="Rendimento mensal (%)" hint={cdiMonthly ? `CDI atual ~${cdiMonthly.toFixed(2)}% a.m. (${cdi.toFixed(2)}% a.a.)` : 'Ex: poupança ~0,5% · CDI varia'}><Input type="number" step="0.01" value={rateInput} onChange={(e) => setRateInput(e.target.value)} placeholder="0.8" /></Field>}
             <Button onClick={run} className="w-full" style={{ background: sc.color }} disabled={phase === 'running' || !enoughData}>
               {phase === 'running' ? <><Spinner className="w-4 h-4" /> Treinando modelo...</> : <><Play className="w-4 h-4" /> Treinar & Simular</>}
             </Button>
-            {!enoughData && <p className="text-xs text-amber-500">Registre lancamentos em pelo menos 2 meses para o modelo aprender.</p>}
+            {!enoughData && <p className="text-xs text-amber-500">Registre lançamentos em pelo menos 2 meses para o modelo aprender.</p>}
             {model && phase === 'done' && (
               <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-2 animate-fadeIn">
                 <p className="text-xs font-bold tracking-wider text-muted flex items-center gap-1"><Cpu className="w-3.5 h-3.5" /> MODELO TREINADO</p>
@@ -275,7 +275,7 @@ export default function Simulator() {
                   <Metric label="CV-MAE" value={money(model.cvMae)} tone="#6366f1" />
                   <Metric label="CV-RMSE" value={money(model.cvRmse)} tone="#f59e0b" />
                 </div>
-                <p className="text-xs text-muted">Validacao Leave-One-Out ({model.folds} folds) · tendencia <b>{model.trend}</b> · b1={model.slope.toFixed(1)}/mes</p>
+                <p className="text-xs text-muted">Validacao Leave-One-Out ({model.folds} folds) · tendencia <b>{model.trend}</b> · b1={model.slope.toFixed(1)}/mês</p>
               </div>
             )}
           </div>
@@ -320,7 +320,7 @@ export default function Simulator() {
       {result && (
         <Reveal>
           <Card className="hover-lift">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2"><h3 className="font-semibold flex items-center gap-2"><LineIcon className="w-4 h-4 text-emerald-500" /> {result.mode === 'goal' ? 'Reserva acumulada — proximos 12 meses' : 'Previsao de Saldo — historico + 12 meses'}</h3>{model && <Badge color="emerald">R2 {(model.r2 * 100).toFixed(0)}% · IC 95%</Badge>}</div>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2"><h3 className="font-semibold flex items-center gap-2"><LineIcon className="w-4 h-4 text-emerald-500" /> {result.mode === 'goal' ? 'Reserva acumulada — próximos 12 meses' : 'Previsão de Saldo — histórico + 12 meses'}</h3>{model && <Badge color="emerald">R2 {(model.r2 * 100).toFixed(0)}% · IC 95%</Badge>}</div>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={result.projection}>
                 <defs><linearGradient id="ciBand" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={result.color} stopOpacity={0.18} /><stop offset="100%" stopColor={result.color} stopOpacity={0.05} /></linearGradient></defs>
@@ -332,21 +332,21 @@ export default function Simulator() {
                 <ReferenceLine y={0} stroke="#f43f5e" strokeDasharray="4 4" />
                 <Area dataKey="lo" stackId="ci" stroke="none" fill="transparent" name=" " legendType="none" isAnimationActive={false} />
                 <Area dataKey="band" stackId="ci" stroke="none" fill="url(#ciBand)" name="Intervalo 95%" isAnimationActive={false} />
-                <Line dataKey="actual" name="Historico" stroke="#64748b" strokeWidth={2.5} dot={{ r: 2 }} connectNulls />
-                <Line dataKey="pred" name="Previsao" stroke={result.color} strokeWidth={2.5} strokeDasharray="6 4" dot={false} connectNulls />
+                <Line dataKey="actual" name="Histórico" stroke="#64748b" strokeWidth={2.5} dot={{ r: 2 }} connectNulls />
+                <Line dataKey="pred" name="Previsão" stroke={result.color} strokeWidth={2.5} strokeDasharray="6 4" dot={false} connectNulls />
               </ComposedChart>
             </ResponsiveContainer>
             <div className="mt-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-sm text-indigo-700 dark:text-indigo-300 flex items-start gap-2"><Sparkles className="w-4 h-4 mt-0.5 shrink-0" /> {result.summary}</div>
             {result.impact && (
               <>
                 <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <Metric label="Parcela/mes" value={money(result.impact.parcela)} tone="#f59e0b" />
+                  <Metric label="Parcela/mês" value={money(result.impact.parcela)} tone="#f59e0b" />
                   <Metric label="% da renda" value={`${result.impact.pctIncome.toFixed(0)}%`} tone="#6366f1" />
                   <Metric label="% da sobra" value={result.impact.pctSurplus != null ? `${result.impact.pctSurplus.toFixed(0)}%` : '—'} tone={result.impact.goesNegative ? '#f43f5e' : '#10b981'} />
-                  <Metric label="Poupanca depois" value={`${result.impact.savingsAfter.toFixed(0)}%`} tone={result.impact.savingsAfter < result.impact.savingsBefore ? '#f43f5e' : '#10b981'} />
+                  <Metric label="Poupança depois" value={`${result.impact.savingsAfter.toFixed(0)}%`} tone={result.impact.savingsAfter < result.impact.savingsBefore ? '#f43f5e' : '#10b981'} />
                 </div>
                 <div className={`mt-2 text-xs rounded-lg p-2 ${result.impact.goesNegative ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'}`}>
-                  Sobra mensal: <b>{money(result.impact.surplusBefore)}</b> &rarr; <b>{money(result.impact.surplusAfter)}</b>{result.impact.endLabel ? ` · ultima parcela em ${result.impact.endLabel}` : ' · gasto continuo'}
+                  Sobra mensal: <b>{money(result.impact.surplusBefore)}</b> &rarr; <b>{money(result.impact.surplusAfter)}</b>{result.impact.endLabel ? ` · última parcela em ${result.impact.endLabel}` : ' · gasto continuo'}
                 </div>
               </>
             )}

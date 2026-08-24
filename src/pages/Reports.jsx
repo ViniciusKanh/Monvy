@@ -65,22 +65,22 @@ export default function Reports() {
       const last = monthly[monthly.length - 1], prev = monthly[monthly.length - 2];
       if (prev.Despesa > 0) { const d = ((last.Despesa - prev.Despesa) / prev.Despesa) * 100; if (Math.abs(d) >= 8) arr.push({ t: d > 0 ? 'warn' : 'ok', m: `Despesas ${d > 0 ? 'subiram' : 'cairam'} ${Math.abs(d).toFixed(0)}% em ${last.name} vs ${prev.name}.` }); }
     }
-    if (totals.rate >= 20) arr.push({ t: 'ok', m: `Otima taxa de poupanca no periodo: ${totals.rate.toFixed(0)}% da renda.` });
-    else if (totals.bal < 0) arr.push({ t: 'warn', m: `No periodo voce gastou ${formatCurrency(-totals.bal)} a mais do que ganhou.` });
-    else if (totals.inc > 0) arr.push({ t: 'info', m: `Taxa de poupanca do periodo: ${totals.rate.toFixed(0)}%.` });
+    if (totals.rate >= 20) arr.push({ t: 'ok', m: `Ótima taxa de poupança no período: ${totals.rate.toFixed(0)}% da renda.` });
+    else if (totals.bal < 0) arr.push({ t: 'warn', m: `No período você gastou ${formatCurrency(-totals.bal)} a mais do que ganhou.` });
+    else if (totals.inc > 0) arr.push({ t: 'info', m: `Taxa de poupança do período: ${totals.rate.toFixed(0)}%.` });
     if (byCategory[0]) arr.push({ t: 'info', m: `Maior gasto: ${byCategory[0].name} — ${formatCurrency(byCategory[0].value)} (${Math.round((byCategory[0].value / totalExp) * 100)}% das despesas).` });
-    if (rising) arr.push({ t: 'warn', m: `${rising.name} vem crescendo (+${rising.change.toFixed(0)}% no periodo). Vale acompanhar.` });
-    if (topExpenses[0]) arr.push({ t: 'info', m: `Maior lancamento unico: ${topExpenses[0].description || catMap[topExpenses[0].category_id]?.name || 'Despesa'} (${formatCurrency(topExpenses[0].amount)}).` });
-    if (!arr.length) arr.push({ t: 'ok', m: 'Periodo equilibrado, sem destaques negativos.' });
+    if (rising) arr.push({ t: 'warn', m: `${rising.name} vem crescendo (+${rising.change.toFixed(0)}% no período). Vale acompanhar.` });
+    if (topExpenses[0]) arr.push({ t: 'info', m: `Maior lançamento único: ${topExpenses[0].description || catMap[topExpenses[0].category_id]?.name || 'Despesa'} (${formatCurrency(topExpenses[0].amount)}).` });
+    if (!arr.length) arr.push({ t: 'ok', m: 'Período equilibrado, sem destaques negativos.' });
     return arr;
   }, [monthly, totals, byCategory, totalExp, rising, topExpenses, catMap]);
 
   const exportCsv = () => {
-    const rows = [['Data', 'Tipo', 'Descricao', 'Categoria', 'Valor', 'Status']];
+    const rows = [['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor', 'Status']];
     periodTx.forEach((t) => rows.push([t.date, t.type, (t.description || '').replace(/;/g, ','), catMap[t.category_id]?.name || '', String(t.amount).replace('.', ','), t.status || 'pending']));
     const csv = rows.map((r) => r.join(';')).join('\n');
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
-    const a = document.createElement('a'); a.href = url; a.download = `monvy-relatorio-${period}m.csv`; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = `monvy-relatório-${period}m.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
   const [emailing, setEmailing] = useState(false);
@@ -88,13 +88,13 @@ export default function Reports() {
     setEmailing(true);
     try {
       await ReportsApi.email({ summary: {
-        name: user?.full_name, periodLabel: period === 1 ? monthLabel(endMk) : `${period} meses ate ${monthLabel(endMk)}`,
+        name: user?.full_name, periodLabel: period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`,
         inc: totals.inc, exp: totals.exp, bal: totals.bal, rate: totals.rate, totalBalance,
         categories: byCategory.map((c) => ({ name: c.name, value: c.value })),
         topExpenses: topExpenses.map((t) => ({ name: t.description || catMap[t.category_id]?.name || 'Despesa', value: Number(t.amount) })),
-        insight: rising ? `${rising.name} cresceu ${rising.change.toFixed(0)}% no periodo — vale acompanhar.` : (totals.rate >= 20 ? `Otima taxa de poupanca: ${totals.rate.toFixed(0)}%.` : null),
+        insight: rising ? `${rising.name} cresceu ${rising.change.toFixed(0)}% no período — vale acompanhar.` : (totals.rate >= 20 ? `Ótima taxa de poupança: ${totals.rate.toFixed(0)}%.` : null),
       } });
-      toast.success('Relatorio enviado para o seu e-mail!');
+      toast.success('Relatório enviado para o seu e-mail!');
     } catch (e) { toast.error(e.message || 'Falha ao enviar. Verifique a config de e-mail.'); }
     finally { setEmailing(false); }
   };
@@ -102,7 +102,7 @@ export default function Reports() {
   return (
     <div className="space-y-4 animate-fadeIn print:space-y-2">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h1 className="font-display text-2xl font-bold gradient-text">Relatorio Financeiro</h1><p className="text-muted text-sm">Analise completa das suas financas</p></div>
+        <div><h1 className="font-display text-2xl font-bold gradient-text">Relatório Financeiro</h1><p className="text-muted text-sm">Análise completa das suas financas</p></div>
         <div className="flex items-center gap-2 print:hidden flex-wrap">
           <Select value={endMk} onChange={(e) => setEndMk(e.target.value)} className="w-auto">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</Select>
           <Select value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="w-auto"><option value={1}>Somente o mes</option><option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option></Select>
@@ -119,9 +119,9 @@ export default function Reports() {
           {user?.photo_url ? <img src={user.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30" />
             : <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center font-display font-bold text-2xl">{(user?.full_name || '?').slice(0, 1)}</div>}
           <div>
-            <p className="font-display text-2xl font-bold">{user?.full_name || 'Usuario'}</p>
+            <p className="font-display text-2xl font-bold">{user?.full_name || 'Usuário'}</p>
             <p className="text-sm text-white/80">{user?.email}{user?.profession ? ` · ${user.profession}` : ''}</p>
-            <Badge className="mt-1 bg-white/20 text-white border-0">{period === 1 ? monthLabel(endMk) : `${period} meses ate ${monthLabel(endMk)}`}</Badge>
+            <Badge className="mt-1 bg-white/20 text-white border-0">{period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`}</Badge>
           </div>
         </div>
         <div className="text-right">
@@ -133,15 +133,15 @@ export default function Reports() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Reveal i={0}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Receita do periodo</p><p className="font-display text-xl font-bold text-emerald-500"><AnimatedValue value={totals.inc} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={1}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Despesa do periodo</p><p className="font-display text-xl font-bold text-rose-500"><AnimatedValue value={totals.exp} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={2}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Saldo do periodo</p><p className={`font-display text-xl font-bold ${totals.bal < 0 ? 'text-rose-500' : ''}`}><AnimatedValue value={totals.bal} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={3}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Taxa de poupanca</p><p className="font-display text-xl font-bold text-violet-500"><AnimatedValue value={totals.rate} format={(v) => `${v.toFixed(1)}%`} /></p></Card></Reveal>
+        <Reveal i={0}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Receita do período</p><p className="font-display text-xl font-bold text-emerald-500"><AnimatedValue value={totals.inc} format={formatCurrency} /></p></Card></Reveal>
+        <Reveal i={1}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Despesa do período</p><p className="font-display text-xl font-bold text-rose-500"><AnimatedValue value={totals.exp} format={formatCurrency} /></p></Card></Reveal>
+        <Reveal i={2}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Saldo do período</p><p className={`font-display text-xl font-bold ${totals.bal < 0 ? 'text-rose-500' : ''}`}><AnimatedValue value={totals.bal} format={formatCurrency} /></p></Card></Reveal>
+        <Reveal i={3}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Taxa de poupança</p><p className="font-display text-xl font-bold text-violet-500"><AnimatedValue value={totals.rate} format={(v) => `${v.toFixed(1)}%`} /></p></Card></Reveal>
       </div>
 
       {/* Resumo inteligente */}
       <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Resumo inteligente do periodo</h3>
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Resumo inteligente do período</h3>
         <div className="grid sm:grid-cols-2 gap-2">
           {insights.map((i, k) => (
             <div key={k} className={`flex items-start gap-2 p-3 rounded-xl text-sm ${i.t === 'warn' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300' : i.t === 'ok' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'}`}>
@@ -168,7 +168,7 @@ export default function Reports() {
 
       <Card>
         <h3 className="font-semibold mb-3">Despesas por Categoria</h3>
-        {byCategory.length === 0 ? <p className="text-sm text-muted py-6 text-center">Sem despesas no periodo.</p>
+        {byCategory.length === 0 ? <p className="text-sm text-muted py-6 text-center">Sem despesas no período.</p>
           : (
             <div className="grid md:grid-cols-2 gap-6 items-center">
               <ResponsiveContainer width="100%" height={220}>
@@ -189,8 +189,8 @@ export default function Reports() {
       {/* Maiores despesas + resumo por categoria */}
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
-          <h3 className="font-semibold mb-3">Maiores despesas do periodo</h3>
-          {topExpenses.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem despesas no periodo.</p>
+          <h3 className="font-semibold mb-3">Maiores despesas do período</h3>
+          {topExpenses.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem despesas no período.</p>
             : <div className="space-y-2">{topExpenses.map((t, i) => { const c = catMap[t.category_id]; return (
               <div key={t.id} className="flex items-center gap-3">
                 <span className="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
@@ -211,11 +211,11 @@ export default function Reports() {
 
       {/* Extrato detalhado (para PDF) */}
       <Card>
-        <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Extrato detalhado</h3><span className="text-xs text-muted">{statement.length} lancamento(s)</span></div>
-        {statement.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem lancamentos no periodo.</p>
+        <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Extrato detalhado</h3><span className="text-xs text-muted">{statement.length} lançamento(s)</span></div>
+        {statement.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem lançamentos no período.</p>
           : <div className="overflow-x-auto max-h-96 overflow-y-auto print:max-h-none print:overflow-visible">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[hsl(var(--card))]"><tr className="text-left text-muted border-b border-[hsl(var(--border))]"><th className="py-1.5 font-medium">Data</th><th className="py-1.5 font-medium">Descricao</th><th className="py-1.5 font-medium">Categoria</th><th className="py-1.5 font-medium text-right">Valor</th></tr></thead>
+              <thead className="sticky top-0 bg-[hsl(var(--card))]"><tr className="text-left text-muted border-b border-[hsl(var(--border))]"><th className="py-1.5 font-medium">Data</th><th className="py-1.5 font-medium">Descrição</th><th className="py-1.5 font-medium">Categoria</th><th className="py-1.5 font-medium text-right">Valor</th></tr></thead>
               <tbody>{statement.map((t) => { const c = catMap[t.category_id]; const isInc = t.type === 'income'; return (
                 <tr key={t.id} className="border-b border-[hsl(var(--border))] last:border-0">
                   <td className="py-1.5 whitespace-nowrap text-muted">{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')}</td>

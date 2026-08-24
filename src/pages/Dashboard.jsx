@@ -19,8 +19,8 @@ const money = (v) => formatCurrency(v);
 
 const WIDGET_DEFS = [
   { id: 'charts', label: 'Fluxo de caixa & categorias' },
-  { id: 'cardcat', label: 'Gastos no cartao por categoria' },
-  { id: 'projection', label: 'Projecao de saldo & acoes' },
+  { id: 'cardcat', label: 'Gastos no cartão por categoria' },
+  { id: 'projection', label: 'Projeção de saldo & acoes' },
   { id: 'overview', label: 'Visao geral & comparativo' },
   { id: 'recent', label: 'Recentes & a vencer' },
 ];
@@ -83,7 +83,7 @@ export default function Dashboard() {
     for (const c of byCategory) { const isEss = ESSENTIAL.some((k) => c.name.toLowerCase().includes(k)); if (isEss) ess += c.value; else varr += c.value; }
     const tot = ess + varr; return { ess, varr, tot, essPct: tot ? Math.round((ess / tot) * 100) : 0 };
   }, [byCategory]);
-  // gastos no cartao de credito por categoria (mes selecionado)
+  // gastos no cartão de crédito por categoria (mes selecionado)
   const cardByCategory = useMemo(() => {
     const inMk = cardTxs.filter((t) => t.competence_month === mk || String(t.date).slice(0, 7) === mk);
     const map = {};
@@ -92,7 +92,7 @@ export default function Dashboard() {
   }, [cardTxs, mk, catMap]);
   const cardTotal = cardByCategory.reduce((s, c) => s + c.value, 0);
 
-  // recentes: contas (a pagar/receber) + compras do cartao, com flag
+  // recentes: contas (a pagar/receber) + compras do cartão, com flag
   const recent = useMemo(() => {
     const acct = transactions.filter((t) => inMonth(t.date, mk)).map((t) => ({ ...t, _src: 'account' }));
     const card = cardTxs.filter((t) => t.competence_month === mk || inMonth(t.date, mk)).map((t) => ({ ...t, _src: 'card' }));
@@ -115,7 +115,7 @@ export default function Dashboard() {
     return arr;
   }, [totalBalance, forecast, mk]);
 
-  // proximos vencimentos (assinaturas + faturas) neste mes a partir de hoje
+  // próximos vencimentos (assinaturas + faturas) neste mês a partir de hoje
   const upcoming = useMemo(() => {
     const today = new Date(); const list = [];
     const [y, m] = mk.split('-').map(Number);
@@ -128,14 +128,14 @@ export default function Dashboard() {
   const insights = useMemo(() => {
     const arr = [];
     const expDelta = prev.exp > 0 ? ((cur.exp - prev.exp) / prev.exp) * 100 : 0;
-    if (cur.rate >= 20) arr.push({ icon: Trophy, color: '#10b981', title: 'Voce esta poupando bem', text: `Taxa de ${cur.rate.toFixed(0)}% neste mes.` });
-    if (cur.rate < 0) arr.push({ icon: AlertTriangle, color: '#f43f5e', title: 'Gastando mais que ganha', text: `Saldo do mes ${money(cur.bal)}.` });
+    if (cur.rate >= 20) arr.push({ icon: Trophy, color: '#10b981', title: 'Você esta poupando bem', text: `Taxa de ${cur.rate.toFixed(0)}% neste mês.` });
+    if (cur.rate < 0) arr.push({ icon: AlertTriangle, color: '#f43f5e', title: 'Gastando mais que ganha', text: `Saldo do mês ${money(cur.bal)}.` });
     if (prev.exp > 0 && expDelta > 15) arr.push({ icon: Flame, color: '#f59e0b', title: 'Despesas subindo', text: `+${expDelta.toFixed(0)}% vs ${monthLabel(prevMk).split(' ')[0]}.` });
     if (prev.exp > 0 && expDelta < -10) arr.push({ icon: TrendingDown, color: '#10b981', title: 'Gastos em queda', text: `${expDelta.toFixed(0)}% vs mes anterior.` });
     if (byCategory[0]) arr.push({ icon: PiggyBank, color: byCategory[0].color, title: `Maior gasto: ${byCategory[0].name}`, text: `${money(byCategory[0].value)} (${cur.exp > 0 ? Math.round((byCategory[0].value / cur.exp) * 100) : 0}% das despesas).` });
-    arr.push({ icon: Eye, color: '#6366f1', title: 'Previsao proximo mes', text: `${forecast.net >= 0 ? 'Saldo' : 'Deficit'} de ${money(forecast.net)}.` });
-    if (anomalies.length) arr.push({ icon: Zap, color: '#f43f5e', title: `${anomalies.length} gasto(s) atipico(s)`, text: 'Confira na Inteligencia.' });
-    if (upcoming[0]) arr.push({ icon: CalendarClock, color: '#0ea5e9', title: 'Proximo vencimento', text: `${upcoming[0].label} · ${upcoming[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}.` });
+    arr.push({ icon: Eye, color: '#6366f1', title: 'Previsão próximo mes', text: `${forecast.net >= 0 ? 'Saldo' : 'Deficit'} de ${money(forecast.net)}.` });
+    if (anomalies.length) arr.push({ icon: Zap, color: '#f43f5e', title: `${anomalies.length} gasto(s) atipico(s)`, text: 'Confira na Inteligência.' });
+    if (upcoming[0]) arr.push({ icon: CalendarClock, color: '#0ea5e9', title: 'Próximo vencimento', text: `${upcoming[0].label} · ${upcoming[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}.` });
     return arr.slice(0, 6);
   }, [cur, prev, byCategory, forecast, anomalies, upcoming, prevMk]);
 
@@ -156,7 +156,7 @@ export default function Dashboard() {
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm text-muted">{greet},</p>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight">{(user?.full_name || 'Usuario').split(' ')[0]} <span className="inline-block animate-[floaty_3s_ease-in-out_infinite]">👋</span></h1>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight">{(user?.full_name || 'Usuário').split(' ')[0]} <span className="inline-block animate-[floaty_3s_ease-in-out_infinite]">👋</span></h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 card px-1 py-1">
@@ -202,7 +202,7 @@ export default function Dashboard() {
                 <p className="text-[11px] tracking-[0.28em] text-slate-400 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> PATRIMONIO TOTAL</p>
                 <div className="flex items-end gap-3 mt-2 flex-wrap">
                   <p className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-none"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
-                  <span className={`mb-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/20'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mes</span>
+                  <span className={`mb-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/20'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mês</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1.5">{accounts.length} conta(s) · {cards.length} cartao(oes) · {money(savedGoals)} guardado em metas</p>
                 {(() => {
@@ -214,12 +214,12 @@ export default function Dashboard() {
                     <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
                       {usd > 0 && <span className="flex items-center gap-1">🇺🇸 {hide ? '••••' : `US$ ${f(totalBalance / usd)}`}</span>}
                       {eur > 0 && <span className="flex items-center gap-1">🇪🇺 {hide ? '••••' : `€ ${f(totalBalance / eur)}`}</span>}
-                      <span className="text-slate-500">· patrimonio no cambio de hoje</span>
+                      <span className="text-slate-500">· patrimonio no câmbio de hoje</span>
                     </p>
                   );
                 })()}
               </div>
-              <div className="hidden sm:flex flex-col items-center shrink-0"><Ring pct={rate} /><span className="text-[11px] text-slate-400 mt-1">poupanca</span></div>
+              <div className="hidden sm:flex flex-col items-center shrink-0"><Ring pct={rate} /><span className="text-[11px] text-slate-400 mt-1">poupança</span></div>
             </div>
 
             {(() => {
@@ -275,8 +275,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Reveal i={0}><Kpi label="Receitas" amount={cur.inc} hidden={hide} icon={TrendingUp} tone="emerald" pct={pctChange(cur.inc, prev.inc)} good="up" spark={series6.map((s) => s.inc)} /></Reveal>
         <Reveal i={1}><Kpi label="Despesas" amount={cur.exp} hidden={hide} icon={TrendingDown} tone="rose" pct={pctChange(cur.exp, prev.exp)} good="down" spark={series6.map((s) => s.exp)} /></Reveal>
-        <Reveal i={2}><Kpi label="Saldo do mes" amount={cur.bal} hidden={hide} icon={Wallet} tone={cur.bal < 0 ? 'rose' : 'indigo'} pct={pctChange(cur.bal, prev.bal)} good="up" spark={series6.map((s) => s.net)} /></Reveal>
-        <Reveal i={3}><Kpi label="Taxa de poupanca" amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
+        <Reveal i={2}><Kpi label="Saldo do mês" amount={cur.bal} hidden={hide} icon={Wallet} tone={cur.bal < 0 ? 'rose' : 'indigo'} pct={pctChange(cur.bal, prev.bal)} good="up" spark={series6.map((s) => s.net)} /></Reveal>
+        <Reveal i={3}><Kpi label="Taxa de poupança" amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
       </div>
 
       <RobotsSummaryCard />
@@ -303,7 +303,7 @@ export default function Dashboard() {
         <Card className="hover-lift">
           <h3 className="font-semibold">Gastos por Categoria</h3>
           <p className="text-xs text-muted mb-2 capitalize">{monthLabel(mk)}</p>
-          {byCategory.length === 0 ? <div className="flex flex-col items-center justify-center h-[220px] text-muted text-sm"><PiggyBank className="w-8 h-8 mb-2 opacity-40" />Sem despesas no mes</div>
+          {byCategory.length === 0 ? <div className="flex flex-col items-center justify-center h-[220px] text-muted text-sm"><PiggyBank className="w-8 h-8 mb-2 opacity-40" />Sem despesas no mês</div>
             : (<>
               <div className="relative">
                 <ResponsiveContainer width="100%" height={180}>
@@ -319,14 +319,14 @@ export default function Dashboard() {
       </div>
 
       <div style={{ order: ordOf('cardcat') }} className={vis('cardcat') ? '' : 'hidden'}>
-      {/* Gastos no cartao de credito por categoria */}
+      {/* Gastos no cartão de crédito por categoria */}
       <Card className="hover-lift">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="font-semibold flex items-center gap-2"><CardIcon className="w-4 h-4 text-violet-500" /> Gastos no Cartao de Credito por Categoria</h3>
+          <h3 className="font-semibold flex items-center gap-2"><CardIcon className="w-4 h-4 text-violet-500" /> Gastos no Cartão de Crédito por Categoria</h3>
           <span className="text-xs text-muted capitalize">{monthLabel(mk)} · total {val(cardTotal)}</span>
         </div>
         {cardByCategory.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted flex flex-col items-center"><CardIcon className="w-8 h-8 mb-2 opacity-40" />Sem gastos no cartao em {monthLabel(mk)}.</div>
+          <div className="py-8 text-center text-sm text-muted flex flex-col items-center"><CardIcon className="w-8 h-8 mb-2 opacity-40" />Sem gastos no cartão em {monthLabel(mk)}.</div>
         ) : (
           <div className="grid md:grid-cols-2 gap-5 items-center">
             <div className="relative">
@@ -347,18 +347,18 @@ export default function Dashboard() {
       </div>
 
       <div style={{ order: ordOf('projection') }} className={vis('projection') ? '' : 'hidden'}>
-      {/* Projecao + acoes rapidas */}
+      {/* Projeção + acoes rapidas */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2 hover-lift">
-          <div className="flex items-center justify-between mb-1"><h3 className="font-semibold flex items-center gap-1.5"><Eye className="w-4 h-4 text-indigo-500" /> Projecao de Saldo</h3><span className="text-xs text-muted">proximos 6 meses (tendencia)</span></div>
+          <div className="flex items-center justify-between mb-1"><h3 className="font-semibold flex items-center gap-1.5"><Eye className="w-4 h-4 text-indigo-500" /> Projeção de Saldo</h3><span className="text-xs text-muted">próximos 6 meses (tendencia)</span></div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={projection}><defs><linearGradient id="proj" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} /><stop offset="100%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} /><YAxis width={44} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} /><Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /><Area dataKey="Saldo" stroke="#6366f1" strokeWidth={2.5} fill="url(#proj)" /></AreaChart>
           </ResponsiveContainer>
         </Card>
         <div className="grid grid-cols-2 gap-3 content-start">
-          <ActionTile color="#10b981" icon={ArrowUpRight} label="Receita" onClick={() => navigate('/lancamentos')} />
-          <ActionTile color="#f43f5e" icon={ArrowDownRight} label="Despesa" onClick={() => navigate('/lancamentos')} />
-          <ActionTile color="#6366f1" icon={CardIcon} label="Cartoes" onClick={() => navigate('/cartoes')} />
+          <ActionTile color="#10b981" icon={ArrowUpRight} label="Receita" onClick={() => navigate('/lançamentos')} />
+          <ActionTile color="#f43f5e" icon={ArrowDownRight} label="Despesa" onClick={() => navigate('/lançamentos')} />
+          <ActionTile color="#6366f1" icon={CardIcon} label="Cartões" onClick={() => navigate('/cartões')} />
           <ActionTile color="#8b5cf6" icon={Target} label="Metas" onClick={() => navigate('/metas')} />
         </div>
       </div>
@@ -379,7 +379,7 @@ export default function Dashboard() {
               <div className="bg-sky-500 transition-all" style={{ width: `${overview.essPct}%` }} title="Essenciais" />
               <div className="bg-violet-500 transition-all" style={{ width: `${100 - overview.essPct}%` }} title="Variaveis" />
             </div>
-            <p className="text-xs text-muted mt-2">{overview.essPct}% dos gastos sao essenciais. {overview.essPct > 70 ? 'Pouca margem para cortes.' : 'Boa margem para otimizar variaveis.'}</p>
+            <p className="text-xs text-muted mt-2">{overview.essPct}% dos gastos são essenciais. {overview.essPct > 70 ? 'Pouca margem para cortes.' : 'Boa margem para otimizar variaveis.'}</p>
             <div className="mt-4 space-y-2">
               {byCategory.slice(0, 5).map((c, i) => { const pct = cur.exp > 0 ? Math.round((c.value / cur.exp) * 100) : 0; return (
                 <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2 truncate"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color || colorAt(i) }} />{c.name}</span><span className="text-muted">{pct}% · {val(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color || colorAt(i) }} /></div></div>
@@ -408,8 +408,8 @@ export default function Dashboard() {
       {/* Recentes + A vencer */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Lancamentos recentes</h3><button onClick={() => navigate('/lancamentos')} className="text-sm text-emerald-600 font-semibold hover:underline flex items-center gap-1">Ver todos <ArrowRight className="w-3.5 h-3.5" /></button></div>
-          {recent.length === 0 ? <div className="py-10 text-center text-sm text-muted">Nenhum lancamento em {monthLabel(mk)}. <button onClick={() => navigate('/lancamentos')} className="text-emerald-600 font-semibold">Adicionar</button></div>
+          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Lançamentos recentes</h3><button onClick={() => navigate('/lançamentos')} className="text-sm text-emerald-600 font-semibold hover:underline flex items-center gap-1">Ver todos <ArrowRight className="w-3.5 h-3.5" /></button></div>
+          {recent.length === 0 ? <div className="py-10 text-center text-sm text-muted">Nenhum lançamento em {monthLabel(mk)}. <button onClick={() => navigate('/lançamentos')} className="text-emerald-600 font-semibold">Adicionar</button></div>
             : <div className="divide-y divide-[hsl(var(--border))]">{recent.map((t) => {
               const cat = catMap[t.category_id];
               const isCard = t._src === 'card';
@@ -425,7 +425,7 @@ export default function Dashboard() {
                 <div key={`${t._src}-${t.id}`} className="flex items-center gap-3 py-2.5">
                   <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: bg }}>{isCard ? <CardIcon className="w-4 h-4" /> : isCredit ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate flex items-center gap-1.5">{t.description || cat?.name || 'Lancamento'}{isCard && <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300"><CardIcon className="w-3 h-3" /> Cartao</span>}</p>
+                    <p className="font-medium truncate flex items-center gap-1.5">{t.description || cat?.name || 'Lançamento'}{isCard && <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300"><CardIcon className="w-3 h-3" /> Cartão</span>}</p>
                     <p className="text-xs text-muted truncate">{dateStr}{timeStr ? ` ${timeStr}` : ''} · {cat?.name || 'Sem categoria'}{statusLabel ? ` · ${statusLabel}` : ''}</p>
                   </div>
                   <p className={`font-semibold shrink-0 ${isCredit ? 'text-emerald-500' : 'text-rose-500'} ${pend ? 'opacity-60' : ''}`}>{isCredit ? '+' : '-'}{val(amt)}</p>
@@ -435,7 +435,7 @@ export default function Dashboard() {
 
         <Card>
           <h3 className="font-semibold flex items-center gap-2 mb-3"><CalendarClock className="w-4 h-4 text-sky-500" /> A vencer</h3>
-          {upcoming.length === 0 ? <div className="py-8 text-center text-sm text-muted">Nada a vencer este mes.</div>
+          {upcoming.length === 0 ? <div className="py-8 text-center text-sm text-muted">Nada a vencer este mês.</div>
             : <div className="space-y-2">{upcoming.map((u, i) => (
               <div key={i} className="flex items-center gap-2 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5">
                 <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: u.kind === 'inv' ? '#6366f11f' : '#0ea5e91f' }}>{u.kind === 'inv' ? <CardIcon className="w-4 h-4 text-indigo-500" /> : <CalendarClock className="w-4 h-4 text-sky-500" />}</span>

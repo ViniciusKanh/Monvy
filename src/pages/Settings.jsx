@@ -52,8 +52,8 @@ export default function Settings() {
       const c = await r.json();
       const addr = [c.street, c.neighborhood, c.city && `${c.city}/${c.state}`].filter(Boolean).join(', ');
       setProfile((p) => ({ ...p, address: addr || p.address }));
-      toast.success('Endereco preenchido pelo CEP');
-    } catch { toast.error('CEP nao encontrado'); } finally { setCepBusy(false); }
+      toast.success('Endereço preenchido pelo CEP');
+    } catch { toast.error('CEP não encontrado'); } finally { setCepBusy(false); }
   };
   useEffect(() => { if (settings) setForm((f) => ({ ...f, ...settings, gemini_api_key: settings.gemini_api_key || '' })); }, [settings]);
 
@@ -73,7 +73,7 @@ export default function Settings() {
   };
   const importData = async (e) => {
     const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
-    if (!window.confirm('Importar vai CRIAR novos registros a partir do arquivo (nao substitui os atuais). Continuar?')) return;
+    if (!window.confirm('Importar vai CRIAR novos registros a partir do arquivo (não substitui os atuais). Continuar?')) return;
     setBackupBusy(true);
     try {
       const d = JSON.parse(await file.text());
@@ -98,7 +98,7 @@ export default function Settings() {
   });
   const submitPw = () => {
     if (pw.next.length < 8) return toast.error('A nova senha deve ter ao menos 8 caracteres');
-    if (pw.next !== pw.confirm) return toast.error('As senhas nao conferem');
+    if (pw.next !== pw.confirm) return toast.error('As senhas não conferem');
     changePw.mutate();
   };
 
@@ -117,7 +117,7 @@ export default function Settings() {
     if (twofa.code.length < 6) return toast.error('Digite o codigo de 6 digitos');
     setTwofa((t) => ({ ...t, busy: true }));
     try { await Auth.enable2fa(twofa.code); await refreshUser(); toast.success('Verificacao em duas etapas ativada'); resetTwofa(); }
-    catch (e) { toast.error(e.message === '2FA_INVALID' ? 'Codigo invalido' : (e.message || 'Falha ao ativar')); setTwofa((t) => ({ ...t, busy: false })); }
+    catch (e) { toast.error(e.message === '2FA_INVALID' ? 'Código invalido' : (e.message || 'Falha ao ativar')); setTwofa((t) => ({ ...t, busy: false })); }
   };
   const disableTwofa = async () => {
     const pass = window.prompt('Confirme sua senha para desativar a verificacao em duas etapas:');
@@ -130,21 +130,21 @@ export default function Settings() {
   const [mailForm, setMailForm] = useState({ from: '', password: '', enabled: false, notifyNewUser: true, notifyPassword: true, notifyAlerts: true });
   const [testTo, setTestTo] = useState('');
   useEffect(() => { if (mail) setMailForm((f) => ({ ...f, from: mail.from || '', enabled: !!mail.enabled, notifyNewUser: !!mail.notifyNewUser, notifyPassword: !!mail.notifyPassword, notifyAlerts: !!mail.notifyAlerts, password: '' })); }, [mail]);
-  const saveMail = useMutation({ mutationFn: () => Admin.saveMail(mailForm), onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminmail'] }); toast.success('Configuracao de e-mail salva'); setMailForm((f) => ({ ...f, password: '' })); } });
+  const saveMail = useMutation({ mutationFn: () => Admin.saveMail(mailForm), onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminmail'] }); toast.success('Configuração de e-mail salva'); setMailForm((f) => ({ ...f, password: '' })); } });
   const testMail = useMutation({ mutationFn: () => Admin.testMail(testTo || user?.email), onSuccess: (r) => toast.success('E-mail de teste enviado para ' + (r.to || user?.email)) });
 
   const onPhoto = async (e) => {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
     try { const dataUrl = await resizeImage(file); setProfile((p) => ({ ...p, photo_url: dataUrl })); toast.info('Foto pronta — clique em Salvar perfil'); }
-    catch { toast.error('Nao foi possivel processar a imagem'); }
+    catch { toast.error('Nao foi possível processar a imagem'); }
   };
   const setP = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title="Configuracoes" subtitle="Perfil, aparencia e integracoes" />
+      <PageHeader title="Configurações" subtitle="Perfil, aparencia e integracoes" />
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Perfil editavel */}
@@ -170,8 +170,8 @@ export default function Settings() {
               <Field label="Profissao"><Input value={profile.profession} onChange={(e) => setP('profession', e.target.value)} placeholder="Ex: Cientista de Dados" /></Field>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <Field label="CEP" hint={cepBusy ? 'buscando...' : 'preenche o endereco'}><Input value={profile.cep} onChange={(e) => onCep(e.target.value)} placeholder="00000-000" inputMode="numeric" /></Field>
-              <div className="col-span-2"><Field label="Endereco"><Input value={profile.address} onChange={(e) => setP('address', e.target.value)} placeholder="Rua, bairro, cidade/UF" /></Field></div>
+              <Field label="CEP" hint={cepBusy ? 'buscando...' : 'preenche o endereço'}><Input value={profile.cep} onChange={(e) => onCep(e.target.value)} placeholder="00000-000" inputMode="numeric" /></Field>
+              <div className="col-span-2"><Field label="Endereço"><Input value={profile.address} onChange={(e) => setP('address', e.target.value)} placeholder="Rua, bairro, cidade/UF" /></Field></div>
             </div>
             <Button onClick={() => saveProfile.mutate(profile)} disabled={saveProfile.isPending} className="w-full">{saveProfile.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar perfil'}</Button>
           </div>
@@ -202,13 +202,13 @@ export default function Settings() {
         {/* Backup & Dados */}
         <Card className="hover-lift">
           <h3 className="font-semibold mb-1 flex items-center gap-2"><Download className="w-4 h-4 text-sky-500" /> Backup & Dados</h3>
-          <p className="text-xs text-muted mb-3">Exporte todos os seus dados (contas, lancamentos, cartoes, metas, investimentos, dividas...) em um arquivo, ou importe de um backup.</p>
+          <p className="text-xs text-muted mb-3">Exporte todos os seus dados (contas, lançamentos, cartões, metas, investimentos, dividas...) em um arquivo, ou importe de um backup.</p>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={exportData} disabled={backupBusy} className="flex-1">{backupBusy ? <Spinner className="w-4 h-4" /> : <><Download className="w-4 h-4" /> Exportar dados</>}</Button>
             <input ref={backupRef} type="file" accept="application/json" className="hidden" onChange={importData} />
             <Button variant="outline" onClick={() => backupRef.current?.click()} disabled={backupBusy} className="flex-1"><Upload className="w-4 h-4" /> Importar backup</Button>
           </div>
-          <p className="text-[11px] text-muted mt-2">A importacao cria novos registros (nao substitui). Ideal para portabilidade e para guardar uma copia dos seus dados.</p>
+          <p className="text-[11px] text-muted mt-2">A importacao cria novos registros (não substitui). Ideal para portabilidade e para guardar uma copia dos seus dados.</p>
         </Card>
 
         {/* Preferencias */}
@@ -216,9 +216,9 @@ export default function Settings() {
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Bell className="w-4 h-4 text-amber-500" /> Preferencias</h3>
           <div className="space-y-3">
             <Field label="Moeda"><Select value={form.currency} onChange={(e) => set('currency', e.target.value)}><option value="BRL">Real (R$)</option><option value="USD">Dolar (US$)</option><option value="EUR">Euro (€)</option></Select></Field>
-            <Field label="Modo de visualizacao"><Select value={form.default_view_mode} onChange={(e) => set('default_view_mode', e.target.value)}><option value="cash">Caixa (so pagos)</option><option value="accrual">Competencia (todos)</option></Select></Field>
-            <label className="flex items-center justify-between text-sm py-1"><span>Notificacoes</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={!!form.notifications_enabled} onChange={(e) => set('notifications_enabled', e.target.checked)} /></label>
-            <label className="flex items-center justify-between text-sm py-1"><span>Categorizacao automatica (IA)</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={!!form.auto_categorize} onChange={(e) => set('auto_categorize', e.target.checked)} /></label>
+            <Field label="Modo de visualizacao"><Select value={form.default_view_mode} onChange={(e) => set('default_view_mode', e.target.value)}><option value="cash">Caixa (só pagos)</option><option value="accrual">Competencia (todos)</option></Select></Field>
+            <label className="flex items-center justify-between text-sm py-1"><span>Notificações</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={!!form.notifications_enabled} onChange={(e) => set('notifications_enabled', e.target.checked)} /></label>
+            <label className="flex items-center justify-between text-sm py-1"><span>Categorizacao automática (IA)</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={!!form.auto_categorize} onChange={(e) => set('auto_categorize', e.target.checked)} /></label>
           </div>
         </Card>
 
@@ -245,7 +245,7 @@ export default function Settings() {
           {user?.totp_enabled ? (
             <div className="space-y-3">
               <Badge color="emerald"><ShieldCheck className="w-3 h-3" /> Ativada</Badge>
-              {user?.require_2fa && <p className="text-xs text-muted">O administrador definiu esta protecao como obrigatoria para sua conta.</p>}
+              {user?.require_2fa && <p className="text-xs text-muted">O administrador definiu esta protecao como obrigatória para sua conta.</p>}
               <Button variant="outline" onClick={disableTwofa} disabled={user?.require_2fa} className="w-full">Desativar</Button>
             </div>
           ) : !twofa.open ? (
@@ -272,9 +272,9 @@ export default function Settings() {
         {isAdmin && (
           <Card className="hover-lift">
             <h3 className="font-semibold flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-violet-500" /> Leitura de faturas (IA)</h3>
-            <p className="text-xs text-muted mb-3">Chave da API do Google Gemini para ler e categorizar faturas de cartao em PDF automaticamente. A camada gratuita costuma bastar. Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold inline-flex items-center gap-0.5">aistudio.google.com/apikey <ExternalLink className="w-3 h-3" /></a>.</p>
+            <p className="text-xs text-muted mb-3">Chave da API do Google Gemini para ler e categorizar faturas de cartão em PDF automaticamente. A camada gratuita costuma bastar. Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold inline-flex items-center gap-0.5">aistudio.google.com/apikey <ExternalLink className="w-3 h-3" /></a>.</p>
             <div className="space-y-3">
-              <Field label="Chave da API Gemini" hint={settings?.gemini_api_key_configured ? 'Configurada — preencha so para alterar' : 'Sem chave, a leitura usa o metodo local'}>
+              <Field label="Chave da API Gemini" hint={settings?.gemini_api_key_configured ? 'Configurada — preencha só para alterar' : 'Sem chave, a leitura usa o método local'}>
                 <div className="relative">
                   <Input type={showKey ? 'text' : 'password'} value={form.gemini_api_key} onChange={(e) => set('gemini_api_key', e.target.value)} placeholder="AIza..." className="pr-10" />
                   <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
@@ -291,14 +291,14 @@ export default function Settings() {
             <h3 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-4 h-4 text-emerald-500" /> Envio de E-mail (Gmail)</h3>
             <p className="text-xs text-muted mb-3">Use um Gmail + <b>senha de app</b> para o Monvy enviar e-mails (cadastro, troca de senha, alertas).</p>
             <div className="space-y-3">
-              <Field label="E-mail remetente"><Input type="email" value={mailForm.from} onChange={(e) => setMailForm((f) => ({ ...f, from: e.target.value }))} placeholder="voce@gmail.com" /></Field>
-              <Field label="Senha de app do Gmail" hint={mail?.has_password ? 'Ja configurada — preencha so para alterar' : 'Gere em myaccount.google.com/apppasswords'}>
+              <Field label="E-mail remetente"><Input type="email" value={mailForm.from} onChange={(e) => setMailForm((f) => ({ ...f, from: e.target.value }))} placeholder="você@gmail.com" /></Field>
+              <Field label="Senha de app do Gmail" hint={mail?.has_password ? 'Ja configurada — preencha só para alterar' : 'Gere em myaccount.google.com/apppasswords'}>
                 <Input type="password" value={mailForm.password} onChange={(e) => setMailForm((f) => ({ ...f, password: e.target.value }))} placeholder={mail?.has_password ? '•••••••• (salva)' : 'xxxx xxxx xxxx xxxx'} />
               </Field>
               <label className="flex items-center justify-between text-sm"><span>Ativar envio de e-mails</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.enabled} onChange={(e) => setMailForm((f) => ({ ...f, enabled: e.target.checked }))} /></label>
               <div className="border-t border-[hsl(var(--border))] pt-2 space-y-2">
                 <p className="text-xs font-semibold text-muted">NOTIFICAR QUANDO:</p>
-                <label className="flex items-center justify-between text-sm"><span>Novo usuario se cadastra</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyNewUser} onChange={(e) => setMailForm((f) => ({ ...f, notifyNewUser: e.target.checked }))} /></label>
+                <label className="flex items-center justify-between text-sm"><span>Novo usuário se cadastra</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyNewUser} onChange={(e) => setMailForm((f) => ({ ...f, notifyNewUser: e.target.checked }))} /></label>
                 <label className="flex items-center justify-between text-sm"><span>Senha e alterada</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyPassword} onChange={(e) => setMailForm((f) => ({ ...f, notifyPassword: e.target.checked }))} /></label>
                 <label className="flex items-center justify-between text-sm"><span>Alertas do aplicativo</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyAlerts} onChange={(e) => setMailForm((f) => ({ ...f, notifyAlerts: e.target.checked }))} /></label>
               </div>
@@ -306,7 +306,7 @@ export default function Settings() {
                 <Button onClick={() => saveMail.mutate()} disabled={saveMail.isPending} className="flex-1">{saveMail.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button>
                 <Button variant="outline" onClick={() => testMail.mutate()} disabled={testMail.isPending}>{testMail.isPending ? <Spinner className="w-4 h-4" /> : <><Send className="w-4 h-4" /> Testar</>}</Button>
               </div>
-              <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={`Enviar teste para (padrao: ${user?.email})`} />
+              <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={`Enviar teste para (padrão: ${user?.email})`} />
             </div>
           </Card>
         )}

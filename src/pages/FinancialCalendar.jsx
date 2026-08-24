@@ -37,7 +37,7 @@ export default function FinancialCalendar() {
       else if (t.type === 'expense') push(t.date.slice(0, 10), { kind: 'expense', label: t.description || catMap[t.category_id]?.name || 'Despesa', amount: t.amount });
     }
     for (const inv of invoices) {
-      const cname = cardMap[inv.card_id]?.name || 'Cartao';
+      const cname = cardMap[inv.card_id]?.name || 'Cartão';
       if (inv.due_date && inv.due_date.slice(0, 7) === mk) push(inv.due_date.slice(0, 10), { kind: 'due', label: `Venc. ${cname}`, amount: inv.total_amount });
       if (inv.closing_date && inv.closing_date.slice(0, 7) === mk) push(inv.closing_date.slice(0, 10), { kind: 'closing', label: `Fech. ${cname}`, amount: inv.total_amount });
     }
@@ -67,7 +67,7 @@ export default function FinancialCalendar() {
 
   const selEvents = eventsByDay[sel] || [];
 
-  // proximos 14 dias
+  // próximos 14 dias
   const today = new Date(); const in14 = new Date(); in14.setDate(today.getDate() + 14);
   const upcoming = [];
   Object.entries(eventsByDay).forEach(([date, evs]) => { const dd = new Date(date + 'T00:00'); if (dd >= new Date(today.toISOString().slice(0,10)) && dd <= in14) evs.forEach((e) => upcoming.push({ date, ...e })); });
@@ -78,7 +78,7 @@ export default function FinancialCalendar() {
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title="Calendario Financeiro" subtitle="Vencimentos, faturas e lancamentos por data" />
+      <PageHeader title="Calendário Financeiro" subtitle="Vencimentos, faturas e lançamentos por data" />
 
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 hover-lift">
@@ -93,7 +93,7 @@ export default function FinancialCalendar() {
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="rounded-xl p-2.5 bg-emerald-50 dark:bg-emerald-500/10"><p className="text-[11px] text-muted">Entradas</p><p className="font-bold text-emerald-600 dark:text-emerald-300 text-sm">{formatCurrency(monthInsights.inc)}</p></div>
             <div className="rounded-xl p-2.5 bg-rose-50 dark:bg-rose-500/10"><p className="text-[11px] text-muted">Saidas</p><p className="font-bold text-rose-600 dark:text-rose-300 text-sm">{formatCurrency(monthInsights.exp)}</p></div>
-            <div className="rounded-xl p-2.5 bg-indigo-50 dark:bg-indigo-500/10"><p className="text-[11px] text-muted">Saldo do mes</p><p className="font-bold text-indigo-600 dark:text-indigo-300 text-sm">{formatCurrency(monthInsights.net)}</p></div>
+            <div className="rounded-xl p-2.5 bg-indigo-50 dark:bg-indigo-500/10"><p className="text-[11px] text-muted">Saldo do mês</p><p className="font-bold text-indigo-600 dark:text-indigo-300 text-sm">{formatCurrency(monthInsights.net)}</p></div>
           </div>
           <div className="grid grid-cols-7 text-center text-xs text-muted mb-2">{WD.map((d) => <div key={d}>{d}</div>)}</div>
           <div className="grid grid-cols-7 gap-1">
@@ -130,7 +130,7 @@ export default function FinancialCalendar() {
 
           <div className="mt-4 border-t border-[hsl(var(--border))] pt-4">
             <p className="text-sm font-semibold mb-2">{new Date(sel + 'T00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })} — {selEvents.length} evento(s)</p>
-            {holidayMap.get(sel) && <div className="mb-2 flex items-center gap-2 text-xs p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"><CalendarClock className="w-3.5 h-3.5" /> Feriado: {holidayMap.get(sel)} — pagamentos podem ser compensados no proximo dia util.</div>}
+            {holidayMap.get(sel) && <div className="mb-2 flex items-center gap-2 text-xs p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"><CalendarClock className="w-3.5 h-3.5" /> Feriado: {holidayMap.get(sel)} — pagamentos podem ser compensados no próximo dia útil.</div>}
             {selEvents.length === 0 ? <p className="text-sm text-muted py-3 text-center">Sem eventos neste dia.</p>
               : <div className="space-y-2">{selEvents.map((e, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: `${TYPE_DOT[e.kind]}14` }}>
@@ -144,8 +144,8 @@ export default function FinancialCalendar() {
 
         <div className="space-y-4">
           <Card className="hover-lift">
-            <h3 className="font-semibold flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-amber-500" /> Proximos 14 dias</h3>
-            {upcoming.length === 0 ? <div className="flex flex-col items-center py-6 text-muted"><CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" /><p className="text-sm">Nenhum vencimento proximo</p></div>
+            <h3 className="font-semibold flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-amber-500" /> Próximos 14 dias</h3>
+            {upcoming.length === 0 ? <div className="flex flex-col items-center py-6 text-muted"><CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" /><p className="text-sm">Nenhum vencimento próximo</p></div>
               : <div className="space-y-2">{upcoming.slice(0, 8).map((e, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
                     <span className="w-2 h-2 rounded-full" style={{ background: TYPE_DOT[e.kind] }} />
@@ -158,7 +158,7 @@ export default function FinancialCalendar() {
             <h3 className="font-semibold mb-2">Faturas em aberto</h3>
             {openInvoices.length === 0 ? <p className="text-sm text-muted">Sem faturas em aberto</p>
               : openInvoices.map((inv) => (
-                <div key={inv.id} className="flex justify-between text-sm py-1"><span>{cardMap[inv.card_id]?.name || 'Cartao'} · {inv.competence_month}</span><Badge color={inv.status === 'overdue' ? 'rose' : 'amber'}>{formatCurrency(inv.total_amount)}</Badge></div>
+                <div key={inv.id} className="flex justify-between text-sm py-1"><span>{cardMap[inv.card_id]?.name || 'Cartão'} · {inv.competence_month}</span><Badge color={inv.status === 'overdue' ? 'rose' : 'amber'}>{formatCurrency(inv.total_amount)}</Badge></div>
               ))}
           </Card>
         </div>

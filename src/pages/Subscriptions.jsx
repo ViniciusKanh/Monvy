@@ -48,7 +48,7 @@ export default function Subscriptions() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <PageHeader title="Assinaturas" subtitle="Controle seus servicos recorrentes"
+      <PageHeader title="Assinaturas" subtitle="Controle seus serviços recorrentes"
         actions={<Button onClick={() => openNew()}><Plus className="w-4 h-4" /> Nova assinatura</Button>} />
 
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10" style={{ background: 'linear-gradient(135deg,#3b0764,#0d1433 60%,#111b3f)' }}>
@@ -58,7 +58,7 @@ export default function Subscriptions() {
           <div>
             <p className="text-[11px] tracking-[0.25em] text-violet-300/80">GASTO MENSAL COM ASSINATURAS</p>
             <p className="font-display text-3xl sm:text-4xl font-extrabold mt-1"><AnimatedValue value={totals.monthly} format={formatCurrency} /></p>
-            <p className="text-xs text-slate-400 mt-1">Projecao anual: <b className="text-slate-200">{formatCurrency(totals.annual)}</b></p>
+            <p className="text-xs text-slate-400 mt-1">Projeção anual: <b className="text-slate-200">{formatCurrency(totals.annual)}</b></p>
           </div>
           <div className="flex gap-3">
             <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center min-w-[80px]"><p className="text-[11px] text-slate-400">Ativas</p><p className="font-display text-2xl font-bold">{totals.count}</p></div>
@@ -69,7 +69,7 @@ export default function Subscriptions() {
 
       {totals.lowUse > 0 && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 text-sm">
-          <AlertTriangle className="w-4 h-4" /> Voce tem {totals.lowUse} assinatura(s) pouco usada(s). Considere cancelar para economizar.
+          <AlertTriangle className="w-4 h-4" /> Você tem {totals.lowUse} assinatura(s) pouco usada(s). Considere cancelar para economizar.
         </div>
       )}
 
@@ -79,7 +79,7 @@ export default function Subscriptions() {
           <div className="space-y-2">
             {suggestions.map((sug, i) => (
               <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
-                <div className="flex-1 min-w-0"><p className="font-medium truncate">{sug.name}</p><p className="text-xs text-muted">{formatCurrency(sug.amount)}/mes · aparece em {sug.months} meses</p></div>
+                <div className="flex-1 min-w-0"><p className="font-medium truncate">{sug.name}</p><p className="text-xs text-muted">{formatCurrency(sug.amount)}/mês · aparece em {sug.months} meses</p></div>
                 <Button size="sm" variant="outline" onClick={() => openNew({ name: sug.name, emoji: '🔁', color: '#10b981', amount: sug.amount, renewal_day: sug.renewal_day })}><Plus className="w-4 h-4" /> Adicionar</Button>
               </div>
             ))}
@@ -99,7 +99,7 @@ export default function Subscriptions() {
       </Card>
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : subs.length === 0 ? <Card><EmptyState icon={RefreshCw} title="Nenhuma assinatura" subtitle="Adicione seus servicos recorrentes." action={<Button onClick={() => openNew()}><Plus className="w-4 h-4" /> Nova assinatura</Button>} /></Card>
+        : subs.length === 0 ? <Card><EmptyState icon={RefreshCw} title="Nenhuma assinatura" subtitle="Adicione seus serviços recorrentes." action={<Button onClick={() => openNew()}><Plus className="w-4 h-4" /> Nova assinatura</Button>} /></Card>
         : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {subs.map((s, i) => (
@@ -115,7 +115,7 @@ export default function Subscriptions() {
                   </div>
                 </div>
                 <div className="flex items-end justify-between mt-4">
-                  <div><p className="font-display text-2xl font-bold" style={{ color: s.color }}>{formatCurrency(s.amount)}</p><p className="text-xs text-muted">por mes</p></div>
+                  <div><p className="font-display text-2xl font-bold" style={{ color: s.color }}>{formatCurrency(s.amount)}</p><p className="text-xs text-muted">por mês</p></div>
                   <div className="text-right">
                     <Badge color={FREQ_COLOR[s.usage_frequency] || 'slate'}>{(FREQ.find((f) => f[0] === s.usage_frequency) || [])[1]}</Badge>
                     <p className="text-xs text-muted mt-1 flex items-center gap-1 justify-end"><CalendarClock className="w-3 h-3" /> dia {s.renewal_day}</p>

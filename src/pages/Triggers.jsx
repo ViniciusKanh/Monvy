@@ -8,19 +8,19 @@ import { toast } from '../lib/toast.js';
 import { formatCurrency } from '../lib/utils.js';
 import { Zap, Plus, Pencil, Trash2, Clock, Filter, Play, Mail, X, GitBranch } from 'lucide-react';
 
-// Metricas avaliadas no cron (mantidas em sincronia com api/cron/reminders.js)
+// Métricas avaliadas no cron (mantidas em sincronia com api/cron/reminders.js)
 const METRICS = [
   { k: 'total_balance', label: 'Saldo total das contas', unit: 'R$' },
-  { k: 'month_balance', label: 'Saldo do mes (receita - despesa)', unit: 'R$' },
-  { k: 'month_income', label: 'Receita do mes', unit: 'R$' },
-  { k: 'month_expense', label: 'Despesa do mes (inclui cartao)', unit: 'R$' },
-  { k: 'savings_rate', label: 'Taxa de poupanca do mes', unit: '%' },
+  { k: 'month_balance', label: 'Saldo do mês (receita - despesa)', unit: 'R$' },
+  { k: 'month_income', label: 'Receita do mês', unit: 'R$' },
+  { k: 'month_expense', label: 'Despesa do mês (inclui cartao)', unit: 'R$' },
+  { k: 'savings_rate', label: 'Taxa de poupança do mês', unit: '%' },
   { k: 'category_spend', label: 'Gasto em uma categoria (mes)', unit: 'R$', needsCategory: true },
-  { k: 'pending_count', label: 'Lancamentos vencidos nao pagos', unit: 'un' },
+  { k: 'pending_count', label: 'Lançamentos vencidos não pagos', unit: 'un' },
   { k: 'net_worth', label: 'Patrimonio liquido (contas + invest. - dividas)', unit: 'R$' },
-  { k: 'debt_monthly', label: 'Parcelas de dividas por mes', unit: 'R$' },
+  { k: 'debt_monthly', label: 'Parcelas de dividas por mês', unit: 'R$' },
   { k: 'goals_saved', label: 'Guardado em metas/cofres', unit: 'R$' },
-  { k: 'card_invoice_total', label: 'Faturas de cartao em aberto', unit: 'R$' },
+  { k: 'card_invoice_total', label: 'Faturas de cartão em aberto', unit: 'R$' },
   { k: 'investments_total', label: 'Total investido', unit: 'R$' },
   { k: 'open_tickets', label: 'Chamados em aberto', unit: 'un' },
 ];
@@ -29,21 +29,21 @@ const OPS = [{ k: 'lt', label: 'menor que' }, { k: 'lte', label: 'menor ou igual
 const opLabel = (k) => (OPS.find((o) => o.k === k) || OPS[0]).label;
 const ACTIONS = [
   { k: 'email_alert', label: 'Enviar alerta por e-mail', desc: 'Manda um e-mail com sua mensagem e os valores avaliados.' },
-  { k: 'notify', label: 'Notificar dentro do app', desc: 'Cria uma notificacao no sino e na tela de Notificacoes (sem e-mail).' },
-  { k: 'open_ticket', label: 'Abrir um chamado', desc: 'Cria um chamado (ticket) pra voce resolver, na categoria escolhida.' },
-  { k: 'email_summary', label: 'Enviar resumo financeiro', desc: 'Panorama completo: saldo, receitas, despesas e poupanca.' },
-  { k: 'email_bills', label: 'Enviar vencimentos proximos', desc: 'Lista as contas e faturas a vencer nos proximos dias.' },
+  { k: 'notify', label: 'Notificar dentro do app', desc: 'Cria uma notificacao no sino e na tela de Notificações (sem e-mail).' },
+  { k: 'open_ticket', label: 'Abrir um chamado', desc: 'Cria um chamado (ticket) pra você resolver, na categoria escolhida.' },
+  { k: 'email_summary', label: 'Enviar resumo financeiro', desc: 'Panorama completo: saldo, receitas, despesas e poupança.' },
+  { k: 'email_bills', label: 'Enviar vencimentos próximos', desc: 'Lista as contas e faturas a vencer nos próximos dias.' },
 ];
 const actLabel = (k) => (ACTIONS.find((a) => a.k === k) || ACTIONS[0]).label;
-const FREQ = [['daily', 'Todo dia'], ['weekly', 'Toda semana'], ['monthly', 'Todo mes']];
+const FREQ = [['daily', 'Todo dia'], ['weekly', 'Toda semana'], ['monthly', 'Todo mês']];
 const freqLabel = (f) => (FREQ.find((x) => x[0] === f) || FREQ[0])[1];
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
 const TEMPLATES = [
   { label: 'Saldo baixo', config: { match: 'all', conditions: [{ metric: 'total_balance', op: 'lt', value: 500 }], action: 'email_alert', subject: 'Saldo baixo', message: 'Seu saldo total nas contas ficou baixo. Vale segurar os gastos.' }, frequency: 'daily' },
-  { label: 'Poupanca abaixo da meta', config: { match: 'all', conditions: [{ metric: 'savings_rate', op: 'lt', value: 10 }], action: 'email_alert', subject: 'Poupanca abaixo da meta', message: 'Sua taxa de poupanca do mes ficou abaixo da meta.' }, frequency: 'weekly' },
-  { label: 'Mes no vermelho', config: { match: 'all', conditions: [{ metric: 'month_balance', op: 'lt', value: 0 }], action: 'email_alert', subject: 'Mes no vermelho', message: 'Voce esta gastando mais do que ganhou neste mes.' }, frequency: 'weekly' },
-  { label: 'Gasto alto numa categoria', config: { match: 'all', conditions: [{ metric: 'category_spend', op: 'gt', value: 500, categoryId: '' }], action: 'email_alert', subject: 'Gasto alto em uma categoria', message: 'Uma categoria passou do valor que voce definiu.' }, frequency: 'weekly' },
+  { label: 'Poupança abaixo da meta', config: { match: 'all', conditions: [{ metric: 'savings_rate', op: 'lt', value: 10 }], action: 'email_alert', subject: 'Poupança abaixo da meta', message: 'Sua taxa de poupança do mês ficou abaixo da meta.' }, frequency: 'weekly' },
+  { label: 'Mês no vermelho', config: { match: 'all', conditions: [{ metric: 'month_balance', op: 'lt', value: 0 }], action: 'email_alert', subject: 'Mês no vermelho', message: 'Você esta gastando mais do que ganhou neste mês.' }, frequency: 'weekly' },
+  { label: 'Gasto alto numa categoria', config: { match: 'all', conditions: [{ metric: 'category_spend', op: 'gt', value: 500, categoryId: '' }], action: 'email_alert', subject: 'Gasto alto em uma categoria', message: 'Uma categoria passou do valor que você definiu.' }, frequency: 'weekly' },
   { label: 'Resumo diario', config: { match: 'all', conditions: [], action: 'email_summary', subject: '', message: '' }, frequency: 'daily' },
   { label: 'Vencimentos da semana', config: { match: 'all', conditions: [], action: 'email_bills', subject: '', message: '' }, frequency: 'weekly' },
 ];
@@ -80,7 +80,7 @@ export default function Triggers() {
   const [form, setForm] = useState(emptyForm());
 
   const inval = () => qc.invalidateQueries({ queryKey: ['triggers'] });
-  const save = useMutation({ mutationFn: (p) => editing ? Trigger.update(editing.id, p) : Trigger.create(p), onSuccess: () => { inval(); setModal(false); toast.success('Automacao salva'); }, onError: (e) => toast.error(e.message || 'Falha') });
+  const save = useMutation({ mutationFn: (p) => editing ? Trigger.update(editing.id, p) : Trigger.create(p), onSuccess: () => { inval(); setModal(false); toast.success('Automação salva'); }, onError: (e) => toast.error(e.message || 'Falha') });
   const del = useMutation({ mutationFn: (id) => Trigger.remove(id), onSuccess: inval });
   const toggle = useMutation({ mutationFn: ({ id, enabled }) => Trigger.update(id, { enabled }), onSuccess: inval });
 
@@ -101,7 +101,7 @@ export default function Triggers() {
     const cfg = form.config;
     if (!cfg.actions.length) return toast.error('Adicione ao menos uma acao');
     const directOnly = cfg.actions.every((a) => a.action === 'email_summary' || a.action === 'email_bills');
-    if (!directOnly && cfg.conditions.length === 0) return toast.error('Adicione ao menos uma condicao ou use apenas acoes de envio direto (resumo/vencimentos)');
+    if (!directOnly && cfg.conditions.length === 0) return toast.error('Adicione ao menos uma condição ou use apenas acoes de envio direto (resumo/vencimentos)');
     save.mutate({ ...form, weekday: Number(form.weekday), type: 'custom' });
   };
 
@@ -110,14 +110,14 @@ export default function Triggers() {
   return (
     <div className="space-y-5 animate-fadeIn">
       <PageHeader
-        title={<span className="flex items-center gap-2"><Zap className="w-6 h-6 text-amber-500" /> Gatilhos & Automacoes</span>}
-        subtitle="Monte regras no estilo QUANDO → SE → ENTAO. Personalize condicoes e acoes."
+        title={<span className="flex items-center gap-2"><Zap className="w-6 h-6 text-amber-500" /> Gatilhos & Automações</span>}
+        subtitle="Monte regras no estilo QUANDO → SE → ENTAO. Personalize condições e acoes."
         actions={<Button onClick={openNew}><Plus className="w-4 h-4" /> Nova automacao</Button>}
       />
 
       <div className="flex items-start gap-2 text-xs p-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
         <Clock className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>As automacoes sao avaliadas uma vez por dia (de manha), na frequencia que voce escolher. Quando as condicoes forem atendidas, a acao (e-mail) e disparada para o seu endereco. E preciso que o envio de e-mail esteja configurado pelo administrador.</span>
+        <span>As automacoes são avaliadas uma vez por dia (de manha), na frequencia que você escolher. Quando as condições forem atendidas, a acao (e-mail) e disparada para o seu endereço. E preciso que o envio de e-mail esteja configurado pelo administrador.</span>
       </div>
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
@@ -164,7 +164,7 @@ export default function Triggers() {
 
           {/* QUANDO */}
           <div className="rounded-xl border border-[hsl(var(--border))] p-3">
-            <div className="flex items-center gap-2 mb-2"><span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 rounded px-1.5 py-0.5">QUANDO</span><span className="text-sm font-medium">Frequencia de avaliacao</span></div>
+            <div className="flex items-center gap-2 mb-2"><span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 rounded px-1.5 py-0.5">QUANDO</span><span className="text-sm font-medium">Frequencia de avaliação</span></div>
             <div className="grid grid-cols-2 gap-2">
               <Select value={form.frequency} onChange={(e) => setF('frequency', e.target.value)}>{FREQ.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>
               {form.frequency === 'weekly' && <Select value={form.weekday} onChange={(e) => setF('weekday', e.target.value)}>{WEEKDAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}</Select>}
@@ -180,7 +180,7 @@ export default function Triggers() {
           {/* SE */}
           <div className="rounded-xl border border-[hsl(var(--border))] p-3">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-              <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 rounded px-1.5 py-0.5">SE</span><span className="text-sm font-medium flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Condicoes</span></div>
+              <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-sky-500 bg-sky-500/10 rounded px-1.5 py-0.5">SE</span><span className="text-sm font-medium flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Condições</span></div>
               {cfg.conditions.length > 1 && (
                 <div className="inline-flex p-0.5 rounded-lg bg-black/5 dark:bg-white/5 text-xs">
                   {[['all', 'Atender TODAS'], ['any', 'QUALQUER uma']].map(([v, l]) => <button key={v} type="button" onClick={() => setC('match', v)} className={`px-2 py-1 rounded-md font-semibold ${cfg.match === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>)}
@@ -188,7 +188,7 @@ export default function Triggers() {
               )}
             </div>
             <div className="space-y-2">
-              {cfg.conditions.length === 0 && <p className="text-xs text-muted">Sem condicoes = dispara sempre na frequencia escolhida (util para o Resumo diario).</p>}
+              {cfg.conditions.length === 0 && <p className="text-xs text-muted">Sem condições = dispara sempre na frequencia escolhida (útil para o Resumo diario).</p>}
               {cfg.conditions.map((c, i) => {
                 const mi = mInfo(c.metric);
                 return (
@@ -208,7 +208,7 @@ export default function Triggers() {
                   </div>
                 );
               })}
-              <Button size="sm" variant="outline" onClick={addCond}><Plus className="w-4 h-4" /> Adicionar condicao</Button>
+              <Button size="sm" variant="outline" onClick={addCond}><Plus className="w-4 h-4" /> Adicionar condição</Button>
             </div>
           </div>
 
@@ -234,8 +234,8 @@ export default function Triggers() {
                           {ticketCats.map((c) => <option key={c} value={c}>{c}</option>)}
                         </Select>
                       )}
-                      <Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Titulo da notificacao' : 'Assunto do e-mail (opcional)'} />
-                      <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Descricao do chamado (a situacao avaliada e incluida)' : 'Mensagem (os valores avaliados sao incluidos)'} />
+                      <Input value={a.subject} onChange={(e) => setAct(i, { subject: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Assunto do chamado' : a.action === 'notify' ? 'Título da notificacao' : 'Assunto do e-mail (opcional)'} />
+                      <Textarea rows={2} value={a.message} onChange={(e) => setAct(i, { message: e.target.value })} placeholder={a.action === 'open_ticket' ? 'Descrição do chamado (a situação avaliada e incluida)' : 'Mensagem (os valores avaliados são incluidos)'} />
                     </div>
                   )}
                 </div>

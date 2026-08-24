@@ -17,7 +17,7 @@ export function useCountUp(target, dur = 750) {
   return v;
 }
 
-// Numero monetario/percentual que "sobe" ao aparecer/mudar
+// Número monetario/percentual que "sobe" ao aparecer/mudar
 export function AnimatedValue({ value, hidden, format, dur }) {
   const v = useCountUp(Number(value) || 0, dur);
   if (hidden) return <>••••</>;

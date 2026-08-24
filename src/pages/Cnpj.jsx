@@ -19,7 +19,7 @@ export default function Cnpj() {
     setState({ loading: true, error: '', data: null });
     try {
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
-      if (r.status === 404) throw new Error('CNPJ nao encontrado na base publica.');
+      if (r.status === 404) throw new Error('CNPJ não encontrado na base publica.');
       if (!r.ok) throw new Error('Falha na consulta. Tente novamente.');
       const data = await r.json();
       setState({ loading: false, error: '', data });
@@ -28,7 +28,7 @@ export default function Cnpj() {
 
   const d = state.data;
   const ativa = d && /ativa/i.test(d.descricao_situacao_cadastral || '');
-  const endereco = d ? [d.logradouro, d.numero, d.bairro, d.municipio && `${d.municipio}/${d.uf}`, d.cep].filter(Boolean).join(', ') : '';
+  const endereço = d ? [d.logradouro, d.numero, d.bairro, d.municipio && `${d.municipio}/${d.uf}`, d.cep].filter(Boolean).join(', ') : '';
 
   return (
     <div className="space-y-5 animate-fadeIn">
@@ -56,7 +56,7 @@ export default function Cnpj() {
                 {d.nome_fantasia && d.razao_social && <p className="text-violet-200 text-sm mt-0.5">{d.razao_social}</p>}
                 <p className="text-violet-200 text-xs mt-1">{maskCnpj(d.cnpj || '')}</p>
               </div>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${ativa ? 'bg-emerald-500/20 text-emerald-100' : 'bg-rose-500/20 text-rose-100'}`}>{ativa ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}{d.descricao_situacao_cadastral || 'Situacao'}</span>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${ativa ? 'bg-emerald-500/20 text-emerald-100' : 'bg-rose-500/20 text-rose-100'}`}>{ativa ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}{d.descricao_situacao_cadastral || 'Situação'}</span>
             </div>
           </div>
         </Reveal>
@@ -69,7 +69,7 @@ export default function Cnpj() {
           <InfoCard icon={Users} color="#f59e0b" label="Porte" value={d.porte || d.descricao_porte} />
           <InfoCard icon={Calendar} color="#10b981" label="Abertura" value={fmtDate(d.data_inicio_atividade)} />
           <InfoCard icon={Coins} color="#8b5cf6" label="Capital social" value={fmtBRL(d.capital_social)} />
-          <InfoCard icon={MapPin} color="#f43f5e" label="Endereco" value={endereco} />
+          <InfoCard icon={MapPin} color="#f43f5e" label="Endereço" value={endereço} />
         </div>
       )}
 

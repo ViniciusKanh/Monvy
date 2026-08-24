@@ -25,8 +25,8 @@ export default function BankImport() {
   const [account, setAccount] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Casamento: para cada linha do extrato, procura um lancamento ja existente na conta selecionada
-  // (mesmo tipo, valor identico, data em ate 3 dias e ainda nao usado).
+  // Casamento: para cada linha do extrato, procura um lançamento já existente na conta selecionada
+  // (mesmo tipo, valor identico, data em até 3 dias e ainda não usado).
   const matched = useMemo(() => {
     if (!account) return rows.map((r) => ({ ...r, matchId: null }));
     const pool = transactions.filter((t) => t.account_id === account && t.type !== 'transfer');
@@ -51,7 +51,7 @@ export default function BankImport() {
     let parsed;
     try { parsed = await parseStatementFile(file); }
     catch { toast.error('Nao consegui ler este arquivo.'); return; }
-    if (!parsed.length) { toast.error('Nenhuma transacao encontrada no arquivo.'); return; }
+    if (!parsed.length) { toast.error('Nenhuma transação encontrada no arquivo.'); return; }
     const mapped = parsed.map((r) => {
       const type = r.amount >= 0 ? 'income' : 'expense';
       const abs = Math.abs(r.amount);
@@ -61,7 +61,7 @@ export default function BankImport() {
     });
     setRows(mapped);
     setAccount((a) => a || accounts[0]?.id || '');
-    toast.success(`${mapped.length} lancamentos lidos. Revise o casamento e importe.`);
+    toast.success(`${mapped.length} lançamentos lidos. Revise o casamento e importe.`);
   };
 
   const news = matched.filter((r) => !r.matchId);
@@ -97,7 +97,7 @@ export default function BankImport() {
     <div className={`flex items-center gap-3 px-4 py-2.5 ${r.include ? '' : 'opacity-40'}`}>
       <input type="checkbox" className="w-4 h-4 accent-emerald-500 shrink-0" checked={r.include} onChange={() => setInclude(r, !r.include)} />
       <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 ${r.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`}>{r.type === 'income' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}</span>
-      <div className="flex-1 min-w-0"><p className="font-medium truncate text-sm">{r.description || 'Lancamento'}</p><p className="text-xs text-muted">{new Date(r.date + 'T00:00').toLocaleDateString('pt-BR')}{isDupe && <span className="text-emerald-500"> · ja existe no sistema</span>}</p></div>
+      <div className="flex-1 min-w-0"><p className="font-medium truncate text-sm">{r.description || 'Lançamento'}</p><p className="text-xs text-muted">{new Date(r.date + 'T00:00').toLocaleDateString('pt-BR')}{isDupe && <span className="text-emerald-500"> · já existe no sistema</span>}</p></div>
       {!isDupe && <Select value={r.category_id} onChange={(e) => setCat(r, e.target.value)} className="w-36 hidden sm:block text-xs"><option value="">Sem categoria</option>{categories.filter((c) => c.type === r.type).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>}
       <span className={`font-semibold text-sm shrink-0 ${r.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>{formatCurrency(r.amount)}</span>
     </div>
@@ -105,7 +105,7 @@ export default function BankImport() {
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title="Importar Extrato" subtitle="Traga um extrato OFX ou CSV, veja o que ja existe e importe so o que falta"
+      <PageHeader title="Importar Extrato" subtitle="Traga um extrato OFX ou CSV, veja o que já existe e importe só o que falta"
         actions={rows.length > 0 && <Button variant="outline" onClick={() => setRows([])}><Trash2 className="w-4 h-4" /> Limpar</Button>} />
 
       {rows.length === 0 ? (
@@ -116,7 +116,7 @@ export default function BankImport() {
             <p className="font-semibold">Selecionar arquivo OFX ou CSV</p>
             <p className="text-sm text-muted">Exporte o extrato no app do seu banco (formato OFX ou CSV)</p>
           </button>
-          <p className="text-xs text-muted mt-3">O sistema casa cada linha com lancamentos que voce ja tem (mesmo valor e data proxima), importa so os que faltam e concilia o resto — sem IA de terceiros.</p>
+          <p className="text-xs text-muted mt-3">O sistema casa cada linha com lançamentos que você já tem (mesmo valor e data próxima), importa só os que faltam e concilia o resto — sem IA de terceiros.</p>
         </Card>
       ) : (
         <>
@@ -135,7 +135,7 @@ export default function BankImport() {
             <Card className="py-3"><p className="text-xs text-muted">Saidas novas</p><p className="font-display text-lg font-bold text-rose-500">{formatCurrency(totalOut)}</p></Card>
           </div>
 
-          {!account && <Card><p className="text-sm text-amber-500">Selecione a conta de destino para o sistema casar com seus lancamentos existentes.</p></Card>}
+          {!account && <Card><p className="text-sm text-amber-500">Selecione a conta de destino para o sistema casar com seus lançamentos existentes.</p></Card>}
 
           {news.length > 0 && (
             <Card className="p-0">

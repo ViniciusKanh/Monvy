@@ -14,7 +14,7 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const clampDay = (y, m, day) => Math.min(day, new Date(y, m + 1, 0).getDate());
 
 const SOURCES = [
-  { key: 'pending', label: 'Lancamentos', icon: Receipt, color: '#0ea5e9' },
+  { key: 'pending', label: 'Lançamentos', icon: Receipt, color: '#0ea5e9' },
   { key: 'fixed', label: 'Fixos/recorrentes', icon: Repeat, color: '#8b5cf6' },
   { key: 'sub', label: 'Assinaturas', icon: RefreshCw, color: '#ec4899' },
   { key: 'invoice', label: 'Faturas', icon: CreditCard, color: '#6366f1' },
@@ -39,11 +39,11 @@ export default function CashFlow() {
   const allEvents = useMemo(() => {
     const ev = [];
     const within = (d) => d > today && d <= end;
-    // meses+descricao que ja possuem um lancamento real (evita duplicar com a projeta­cao do recorrente)
+    // meses+descrição que já possuem um lançamento real (evita duplicar com a projeta­cao do recorrente)
     const explicit = new Set();
     for (const t of transactions) { if (t.type === 'transfer') continue; explicit.add(`${String(t.date).slice(0, 7)}|${(t.description || '').toLowerCase()}`); }
 
-    // 1) lancamentos pendentes (futuros ou vencidos)
+    // 1) lançamentos pendentes (futuros ou vencidos)
     for (const t of transactions) {
       if (t.type === 'transfer') continue;
       if ((t.status || 'pending') === 'completed') continue;
@@ -54,7 +54,7 @@ export default function CashFlow() {
       }
     }
 
-    // 2) recorrentes fixos (salario, aluguel...) projetados mes a mes, pulando meses que ja tem lancamento real
+    // 2) recorrentes fixos (salario, aluguel...) projetados mes a mes, pulando mêses que já tem lançamento real
     for (const t of transactions) {
       if (t.type === 'transfer' || !t.is_fixed) continue;
       const base = new Date(String(t.date).slice(0, 10) + 'T00:00');
@@ -64,7 +64,7 @@ export default function CashFlow() {
         const d = new Date(b.getFullYear(), b.getMonth(), clampDay(b.getFullYear(), b.getMonth(), day));
         if (!within(d)) continue;
         const mk = iso(d).slice(0, 7);
-        if (explicit.has(`${mk}|${(t.description || '').toLowerCase()}`)) continue; // ja existe lancamento real nesse mes
+        if (explicit.has(`${mk}|${(t.description || '').toLowerCase()}`)) continue; // já existe lançamento real nesse mes
         ev.push({ date: iso(d), amount: t.type === 'income' ? Number(t.amount) : -Number(t.amount), label: `${t.description || 'Recorrente'}`, kind: t.type, src: 'fixed' });
       }
     }
@@ -80,11 +80,11 @@ export default function CashFlow() {
       }
     }
 
-    // 4) faturas de cartao
+    // 4) faturas de cartão
     for (const inv of invoices) {
       if (!(inv.status === 'open' || inv.status === 'overdue') || !inv.due_date) continue;
       const d = new Date(String(inv.due_date).slice(0, 10) + 'T00:00');
-      if (within(d)) ev.push({ date: iso(d), amount: -Number(inv.total_amount || 0), label: `Fatura cartao ${inv.competence_month || ''}`, kind: 'invoice', src: 'invoice' });
+      if (within(d)) ev.push({ date: iso(d), amount: -Number(inv.total_amount || 0), label: `Fatura cartão ${inv.competence_month || ''}`, kind: 'invoice', src: 'invoice' });
     }
 
     // 5) parcelas de dividas
@@ -145,9 +145,9 @@ export default function CashFlow() {
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-[11px] tracking-[0.28em] font-medium text-white/80">{healthy ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />} PROJECAO {horizon} DIAS</div>
-            <p className="font-display text-2xl font-extrabold mt-1">{healthy ? 'Fluxo saudavel no periodo' : 'Risco de saldo negativo'}</p>
+            <p className="font-display text-2xl font-extrabold mt-1">{healthy ? 'Fluxo saudavel no período' : 'Risco de saldo negativo'}</p>
             <p className="text-white/85 text-sm mt-1 max-w-lg">{healthy
-              ? `Seu saldo nao fica negativo. Menor ponto: ${formatCurrency(minPoint?.saldo ?? startBalance)} em ${minPoint?.name}.`
+              ? `Seu saldo não fica negativo. Menor ponto: ${formatCurrency(minPoint?.saldo ?? startBalance)} em ${minPoint?.name}.`
               : `O saldo pode zerar em ${firstNeg?.name} e chegar a ${formatCurrency(minPoint?.saldo)}. Antecipe entradas ou adie saidas.`}</p>
           </div>
           <div className="text-right">
@@ -174,7 +174,7 @@ export default function CashFlow() {
       </div>
 
       <Card>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2"><h3 className="font-semibold">Projecao de saldo</h3><Badge color={minPoint?.saldo < 0 ? 'rose' : 'emerald'}>menor: {formatCurrency(minPoint?.saldo ?? startBalance)}</Badge></div>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2"><h3 className="font-semibold">Projeção de saldo</h3><Badge color={minPoint?.saldo < 0 ? 'rose' : 'emerald'}>menor: {formatCurrency(minPoint?.saldo ?? startBalance)}</Badge></div>
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
@@ -193,7 +193,7 @@ export default function CashFlow() {
 
       {outBySource.length > 0 && (
         <Card>
-          <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Para onde vao as saidas do periodo</h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Para onde vao as saidas do período</h3>
           <div className="space-y-2.5">
             {outBySource.map((s) => { const Ic = s.icon; return (
               <div key={s.key} className="flex items-center gap-3">
@@ -209,8 +209,8 @@ export default function CashFlow() {
       )}
 
       <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-3"><CalendarClock className="w-4 h-4 text-indigo-500" /> Proximos eventos ({events.length})</h3>
-        {events.length === 0 ? <p className="text-sm text-muted py-4 text-center">Nenhum evento previsto no periodo (ou todas as fontes estao desligadas).</p>
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><CalendarClock className="w-4 h-4 text-indigo-500" /> Próximos eventos ({events.length})</h3>
+        {events.length === 0 ? <p className="text-sm text-muted py-4 text-center">Nenhum evento previsto no período (ou todas as fontes estao desligadas).</p>
           : <div className="divide-y divide-[hsl(var(--border))] max-h-96 overflow-y-auto">
             {events.slice(0, 80).map((e, i) => { const s = SRC[e.src]; const Ic = s?.icon || Receipt; return (
               <div key={i} className="flex items-center gap-3 py-2">

@@ -70,7 +70,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
     setCnpj({ busy: true, hint: '' });
     try {
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${descDigits}`);
-      if (!r.ok) throw new Error('nao encontrado');
+      if (!r.ok) throw new Error('não encontrado');
       const d = await r.json();
       const name = d.nome_fantasia || d.razao_social || form.description;
       const cnae = d.cnae_fiscal_descricao || '';
@@ -80,7 +80,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
         return { ...f, description: name, category_id: cat };
       });
       setCnpj({ busy: false, hint: cnae ? `Estabelecimento identificado · segmento: ${cnae}` : 'Estabelecimento identificado.' });
-    } catch { setCnpj({ busy: false, hint: 'CNPJ nao encontrado na base publica.' }); }
+    } catch { setCnpj({ busy: false, hint: 'CNPJ não encontrado na base publica.' }); }
   }
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -109,7 +109,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={initial ? 'Editar lancamento' : 'Novo lancamento'}
+    <Modal open={open} onClose={onClose} title={initial ? 'Editar lançamento' : 'Novo lançamento'}
       footer={<><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={submit} disabled={saving}>{saving ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-3 gap-2">
@@ -122,7 +122,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
           <Field label="Valor"><Input type="number" step="0.01" required value={form.amount} onChange={set('amount')} placeholder="0,00" /></Field>
           <Field label="Data"><Input type="date" required value={form.date} onChange={set('date')} /></Field>
         </div>
-        <Field label="Descricao" hint={cnpj.hint || 'Categoria sugerida pelo historico. Dica: cole um CNPJ e toque em buscar para identificar o estabelecimento'}>
+        <Field label="Descrição" hint={cnpj.hint || 'Categoria sugerida pelo histórico. Dica: cole um CNPJ e toque em buscar para identificar o estabelecimento'}>
           <div className="flex gap-2">
             <Input value={form.description} onChange={onDesc} placeholder="Ex: Mercado ou um CNPJ" className="flex-1" />
             {looksCnpj && form.type !== 'transfer' && <Button type="button" variant="outline" onClick={lookupCnpj} disabled={cnpj.busy} className="shrink-0" title="Buscar CNPJ">{cnpj.busy ? <Spinner className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}</Button>}
@@ -161,7 +161,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
             </Field>
             <label className="flex items-center gap-2 pb-2 text-sm">
               <input type="checkbox" checked={form.is_fixed} onChange={(e) => setForm((f) => ({ ...f, is_fixed: e.target.checked }))} className="w-4 h-4 accent-emerald-500" />
-              Lancamento fixo
+              Lançamento fixo
             </label>
           </div>
         )}

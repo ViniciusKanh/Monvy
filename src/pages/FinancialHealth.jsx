@@ -35,8 +35,8 @@ export default function FinancialHealth() {
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><HeartPulse className="w-6 h-6 text-emerald-500" /> Saude Financeira</span>}
-        subtitle="Diagnostico automatico com contas e cartao — 100% local" />
+      <PageHeader title={<span className="flex items-center gap-2"><HeartPulse className="w-6 h-6 text-emerald-500" /> Saúde Financeira</span>}
+        subtitle="Diagnostico automático com contas e cartao — 100% local" />
 
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Score */}
@@ -70,11 +70,11 @@ export default function FinancialHealth() {
         <Reveal i={0}><SparkKpi label="Receita media" value={formatCurrency(h.avgInc)} data={series.map((s) => s.inc)} color="#10b981" icon={TrendingUp} /></Reveal>
         <Reveal i={1}><SparkKpi label="Despesa media" value={formatCurrency(h.avgExp)} data={series.map((s) => s.exp)} color="#f43f5e" icon={TrendingDown} /></Reveal>
         <Reveal i={2}><SparkKpi label="Saldo total" value={formatCurrency(totalBalance)} data={series.map((s) => s.net)} color="#6366f1" icon={Wallet} /></Reveal>
-        <Reveal i={3}><SparkKpi label="Poupanca (mes)" value={`${cur.rate.toFixed(0)}%`} data={series.map((s) => s.inc - s.exp)} color="#f59e0b" icon={PiggyBank} /></Reveal>
+        <Reveal i={3}><SparkKpi label="Poupança (mes)" value={`${cur.rate.toFixed(0)}%`} data={series.map((s) => s.inc - s.exp)} color="#f59e0b" icon={PiggyBank} /></Reveal>
       </div>
 
       <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-emerald-500" /> Evolucao — Ultimos 6 meses</h3>
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-emerald-500" /> Evolucao — Últimos 6 meses</h3>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={series}>
             <defs>
@@ -100,19 +100,19 @@ export default function FinancialHealth() {
         <div className="h-3 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (h.reserveMonths / 6) * 100)}%`, background: h.reserveMonths >= 3 ? '#10b981' : h.reserveMonths >= 1 ? '#f59e0b' : '#f43f5e' }} />
         </div>
-        <p className="text-xs text-muted mt-2">Seu saldo cobre <b>{h.reserveMonths.toFixed(1)}</b> mes(es) de despesa media ({formatCurrency(h.avgExp)}/mes). Meta saudavel: 3 a 6 meses ({formatCurrency(h.avgExp * 3)} a {formatCurrency(h.avgExp * 6)}).</p>
+        <p className="text-xs text-muted mt-2">Seu saldo cobre <b>{h.reserveMonths.toFixed(1)}</b> mes(es) de despesa media ({formatCurrency(h.avgExp)}/mês). Meta saudavel: 3 a 6 meses ({formatCurrency(h.avgExp * 3)} a {formatCurrency(h.avgExp * 6)}).</p>
       </Card>
 
       {/* Tendencias por categoria */}
       {trends.length > 0 && (
         <Card>
-          <h3 className="font-semibold flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-indigo-500" /> Tendencia de gastos por categoria <span className="text-xs text-muted font-normal">(inicio vs fim do periodo)</span></h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-indigo-500" /> Tendencia de gastos por categoria <span className="text-xs text-muted font-normal">(inicio vs fim do período)</span></h3>
           <div className="space-y-2">
             {trends.slice(0, 6).map((t) => (
               <div key={t.id} className="flex items-center gap-3">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color }} />
                 <span className="text-sm flex-1 truncate">{t.name}</span>
-                <span className="text-xs text-muted">{formatCurrency(t.avg)}/mes</span>
+                <span className="text-xs text-muted">{formatCurrency(t.avg)}/mês</span>
                 <span className={`text-xs font-semibold flex items-center gap-0.5 w-16 justify-end ${Math.abs(t.change) < 5 ? 'text-muted' : t.change > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                   {Math.abs(t.change) < 5 ? 'estavel' : <>{t.change > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}{Math.abs(t.change).toFixed(0)}%</>}
                 </span>
@@ -123,7 +123,7 @@ export default function FinancialHealth() {
       )}
 
       <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-3"><Lightbulb className="w-4 h-4 text-amber-500" /> Recomendacoes automaticas</h3>
+        <h3 className="font-semibold flex items-center gap-2 mb-3"><Lightbulb className="w-4 h-4 text-amber-500" /> Recomendações automáticas</h3>
         <div className="space-y-2">
           {recs.map((a, i) => (
             <div key={i} className={`flex items-start gap-2.5 p-3 rounded-xl text-sm ${a.type === 'warn' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300' : a.type === 'tip' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'}`}>

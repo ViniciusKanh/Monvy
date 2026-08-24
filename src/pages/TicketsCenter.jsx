@@ -67,7 +67,7 @@ export default function TicketsCenter() {
   const openCount = tickets.filter((t) => !stOf(t.status).final).length;
 
   const delTicket = useMutation({ mutationFn: (id) => Support.deleteTicket(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); toast.success('Chamado excluido. Um e-mail de aviso foi enviado.'); }, onError: (e) => toast.error(e.message || 'Falha ao excluir') });
-  const confirmDel = (t) => { if (window.confirm(`Excluir o chamado #${t.number || ''} — ${t.subject}? Um e-mail de aviso sera enviado. Esta acao nao pode ser desfeita.`)) delTicket.mutate(t.id); };
+  const confirmDel = (t) => { if (window.confirm(`Excluir o chamado #${t.number || ''} — ${t.subject}? Um e-mail de aviso sera enviado. Esta acao não pode ser desfeita.`)) delTicket.mutate(t.id); };
 
   return (
     <div className="space-y-5 animate-fadeIn">
@@ -91,7 +91,7 @@ export default function TicketsCenter() {
           <div className="flex items-center gap-2 flex-1 min-w-[180px] card px-2 py-1.5"><Search className="w-4 h-4 text-muted shrink-0" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por numero (#1001) ou assunto..." className="flex-1 bg-transparent outline-none text-sm" /></div>
           <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="w-auto"><option value="all">Todos os status</option>{statuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
           <Select value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-auto"><option value="all">Todas as categorias</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
-          {isAdmin && <Select value={scope} onChange={(e) => setScope(e.target.value)} className="w-auto"><option value="all">Todos</option><option value="users">De usuarios</option><option value="mine">Abertos por mim</option></Select>}
+          {isAdmin && <Select value={scope} onChange={(e) => setScope(e.target.value)} className="w-auto"><option value="all">Todos</option><option value="users">De usuários</option><option value="mine">Abertos por mim</option></Select>}
         </div>
       </Card>
 
@@ -142,7 +142,7 @@ function CreateTicket({ categories, onClose, onDone }) {
           <Field label="Assunto"><Input value={form.subject} onChange={(e) => setForm((s) => ({ ...s, subject: e.target.value }))} placeholder="Resumo" /></Field>
           <Field label="Categoria"><Select value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
         </div>
-        <Field label="Descricao"><Textarea rows={5} value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} placeholder="Descreva com o maximo de detalhes." /></Field>
+        <Field label="Descrição"><Textarea rows={5} value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} placeholder="Descreva com o máximo de detalhes." /></Field>
         <Field label="Anexo (opcional)">
           {form.image_url ? (
             <div className="flex items-center gap-3 p-2 rounded-lg border border-[hsl(var(--border))]">
@@ -202,7 +202,7 @@ function TicketThread({ id, isAdmin, statuses, categories, stOf, onClose }) {
               return (
                 <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${m.author_role === 'admin' ? 'bg-emerald-500/15' : 'bg-black/5 dark:bg-white/10'}`}>
-                    <p className="text-[11px] font-semibold text-muted flex items-center gap-1">{m.author_role === 'admin' && <Shield className="w-3 h-3 text-emerald-500" />}{m.author_name || (m.author_role === 'admin' ? 'Suporte' : 'Voce')}</p>
+                    <p className="text-[11px] font-semibold text-muted flex items-center gap-1">{m.author_role === 'admin' && <Shield className="w-3 h-3 text-emerald-500" />}{m.author_name || (m.author_role === 'admin' ? 'Suporte' : 'Você')}</p>
                     <p className="text-sm whitespace-pre-line">{m.body}</p>
                     {m.image_url && (m.image_url.startsWith('data:application/pdf') ? <a href={m.image_url} target="_blank" rel="noreferrer" className="text-xs text-sky-500 underline">ver anexo (PDF)</a> : <img src={m.image_url} alt="" className="mt-1 rounded-lg max-h-40" />)}
                     <p className="text-[10px] text-muted mt-0.5">{fmtDate(m.created_date)}</p>
@@ -233,7 +233,7 @@ function ConfigModal({ categories, statuses, onClose, onDone }) {
   const [cats, setCats] = useState([...categories]);
   const [sts, setSts] = useState(statuses.map((s) => ({ ...s })));
   const [newCat, setNewCat] = useState('');
-  const save = useMutation({ mutationFn: () => Support.saveConfig({ categories: cats, statuses: sts }), onSuccess: () => { toast.success('Configuracao salva'); onDone(); }, onError: (e) => toast.error(e.message || 'Falha') });
+  const save = useMutation({ mutationFn: () => Support.saveConfig({ categories: cats, statuses: sts }), onSuccess: () => { toast.success('Configuração salva'); onDone(); }, onError: (e) => toast.error(e.message || 'Falha') });
   const addCat = () => { const v = newCat.trim(); if (v && !cats.includes(v)) { setCats([...cats, v]); setNewCat(''); } };
   const setSt = (i, patch) => setSts((a) => a.map((s, idx) => idx === i ? { ...s, ...patch } : s));
   const addSt = () => setSts([...sts, { key: `st_${Date.now()}`, label: 'Novo status', color: 'slate', final: false }]);
@@ -266,7 +266,7 @@ function ConfigModal({ categories, statuses, onClose, onDone }) {
             })}
           </div>
           <Button size="sm" variant="outline" onClick={addSt} className="mt-2"><Plus className="w-4 h-4" /> Adicionar status</Button>
-          <p className="text-xs text-muted mt-2">"final" = status que encerra o chamado (o usuario pode reabrir). Ex.: Resolvido, Finalizado.</p>
+          <p className="text-xs text-muted mt-2">"final" = status que encerra o chamado (o usuário pode reabrir). Ex.: Resolvido, Finalizado.</p>
         </div>
       </div>
     </Modal>

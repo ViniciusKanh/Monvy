@@ -43,16 +43,16 @@ export function GlobalSearch() {
     const num = s.replace(/[^0-9,.]/g, '').replace(',', '.');
     const hit = (txt) => String(txt || '').toLowerCase().includes(s);
     const out = [];
-    // transacoes
+    // transações
     transactions.filter((t) => hit(t.description) || hit(catMap[t.category_id]?.name) || (num && String(t.amount).includes(num))).slice(0, 6)
-      .forEach((t) => out.push({ group: 'Lancamentos', icon: ArrowLeftRight, label: t.description || catMap[t.category_id]?.name || 'Lancamento', sub: `${new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')} · ${formatCurrency(t.amount)}`, path: '/lancamentos' }));
+      .forEach((t) => out.push({ group: 'Lançamentos', icon: ArrowLeftRight, label: t.description || catMap[t.category_id]?.name || 'Lançamento', sub: `${new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')} · ${formatCurrency(t.amount)}`, path: '/lançamentos' }));
     accounts.filter((a) => hit(a.name) || hit(a.bank)).slice(0, 4).forEach((a) => out.push({ group: 'Contas', icon: Wallet, label: a.name, sub: formatCurrency(a.current_balance || 0), path: '/contas' }));
-    cards.filter((c) => hit(c.name)).slice(0, 4).forEach((c) => out.push({ group: 'Cartoes', icon: CardIcon, label: c.name, sub: c.brand || '', path: '/cartoes' }));
+    cards.filter((c) => hit(c.name)).slice(0, 4).forEach((c) => out.push({ group: 'Cartões', icon: CardIcon, label: c.name, sub: c.brand || '', path: '/cartões' }));
     categories.filter((c) => hit(c.name)).slice(0, 4).forEach((c) => out.push({ group: 'Categorias', icon: Tags, label: c.name, sub: c.type === 'income' ? 'Receita' : 'Despesa', path: '/categorias' }));
     goals.filter((g) => hit(g.name)).slice(0, 3).forEach((g) => out.push({ group: 'Metas & Cofres', icon: Target, label: g.name, sub: formatCurrency(g.current_amount || 0), path: '/metas' }));
     subs.filter((x) => hit(x.name)).slice(0, 3).forEach((x) => out.push({ group: 'Assinaturas', icon: RefreshCw, label: x.name, sub: formatCurrency(x.amount || 0), path: '/assinaturas' }));
     investments.filter((i) => hit(i.name) || hit(i.ticker)).slice(0, 3).forEach((i) => out.push({ group: 'Investimentos', icon: LineChart, label: i.name, sub: formatCurrency(i.current_value || 0), path: '/investimentos' }));
-    debts.filter((d) => hit(d.name)).slice(0, 3).forEach((d) => out.push({ group: 'Dividas', icon: Landmark, label: d.name, sub: d.institution || '', path: '/dividas' }));
+    debts.filter((d) => hit(d.name)).slice(0, 3).forEach((d) => out.push({ group: 'Dívidas', icon: Landmark, label: d.name, sub: d.institution || '', path: '/dividas' }));
     return out;
   }, [q, transactions, accounts, cards, categories, goals, subs, investments, debts, catMap]);
 
@@ -66,7 +66,7 @@ export function GlobalSearch() {
       <div className="relative w-full max-w-xl card p-0 overflow-hidden animate-[popIn_.15s_ease]" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[hsl(var(--border))]">
           <Search className="w-5 h-5 text-muted shrink-0" />
-          <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar lancamentos, contas, cartoes, metas, investimentos..." className="flex-1 bg-transparent outline-none text-sm" />
+          <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar lançamentos, contas, cartões, metas, investimentos..." className="flex-1 bg-transparent outline-none text-sm" />
           <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
         <div className="max-h-[60vh] overflow-y-auto">

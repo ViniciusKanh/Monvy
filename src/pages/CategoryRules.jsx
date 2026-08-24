@@ -34,13 +34,13 @@ export default function CategoryRules() {
 
   const applyNow = async () => {
     if (!rules.length) return toast.info('Crie ao menos uma regra primeiro.');
-    if (!uncategorized.length) return toast.info('Nenhum lancamento sem categoria.');
+    if (!uncategorized.length) return toast.info('Nenhum lançamento sem categoria.');
     setBusy(true);
     let done = 0;
     try {
       for (const t of uncategorized) { const cid = matchRule(t.description, rules, t.type); if (cid && catMap[cid]) { await Transaction.update(t.id, { category_id: cid }); done++; } }
       qc.invalidateQueries({ queryKey: ['transactions'] });
-      toast.success(done ? `${done} lancamento(s) categorizado(s) pelas regras.` : 'Nenhum lancamento bateu com as regras.');
+      toast.success(done ? `${done} lançamento(s) categorizado(s) pelas regras.` : 'Nenhum lançamento bateu com as regras.');
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
 
@@ -49,16 +49,16 @@ export default function CategoryRules() {
   return (
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Wand2 className="w-6 h-6 text-indigo-500" /> Regras de Categorizacao</span>}
-        subtitle="Categorize lancamentos automaticamente por palavra-chave na descricao"
+        subtitle="Categorize lançamentos automaticamente por palavra-chave na descrição"
         actions={<div className="flex gap-2"><Button variant="outline" onClick={applyNow} disabled={busy}>{busy ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Aplicar agora</>}</Button><Button onClick={openNew}><Plus className="w-4 h-4" /> Nova regra</Button></div>} />
 
       <div className="flex items-start gap-2 text-xs p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
         <Tag className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>As regras sao aplicadas automaticamente ao criar um lancamento (tem prioridade sobre a sugestao por historico). Use "Aplicar agora" para categorizar os {uncategorized.length} lancamento(s) que ainda estao sem categoria.</span>
+        <span>As regras são aplicadas automaticamente ao criar um lançamento (tem prioridade sobre a sugestão por histórico). Use "Aplicar agora" para categorizar os {uncategorized.length} lançamento(s) que ainda estao sem categoria.</span>
       </div>
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : rules.length === 0 ? <Card><EmptyState icon={Wand2} title="Nenhuma regra" subtitle='Ex.: se a descricao contem "uber" -> Transporte.' action={<Button onClick={openNew}><Plus className="w-4 h-4" /> Nova regra</Button>} /></Card>
+        : rules.length === 0 ? <Card><EmptyState icon={Wand2} title="Nenhuma regra" subtitle='Ex.: se a descrição contem "uber" -> Transporte.' action={<Button onClick={openNew}><Plus className="w-4 h-4" /> Nova regra</Button>} /></Card>
         : (
           <Card className="p-0 divide-y divide-[hsl(var(--border))]">
             {rules.map((r, i) => { const c = catMap[r.category_id]; return (
@@ -81,7 +81,7 @@ export default function CategoryRules() {
         footer={<><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
         <div className="space-y-3">
           <Field label="Tipo"><Select value={form.tx_type} onChange={(e) => set('tx_type', e.target.value)}><option value="expense">Despesa</option><option value="income">Receita</option></Select></Field>
-          <Field label="Se a descricao contem" hint="nao diferencia maiusculas/minusculas"><Input value={form.pattern} onChange={(e) => set('pattern', e.target.value)} placeholder="Ex: uber, ifood, netflix, salario" /></Field>
+          <Field label="Se a descrição contem" hint="não diferencia maiusculas/minusculas"><Input value={form.pattern} onChange={(e) => set('pattern', e.target.value)} placeholder="Ex: uber, ifood, netflix, salario" /></Field>
           <Field label="Categorizar como"><Select value={form.category_id} onChange={(e) => set('category_id', e.target.value)}><option value="">Selecione</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
           <Field label="Prioridade" hint="maior = aplicada primeiro quando varias baterem"><Input type="number" value={form.priority} onChange={(e) => set('priority', e.target.value)} /></Field>
         </div>

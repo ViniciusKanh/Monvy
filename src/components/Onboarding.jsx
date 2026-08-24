@@ -7,9 +7,9 @@ import { Wallet, Landmark, PiggyBank, CreditCard as CardIcon, Sparkles, Check } 
 
 const TYPES = [
   { v: 'checking', label: 'Conta Corrente', icon: Landmark },
-  { v: 'savings', label: 'Poupanca', icon: PiggyBank },
+  { v: 'savings', label: 'Poupança', icon: PiggyBank },
   { v: 'wallet', label: 'Carteira', icon: Wallet },
-  { v: 'credit_card', label: 'Cartao', icon: CardIcon },
+  { v: 'credit_card', label: 'Cartão', icon: CardIcon },
 ];
 const COLORS = ['#10b981', '#6366f1', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6'];
 
@@ -36,7 +36,7 @@ export function Onboarding({ onDone, name }) {
           <div className="text-center">
             <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-[#0b1330] to-[#111b3f] ring-1 ring-white/10 flex items-center justify-center mb-4 glow-pulse"><LogoMark className="w-12 h-12" /></div>
             <h1 className="font-display text-2xl font-bold">Bem-vindo ao Monvy{name ? `, ${name.split(' ')[0]}` : ''}! 👋</h1>
-            <p className="text-muted text-sm mt-2">Vamos configurar sua conta em menos de 1 minuto. Ja preparamos suas categorias — falta so criar sua primeira conta.</p>
+            <p className="text-muted text-sm mt-2">Vamos configurar sua conta em menos de 1 minuto. Ja preparamos suas categorias — falta só criar sua primeira conta.</p>
             <Button className="w-full mt-6" onClick={() => setStep(1)}><Sparkles className="w-4 h-4" /> Comecar</Button>
           </div>
         )}
@@ -66,7 +66,7 @@ export function Onboarding({ onDone, name }) {
           <div className="text-center">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500 flex items-center justify-center mb-4 check-pop"><Check className="w-9 h-9 text-white" /></div>
             <h2 className="font-display text-xl font-bold">Tudo pronto! 🎉</h2>
-            <p className="text-muted text-sm mt-2">Sua conta esta criada. Agora e so lancar suas receitas e despesas e deixar o Monvy trabalhar por voce.</p>
+            <p className="text-muted text-sm mt-2">Sua conta esta criada. Agora e só lancar suas receitas e despesas e deixar o Monvy trabalhar por você.</p>
             <Button className="w-full mt-6" onClick={finish}>Ir para o painel</Button>
           </div>
         )}

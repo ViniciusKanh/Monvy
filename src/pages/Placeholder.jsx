@@ -16,7 +16,7 @@ export function Placeholder({ title, screenKey, message }) {
         </div>
         <h2 className="font-display font-bold text-lg">{denied ? 'Sem permissao' : 'Em desenvolvimento'}</h2>
         <p className="text-muted text-sm mt-2 max-w-md">
-          {message || 'Esta tela faz parte do roadmap do Monvy e sera implementada em breve. A estrutura de dados e navegacao ja esta pronta.'}
+          {message || 'Esta tela faz parte do roadmap do Monvy e sera implementada em breve. A estrutura de dados e navegacao já esta pronta.'}
         </p>
       </Card>
     </div>

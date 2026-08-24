@@ -91,7 +91,7 @@ export default function Reconciliation() {
   const reconcileScopedPaid = () => {
     const ids = scoped.filter((t) => !t.reconciled && ((t.status || 'pending') === 'completed' || t.status == null)).map((t) => t.id);
     if (!ids.length) { toast.info('Nada novo para conciliar neste filtro.'); return; }
-    bulk((id) => Transaction.update(id, { reconciled: true }), ids, `${ids.length} lancamento(s) conciliado(s).`);
+    bulk((id) => Transaction.update(id, { reconciled: true }), ids, `${ids.length} lançamento(s) conciliado(s).`);
   };
   const reconcileSelected = () => bulk((id) => Transaction.update(id, { reconciled: true }), [...sel], `${sel.size} conciliado(s).`);
   const autoCategorize = async () => {
@@ -101,7 +101,7 @@ export default function Reconciliation() {
       const idx = buildCategoryIndex(transactions); let done = 0;
       for (const t of uncategorized) { const p = matchRule(t.description, rules, t.type) || predictCategory(t.description, idx); if (p && catMap[p] && catMap[p].type === (t.type === 'income' ? 'income' : 'expense')) { await Transaction.update(t.id, { category_id: p }); done++; } }
       inval();
-      toast.success(done ? `${done} lancamento(s) categorizado(s).` : 'Historico insuficiente para inferir categorias.');
+      toast.success(done ? `${done} lançamento(s) categorizado(s).` : 'Histórico insuficiente para inferir categorias.');
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
 
@@ -112,15 +112,15 @@ export default function Reconciliation() {
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><GitCompare className="w-6 h-6 text-emerald-500" /> Conciliacao Financeira</span>}
+      <PageHeader title={<span className="flex items-center gap-2"><GitCompare className="w-6 h-6 text-emerald-500" /> Conciliação Financeira</span>}
         subtitle="Confira, marque como conciliado e resolva divergencias — como nos melhores sistemas"
         actions={<Button onClick={reconcileScopedPaid} disabled={busy}>{busy ? <Spinner className="w-4 h-4" /> : <><Wand2 className="w-4 h-4" /> Conciliar concluidos</>}</Button>} />
 
       <Card className="py-3">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={acc} onChange={(e) => setAcc(e.target.value)} className="w-auto"><option value="all">Todas as contas</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select>
-          <Select value={period} onChange={(e) => setPeriod(e.target.value)} className="w-auto"><option value="month">Mes atual</option><option value="90">Ultimos 90 dias</option><option value="all">Tudo</option></Select>
-          <label className="flex items-center gap-2 text-sm ml-auto cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={onlyUnrec} onChange={(e) => setOnlyUnrec(e.target.checked)} /> So nao conciliados</label>
+          <Select value={period} onChange={(e) => setPeriod(e.target.value)} className="w-auto"><option value="month">Mês atual</option><option value="90">Últimos 90 dias</option><option value="all">Tudo</option></Select>
+          <label className="flex items-center gap-2 text-sm ml-auto cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={onlyUnrec} onChange={(e) => setOnlyUnrec(e.target.checked)} /> So não conciliados</label>
         </div>
       </Card>
 
@@ -133,7 +133,7 @@ export default function Reconciliation() {
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Reveal i={0}><Card className="py-4 hover-lift h-full"><p className="text-xs text-muted">Lancamentos no filtro</p><p className="font-display text-xl font-bold"><AnimatedValue value={scoped.length} format={(v) => String(Math.round(v))} /></p></Card></Reveal>
+        <Reveal i={0}><Card className="py-4 hover-lift h-full"><p className="text-xs text-muted">Lançamentos no filtro</p><p className="font-display text-xl font-bold"><AnimatedValue value={scoped.length} format={(v) => String(Math.round(v))} /></p></Card></Reveal>
         <Reveal i={1}><Card className="py-4 hover-lift h-full"><p className="text-xs text-muted flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500" /> Conciliados</p><p className="font-display text-xl font-bold text-emerald-500"><AnimatedValue value={recCount} format={(v) => String(Math.round(v))} /></p></Card></Reveal>
         <Reveal i={2}><Card className="py-4 hover-lift h-full"><p className="text-xs text-muted">Pendentes de conciliar</p><p className="font-display text-xl font-bold text-amber-500"><AnimatedValue value={scoped.length - recCount} format={(v) => String(Math.round(v))} /></p></Card></Reveal>
         <Reveal i={3}><Card className="py-4 hover-lift h-full"><p className="text-xs text-muted">Divergencias</p><p className={`font-display text-xl font-bold ${issues ? 'text-rose-500' : 'text-emerald-500'}`}><AnimatedValue value={issues} format={(v) => String(Math.round(v))} /></p></Card></Reveal>
@@ -141,10 +141,10 @@ export default function Reconciliation() {
 
       <Card>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="font-semibold">Conferencia de lancamentos</h3>
+          <h3 className="font-semibold">Conferencia de lançamentos</h3>
           {sel.size > 0 && <Button size="sm" onClick={reconcileSelected} disabled={busy}><Check className="w-4 h-4" /> Conciliar {sel.size} selecionado(s)</Button>}
         </div>
-        {checklist.length === 0 ? <EmptyState icon={CheckCircle2} title="Nada aqui" subtitle="Ajuste os filtros ou tudo ja esta conciliado." />
+        {checklist.length === 0 ? <EmptyState icon={CheckCircle2} title="Nada aqui" subtitle="Ajuste os filtros ou tudo já esta conciliado." />
           : <div className="divide-y divide-[hsl(var(--border))] max-h-[460px] overflow-y-auto">
             {checklist.slice(0, 200).map((t) => {
               const done = !!t.reconciled;
@@ -153,7 +153,7 @@ export default function Reconciliation() {
                   <input type="checkbox" className="w-4 h-4 accent-emerald-500 shrink-0" checked={sel.has(t.id)} onChange={() => toggleSel(t.id)} />
                   <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 ${iconBg(t)}`}>{icon(t)}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{t.description || catMap[t.category_id]?.name || 'Lancamento'}</p>
+                    <p className="font-medium truncate">{t.description || catMap[t.category_id]?.name || 'Lançamento'}</p>
                     <p className="text-xs text-muted truncate">{new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')} · {accMap[t.account_id]?.name || ''}{(t.status || 'pending') !== 'completed' && t.type !== 'transfer' ? ' · pendente' : ''}</p>
                   </div>
                   <span className={`font-semibold shrink-0 ${t.type === 'income' ? 'text-emerald-500' : t.type === 'transfer' ? 'text-indigo-500' : 'text-rose-500'}`}>{formatCurrency(t.amount)}</span>
@@ -168,12 +168,12 @@ export default function Reconciliation() {
 
       {overdue.length > 0 && (
         <Card>
-          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> Vencidos nao pagos ({overdue.length})</h3><Button size="sm" variant="outline" onClick={() => bulk((id) => Transaction.update(id, { status: 'completed' }), overdue.map((t) => t.id), `${overdue.length} marcado(s) como pago(s).`)} disabled={busy}>Marcar todos como pagos</Button></div>
+          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> Vencidos não pagos ({overdue.length})</h3><Button size="sm" variant="outline" onClick={() => bulk((id) => Transaction.update(id, { status: 'completed' }), overdue.map((t) => t.id), `${overdue.length} marcado(s) como pago(s).`)} disabled={busy}>Marcar todos como pagos</Button></div>
           <div className="divide-y divide-[hsl(var(--border))]">
             {overdue.slice(0, 20).map((t) => (
               <div key={t.id} className="flex items-center gap-3 py-2.5">
                 <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 ${iconBg(t)}`}>{icon(t)}</span>
-                <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description || catMap[t.category_id]?.name || 'Lancamento'}</p><p className="text-xs text-muted">{new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')}</p></div>
+                <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description || catMap[t.category_id]?.name || 'Lançamento'}</p><p className="text-xs text-muted">{new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')}</p></div>
                 <Badge color="amber">{t.type === 'income' ? 'A receber' : 'A pagar'}</Badge>
                 <span className="font-semibold">{formatCurrency(t.amount)}</span>
                 <button onClick={() => markPaid.mutate(t.id)} className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10" title="Marcar pago"><Check className="w-4 h-4" /></button>
@@ -186,11 +186,11 @@ export default function Reconciliation() {
       {duplicates.length > 0 && (
         <Card>
           <h3 className="font-semibold flex items-center gap-2 mb-1"><Copy className="w-4 h-4 text-rose-500" /> Possiveis duplicados ({duplicates.length})</h3>
-          <p className="text-xs text-muted mb-3">Mesmo valor e tipo, com datas proximas (ate 3 dias). Confira antes de remover.</p>
+          <p className="text-xs text-muted mb-3">Mesmo valor e tipo, com datas próximas (até 3 dias). Confira antes de remover.</p>
           <div className="divide-y divide-[hsl(var(--border))]">
             {duplicates.map((t) => (
               <div key={t.id} className="flex items-center gap-3 py-2.5">
-                <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description || 'Lancamento'}</p><p className="text-xs text-muted">{new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')} · {accMap[t.account_id]?.name || ''}</p></div>
+                <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description || 'Lançamento'}</p><p className="text-xs text-muted">{new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR')} · {accMap[t.account_id]?.name || ''}</p></div>
                 <span className="font-semibold">{formatCurrency(t.amount)}</span>
                 <button onClick={() => remove.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10" title="Remover duplicado"><Trash2 className="w-4 h-4" /></button>
               </div>
@@ -205,7 +205,7 @@ export default function Reconciliation() {
             <h3 className="font-semibold flex items-center gap-2"><Tag className="w-4 h-4 text-indigo-500" /> Sem categoria ({uncategorized.length})</h3>
             <Button size="sm" variant="outline" onClick={autoCategorize} disabled={busy}>{busy ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Auto-categorizar</>}</Button>
           </div>
-          <p className="text-sm text-muted">Usa seu historico local para inferir a categoria de cada lancamento (sem IA de terceiros).</p>
+          <p className="text-sm text-muted">Usa seu histórico local para inferir a categoria de cada lançamento (sem IA de terceiros).</p>
         </Card>
       )}
 

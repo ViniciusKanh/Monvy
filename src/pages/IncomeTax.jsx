@@ -107,12 +107,12 @@ export default function IncomeTax() {
         </div>} />
 
       <Card className="py-3 bg-amber-500/5 border-amber-500/30">
-        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2"><Info className="w-4 h-4 shrink-0 mt-0.5" /> Ferramenta de apoio — nao substitui o programa oficial da Receita nem orientacao contabil. As tabelas usam a base 2024/2025; confira e ajuste em "Tabela" os valores vigentes do ano.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2"><Info className="w-4 h-4 shrink-0 mt-0.5" /> Ferramenta de apoio — não substitui o programa oficial da Receita nem orientacao contabil. As tabelas usam a base 2024/2025; confira e ajuste em "Tabela" os valores vigentes do ano.</p>
       </Card>
 
       {showCfg && (
         <Card>
-          <h3 className="font-semibold mb-3 flex items-center gap-2"><Settings2 className="w-4 h-4 text-emerald-500" /> Configuracao fiscal (editavel)</h3>
+          <h3 className="font-semibold mb-3 flex items-center gap-2"><Settings2 className="w-4 h-4 text-emerald-500" /> Configuração fiscal (editavel)</h3>
           <div className="grid md:grid-cols-2 gap-4">
             {['anual', 'mensal'].map((key) => (
               <div key={key}>
@@ -121,24 +121,24 @@ export default function IncomeTax() {
                   {cfg[key].map((f, i) => (
                     <div key={i} className="flex items-center gap-1.5 text-xs">
                       <span className="text-muted w-6">{i + 1}</span>
-                      <Input type="number" value={isFinite(f.ate) ? f.ate : ''} placeholder="acima" onChange={(e) => setCfgTabela(key, i, 'ate', e.target.value || Infinity)} className="text-xs" />
+                      <Input type="number" value={isFinite(f.até) ? f.até : ''} placeholder="acima" onChange={(e) => setCfgTabela(key, i, 'até', e.target.value || Infinity)} className="text-xs" />
                       <Input type="number" value={f.aliq} onChange={(e) => setCfgTabela(key, i, 'aliq', e.target.value)} className="text-xs w-16" />
                       <span className="text-muted">%</span>
                       <Input type="number" value={f.ded} onChange={(e) => setCfgTabela(key, i, 'ded', e.target.value)} className="text-xs" />
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-muted mt-1">colunas: ate · aliquota % · parcela a deduzir</p>
+                <p className="text-[10px] text-muted mt-1">colunas: até · aliquota % · parcela a deduzir</p>
               </div>
             ))}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
             <Field label="Ded. dependente/ano" prefix="R$" value={cfg.deducaoDependenteAnual} onChange={(v) => setCfg((c) => ({ ...c, deducaoDependenteAnual: Number(v) }))} />
-            <Field label="Ded. dependente/mes" prefix="R$" value={cfg.deducaoDependenteMensal} onChange={(v) => setCfg((c) => ({ ...c, deducaoDependenteMensal: Number(v) }))} />
+            <Field label="Ded. dependente/mês" prefix="R$" value={cfg.deducaoDependenteMensal} onChange={(v) => setCfg((c) => ({ ...c, deducaoDependenteMensal: Number(v) }))} />
             <Field label="Teto educacao/ano" prefix="R$" value={cfg.tetoEducacaoAnual} onChange={(v) => setCfg((c) => ({ ...c, tetoEducacaoAnual: Number(v) }))} />
             <Field label="Teto desc. simplificado" prefix="R$" value={cfg.descontoSimplificadoAnualTeto} onChange={(v) => setCfg((c) => ({ ...c, descontoSimplificadoAnualTeto: Number(v) }))} />
           </div>
-          <Button variant="outline" className="mt-3" onClick={() => setCfg({ ...DEFAULT_TAX })}>Restaurar padrao</Button>
+          <Button variant="outline" className="mt-3" onClick={() => setCfg({ ...DEFAULT_TAX })}>Restaurar padrão</Button>
         </Card>
       )}
 
@@ -155,7 +155,7 @@ export default function IncomeTax() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat label="Rendimentos tributaveis" value={formatCurrency(org.rendimentos)} color="text-emerald-500" icon={ArrowUpRight} />
             <Stat label="Bens e direitos" value={formatCurrency(org.bens)} icon={Wallet} />
-            <Stat label="Dividas e onus" value={formatCurrency(org.dividas)} color="text-rose-500" icon={Landmark} />
+            <Stat label="Dívidas e onus" value={formatCurrency(org.dividas)} color="text-rose-500" icon={Landmark} />
             <Stat label="Desp. dedutiveis" value={formatCurrency(org.ded.saude + org.ded.educacao + org.ded.previdencia + org.ded.outras)} color="text-indigo-500" icon={TrendingUp} />
           </div>
           <Card>
@@ -168,11 +168,11 @@ export default function IncomeTax() {
           <Card>
             <h3 className="font-semibold mb-3">Despesas dedutiveis identificadas</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-              {[['Saude', org.ded.saude], ['Educacao', org.ded.educacao], ['Previdencia', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (
+              {[['Saúde', org.ded.saude], ['Educação', org.ded.educacao], ['Previdência', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-black/5 dark:bg-white/5 py-3"><p className="text-xs text-muted">{k}</p><p className="font-semibold">{formatCurrency(v)}</p></div>
               ))}
             </div>
-            <p className="text-xs text-muted mt-3">Marque a dedutibilidade em <b>Categorias</b> (campo "Dedutivel no IR") para precisao total; sem marcacao, o Monvy estima por palavra-chave. Confira os comprovantes antes de declarar.</p>
+            <p className="text-xs text-muted mt-3">Marque a dedutibilidade em <b>Categorias</b> (campo "Dedutível no IR") para precisao total; sem marcacao, o Monvy estima por palavra-chave. Confira os comprovantes antes de declarar.</p>
           </Card>
           {org.dedTx.length > 0 && (
             <Card>
@@ -192,7 +192,7 @@ export default function IncomeTax() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-muted mt-2">Anexe fotos/PDFs de notas e recibos ao editar cada lancamento. A Receita pode pedi-los na malha fina.</p>
+              <p className="text-xs text-muted mt-2">Anexe fotos/PDFs de notas e recibos ao editar cada lançamento. A Receita pode pedi-los na malha fina.</p>
             </Card>
           )}
         </div>
@@ -209,19 +209,19 @@ export default function IncomeTax() {
               <Field label="Rendimentos tributaveis" value={anual.tributavel} onChange={(v) => setAnual((a) => ({ ...a, tributavel: v }))} />
               <Field label="INSS / prev. oficial" value={anual.inss} onChange={(v) => setAnual((a) => ({ ...a, inss: v }))} />
               <Field label="Dependentes" prefix="" value={anual.dependentes} onChange={(v) => setAnual((a) => ({ ...a, dependentes: v }))} hint={`R$ ${cfg.deducaoDependenteAnual.toFixed(2)}/dependente`} />
-              <Field label="Saude" value={anual.saude} onChange={(v) => setAnual((a) => ({ ...a, saude: v }))} hint="sem limite" />
-              <Field label="Educacao" value={anual.educacao} onChange={(v) => setAnual((a) => ({ ...a, educacao: v }))} hint={`teto R$ ${cfg.tetoEducacaoAnual.toFixed(2)}/pessoa`} />
-              <Field label="Previdencia privada (PGBL)" value={anual.previdencia} onChange={(v) => setAnual((a) => ({ ...a, previdencia: v }))} />
+              <Field label="Saúde" value={anual.saude} onChange={(v) => setAnual((a) => ({ ...a, saude: v }))} hint="sem limite" />
+              <Field label="Educação" value={anual.educacao} onChange={(v) => setAnual((a) => ({ ...a, educacao: v }))} hint={`teto R$ ${cfg.tetoEducacaoAnual.toFixed(2)}/pessoa`} />
+              <Field label="Previdência privada (PGBL)" value={anual.previdencia} onChange={(v) => setAnual((a) => ({ ...a, previdencia: v }))} />
               <Field label="Pensao alimenticia" value={anual.pensao} onChange={(v) => setAnual((a) => ({ ...a, pensao: v }))} />
-              <Field label="Outras deducoes" value={anual.outras} onChange={(v) => setAnual((a) => ({ ...a, outras: v }))} />
+              <Field label="Outras deduções" value={anual.outras} onChange={(v) => setAnual((a) => ({ ...a, outras: v }))} />
             </div>
           </Card>
           <div className="grid md:grid-cols-2 gap-3">
-            {[['simplificado', 'Simplificado', rAnual.simplificado], ['completo', 'Completo (por deducoes)', rAnual.completo]].map(([id, label, r]) => (
+            {[['simplificado', 'Simplificado', rAnual.simplificado], ['completo', 'Completo (por deduções)', rAnual.completo]].map(([id, label, r]) => (
               <Card key={id} className={rAnual.melhor === id ? 'ring-2 ring-emerald-500' : ''}>
                 <div className="flex items-center justify-between mb-2"><h3 className="font-semibold">{label}</h3>{rAnual.melhor === id && <Badge color="emerald"><CheckCircle2 className="w-3 h-3" /> Melhor</Badge>}</div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between text-muted"><span>{id === 'simplificado' ? 'Desconto (20%)' : 'Total deducoes'}</span><span>{formatCurrency(id === 'simplificado' ? r.desconto : r.deducoes)}</span></div>
+                  <div className="flex justify-between text-muted"><span>{id === 'simplificado' ? 'Desconto (20%)' : 'Total deduções'}</span><span>{formatCurrency(id === 'simplificado' ? r.desconto : r.deduções)}</span></div>
                   <div className="flex justify-between"><span>Base de calculo</span><span className="font-medium">{formatCurrency(r.base)}</span></div>
                   <div className="flex justify-between text-muted"><span>Aliquota da faixa</span><span>{r.aliq}%</span></div>
                   <div className="flex justify-between text-base pt-1 border-t border-[hsl(var(--border))] mt-1"><span className="font-semibold">Imposto devido</span><span className="font-bold text-rose-500">{formatCurrency(r.imposto)}</span></div>
@@ -231,8 +231,8 @@ export default function IncomeTax() {
           </div>
           <Card className="bg-emerald-500/5 border-emerald-500/30">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs text-muted">Melhor opcao: <span className="font-semibold text-emerald-500">{rAnual.melhor}</span></p><p className="font-display text-2xl font-bold text-rose-500">{formatCurrency(rAnual.imposto)}</p><p className="text-xs text-muted">imposto devido no ano</p></div>
-              <div className="text-right"><p className="text-xs text-muted">Aliquota efetiva</p><p className="font-display text-xl font-bold">{rAnual.aliquotaEfetiva.toFixed(2)}%</p><p className="text-xs text-emerald-500">economia vs. outra opcao: {formatCurrency(rAnual.economia)}</p></div>
+              <div><p className="text-xs text-muted">Melhor opção: <span className="font-semibold text-emerald-500">{rAnual.melhor}</span></p><p className="font-display text-2xl font-bold text-rose-500">{formatCurrency(rAnual.imposto)}</p><p className="text-xs text-muted">imposto devido no ano</p></div>
+              <div className="text-right"><p className="text-xs text-muted">Aliquota efetiva</p><p className="font-display text-xl font-bold">{rAnual.aliquotaEfetiva.toFixed(2)}%</p><p className="text-xs text-emerald-500">economia vs. outra opção: {formatCurrency(rAnual.economia)}</p></div>
             </div>
           </Card>
         </div>
@@ -242,18 +242,18 @@ export default function IncomeTax() {
         <div className="space-y-4">
           <Card>
             <h3 className="font-semibold mb-1">Carnê-Leão — apuracao mensal</h3>
-            <p className="text-xs text-muted mb-3">Para quem recebe de pessoa fisica ou como autonomo. Recolhimento obrigatorio ate o ultimo dia util do mes seguinte (DARF codigo 0190).</p>
+            <p className="text-xs text-muted mb-3">Para quem recebe de pessoa fisica ou como autonomo. Recolhimento obrigatório até o último dia útil do mês seguinte (DARF codigo 0190).</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <Field label="Rendimento do mes" value={mensal.rendimento} onChange={(v) => setMensal((m) => ({ ...m, rendimento: v }))} />
+              <Field label="Rendimento do mês" value={mensal.rendimento} onChange={(v) => setMensal((m) => ({ ...m, rendimento: v }))} />
               <Field label="INSS recolhido" value={mensal.inss} onChange={(v) => setMensal((m) => ({ ...m, inss: v }))} />
               <Field label="Dependentes" prefix="" value={mensal.dependentes} onChange={(v) => setMensal((m) => ({ ...m, dependentes: v }))} hint={`R$ ${cfg.deducaoDependenteMensal.toFixed(2)}/dep.`} />
-              <Field label="Despesas livro-caixa" value={mensal.despesas} onChange={(v) => setMensal((m) => ({ ...m, despesas: v }))} hint="so autonomos" />
+              <Field label="Despesas livro-caixa" value={mensal.despesas} onChange={(v) => setMensal((m) => ({ ...m, despesas: v }))} hint="só autonomos" />
             </div>
           </Card>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat label="Base de calculo" value={formatCurrency(rMensal.base)} />
             <Stat label="Aliquota da faixa" value={`${rMensal.aliq}%`} />
-            <Stat label="IR do mes (DARF)" value={formatCurrency(rMensal.imposto)} color="text-rose-500" />
+            <Stat label="IR do mês (DARF)" value={formatCurrency(rMensal.imposto)} color="text-rose-500" />
             <Stat label="Aliquota efetiva" value={`${rMensal.aliquotaEfetiva.toFixed(2)}%`} />
           </div>
         </div>
@@ -263,11 +263,11 @@ export default function IncomeTax() {
         <div className="space-y-4">
           <Card>
             <h3 className="font-semibold mb-1">Renda variavel — apuracao mensal</h3>
-            <p className="text-xs text-muted mb-3">Informe os resultados do mes por tipo. DARF codigo 6015, ate o ultimo dia util do mes seguinte. Prejuizos acumulados podem compensar ganhos do mesmo tipo.</p>
+            <p className="text-xs text-muted mb-3">Informe os resultados do mês por tipo. DARF codigo 6015, até o último dia útil do mês seguinte. Prejuizos acumulados podem compensar ganhos do mêsmo tipo.</p>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2"><LineChart className="w-4 h-4 text-emerald-500" /> Acoes (mercado a vista)</p>
-                <Field label="Total de vendas no mes" value={rv.acoesVendas} onChange={(v) => setRv((s) => ({ ...s, acoesVendas: v }))} hint={`isento se <= R$ ${cfg.rv.tetoAcoesMensal.toLocaleString('pt-BR')}`} />
+                <Field label="Total de vendas no mês" value={rv.acoesVendas} onChange={(v) => setRv((s) => ({ ...s, acoesVendas: v }))} hint={`isento se <= R$ ${cfg.rv.tetoAcoesMensal.toLocaleString('pt-BR')}`} />
                 <Field label="Ganho liquido" value={rv.acoesGanho} onChange={(v) => setRv((s) => ({ ...s, acoesGanho: v }))} />
                 <Field label="Prejuizo acumulado a compensar" value={rv.acoesPrejuizo} onChange={(v) => setRv((s) => ({ ...s, acoesPrejuizo: v }))} />
               </div>
@@ -283,7 +283,7 @@ export default function IncomeTax() {
               </div>
               <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-2"><ArrowUpRight className="w-4 h-4 text-amber-500" /> Criptoativos</p>
-                <Field label="Total de vendas no mes" value={rv.criptoVendas} onChange={(v) => setRv((s) => ({ ...s, criptoVendas: v }))} hint={`isento se <= R$ ${cfg.rv.tetoCriptoMensal.toLocaleString('pt-BR')}`} />
+                <Field label="Total de vendas no mês" value={rv.criptoVendas} onChange={(v) => setRv((s) => ({ ...s, criptoVendas: v }))} hint={`isento se <= R$ ${cfg.rv.tetoCriptoMensal.toLocaleString('pt-BR')}`} />
                 <Field label="Ganho liquido" value={rv.criptoGanho} onChange={(v) => setRv((s) => ({ ...s, criptoGanho: v }))} />
               </div>
             </div>
@@ -301,7 +301,7 @@ export default function IncomeTax() {
             </div>
           </Card>
           <Card className="bg-emerald-500/5 border-emerald-500/30">
-            <div className="flex items-center justify-between"><div><p className="text-xs text-muted">DARF do mes (codigo 6015)</p><p className="font-display text-2xl font-bold text-rose-500">{formatCurrency(rRv.total)}</p></div><Badge color={rRv.total > 0 ? 'rose' : 'emerald'}>{rRv.total > 0 ? 'ha imposto a recolher' : 'nada a recolher'}</Badge></div>
+            <div className="flex items-center justify-between"><div><p className="text-xs text-muted">DARF do mês (codigo 6015)</p><p className="font-display text-2xl font-bold text-rose-500">{formatCurrency(rRv.total)}</p></div><Badge color={rRv.total > 0 ? 'rose' : 'emerald'}>{rRv.total > 0 ? 'ha imposto a recolher' : 'nada a recolher'}</Badge></div>
           </Card>
         </div>
       )}
@@ -309,16 +309,16 @@ export default function IncomeTax() {
       {tab === 'rel' && (
         <div className="space-y-4">
           <Card className="flex items-center justify-between flex-wrap gap-3">
-            <div><h3 className="font-semibold">Relatorio consolidado {year}</h3><p className="text-xs text-muted">Rendimentos, bens e dividas para levar ao contador.</p></div>
+            <div><h3 className="font-semibold">Relatório consolidado {year}</h3><p className="text-xs text-muted">Rendimentos, bens e dividas para levar ao contador.</p></div>
             <Button onClick={() => window.print()}><Printer className="w-4 h-4" /> Imprimir / Salvar PDF</Button>
           </Card>
           <Card id="tax-print">
             <h2 className="font-display text-xl font-bold mb-1">Resumo para o Imposto de Renda — {year}</h2>
-            <p className="text-xs text-muted mb-4">Gerado pelo Monvy · valores conforme lancamentos do periodo</p>
+            <p className="text-xs text-muted mb-4">Gerado pelo Monvy · valores conforme lançamentos do período</p>
             <div className="grid grid-cols-3 gap-3 mb-4">
               <Stat label="Rendimentos" value={formatCurrency(org.rendimentos)} color="text-emerald-500" />
               <Stat label="Bens e direitos" value={formatCurrency(org.bens)} />
-              <Stat label="Dividas" value={formatCurrency(org.dividas)} color="text-rose-500" />
+              <Stat label="Dívidas" value={formatCurrency(org.dividas)} color="text-rose-500" />
             </div>
             <h4 className="font-semibold mt-4 mb-1">Rendimentos por fonte</h4>
             <div className="divide-y divide-[hsl(var(--border))]">{Object.entries(org.rendPorCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => (<div key={k} className="flex justify-between py-1.5 text-sm"><span>{k}</span><span className="font-medium">{formatCurrency(v)}</span></div>))}</div>
@@ -328,7 +328,7 @@ export default function IncomeTax() {
               {org.investimentos.map((i) => (<div key={i.id} className="flex justify-between py-1.5 text-sm"><span>{i.name} (investimento)</span><span className="font-medium">{formatCurrency(i.current_value || i.invested_amount || 0)}</span></div>))}
             </div>
             <h4 className="font-semibold mt-4 mb-1">Despesas dedutiveis</h4>
-            <div className="divide-y divide-[hsl(var(--border))]">{[['Saude', org.ded.saude], ['Educacao', org.ded.educacao], ['Previdencia', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (<div key={k} className="flex justify-between py-1.5 text-sm"><span>{k}</span><span className="font-medium">{formatCurrency(v)}</span></div>))}</div>
+            <div className="divide-y divide-[hsl(var(--border))]">{[['Saúde', org.ded.saude], ['Educação', org.ded.educacao], ['Previdência', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (<div key={k} className="flex justify-between py-1.5 text-sm"><span>{k}</span><span className="font-medium">{formatCurrency(v)}</span></div>))}</div>
           </Card>
         </div>
       )}

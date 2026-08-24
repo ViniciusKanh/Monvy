@@ -53,10 +53,10 @@ export default function Holidays() {
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner className="w-6 h-6 text-sky-500" /></div>
       ) : isError ? (
-        <Card className="py-8 text-center text-sm text-muted"><AlertTriangle className="w-7 h-7 mx-auto mb-2 text-amber-500" />Nao foi possivel carregar os feriados. Tente atualizar.</Card>
+        <Card className="py-8 text-center text-sm text-muted"><AlertTriangle className="w-7 h-7 mx-auto mb-2 text-amber-500" />Nao foi possível carregar os feriados. Tente atualizar.</Card>
       ) : (
         <>
-          {/* Proximo feriado */}
+          {/* Próximo feriado */}
           {next && (
             <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft" style={{ background: 'linear-gradient(135deg,#0369a1 0%,#0ea5e9 60%,#38bdf8 100%)' }}>
               <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,.25), transparent 70%)' }} />
@@ -90,7 +90,7 @@ export default function Holidays() {
                           <span className="text-[9px] uppercase">{MESES[month].slice(0, 3)}</span>
                         </div>
                         <div className="min-w-0 flex-1"><p className="text-sm font-medium leading-tight truncate">{h.name}</p><p className="text-[11px] text-muted">{h.weekday}</p></div>
-                        {isNext && <Badge color="blue">proximo</Badge>}
+                        {isNext && <Badge color="blue">próximo</Badge>}
                       </div>
                     ); })}
                   </div>
@@ -99,7 +99,7 @@ export default function Holidays() {
             ))}
           </div>
 
-          <p className="text-xs text-muted text-center pt-2">Fonte: BrasilAPI · feriados nacionais (nao inclui feriados estaduais/municipais).</p>
+          <p className="text-xs text-muted text-center pt-2">Fonte: BrasilAPI · feriados nacionais (não inclui feriados estaduais/municipais).</p>
         </>
       )}
     </div>

@@ -28,17 +28,17 @@ export default function Users() {
 
   return (
     <div>
-      <PageHeader title="Usuarios & Acessos" subtitle="Controle quem acessa cada tela do sistema" />
+      <PageHeader title="Usuários & Acessos" subtitle="Controle quem acessa cada tela do sistema" />
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : users.length === 0 ? <Card><EmptyState icon={UsersIcon} title="Nenhum usuario" /></Card>
+        : users.length === 0 ? <Card><EmptyState icon={UsersIcon} title="Nenhum usuário" /></Card>
         : (
           <Card className="p-0 divide-y divide-[hsl(var(--border))]">
             {users.map((u) => (
               <div key={u.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300 font-bold">{(u.full_name || u.email).slice(0, 1).toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{u.full_name || '(sem nome)'} {u.id === me?.id && <span className="text-xs text-muted">(voce)</span>}</p>
+                  <p className="font-semibold truncate">{u.full_name || '(sem nome)'} {u.id === me?.id && <span className="text-xs text-muted">(você)</span>}</p>
                   <p className="text-xs text-muted truncate">{u.email}</p>
                 </div>
                 {u.role === 'admin' ? <Badge color="emerald"><ShieldCheck className="w-3 h-3" /> Admin</Badge> : <Badge>{u.allowed_screens?.length || 0} telas</Badge>}
@@ -57,7 +57,7 @@ export default function Users() {
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">Papel:</span>
             <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5">
-              {[['user', 'Usuario'], ['admin', 'Admin']].map(([v, l]) => (
+              {[['user', 'Usuário'], ['admin', 'Admin']].map(([v, l]) => (
                 <button key={v} onClick={() => setRole(v)} className={`px-3 py-1 rounded-md text-sm font-semibold ${role === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>
               ))}
             </div>
@@ -90,7 +90,7 @@ export default function Users() {
             </label>
             {editing?.totp_enabled && (
               <Button size="sm" variant="outline" onClick={() => save.mutate({ id: editing.id, data: { reset_2fa: true } })} disabled={save.isPending} className="w-full text-rose-500">
-                <RotateCcw className="w-4 h-4" /> Resetar 2FA (desativar deste usuario)
+                <RotateCcw className="w-4 h-4" /> Resetar 2FA (desativar deste usuário)
               </Button>
             )}
           </div>

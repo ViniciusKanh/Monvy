@@ -56,7 +56,7 @@ export default function Help() {
           <h2 className="font-display text-2xl font-extrabold mt-1">Como posso ajudar?</h2>
           <div className="mt-3 flex items-center gap-2 bg-white/15 rounded-xl px-3 py-2 max-w-xl">
             <Search className="w-4 h-4 text-white/80 shrink-0" />
-            <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ex: como importar a fatura do cartao" className="flex-1 bg-transparent outline-none placeholder-white/60 text-sm" />
+            <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ex: como importar a fatura do cartão" className="flex-1 bg-transparent outline-none placeholder-white/60 text-sm" />
           </div>
           {matches.length > 0 && (
             <div className="mt-3 space-y-2 max-w-xl">
@@ -124,10 +124,10 @@ export default function Help() {
         <Modal open onClose={() => setArtModal(null)} title={artModal.id ? 'Editar artigo' : 'Novo artigo'} maxWidth="max-w-lg"
           footer={<><Button variant="outline" onClick={() => setArtModal(null)}>Cancelar</Button><Button onClick={() => saveArticle.mutate()} disabled={saveArticle.isPending || !artModal.title}>{saveArticle.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
           <div className="space-y-3">
-            <Field label="Titulo"><Input value={artModal.title} onChange={(e) => setArtModal((s) => ({ ...s, title: e.target.value }))} placeholder="Ex: Como pagar uma fatura" /></Field>
-            <Field label="Categoria"><Input value={artModal.category} onChange={(e) => setArtModal((s) => ({ ...s, category: e.target.value }))} placeholder="Ex: Cartao de credito" /></Field>
+            <Field label="Título"><Input value={artModal.title} onChange={(e) => setArtModal((s) => ({ ...s, title: e.target.value }))} placeholder="Ex: Como pagar uma fatura" /></Field>
+            <Field label="Categoria"><Input value={artModal.category} onChange={(e) => setArtModal((s) => ({ ...s, category: e.target.value }))} placeholder="Ex: Cartão de crédito" /></Field>
             <Field label="Conteudo"><Textarea rows={7} value={artModal.body} onChange={(e) => setArtModal((s) => ({ ...s, body: e.target.value }))} placeholder="Escreva a orientacao..." /></Field>
-            <label className="flex items-center justify-between text-sm"><span>Publicado (visivel aos usuarios)</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={artModal.published !== false} onChange={(e) => setArtModal((s) => ({ ...s, published: e.target.checked }))} /></label>
+            <label className="flex items-center justify-between text-sm"><span>Publicado (visivel aos usuários)</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={artModal.published !== false} onChange={(e) => setArtModal((s) => ({ ...s, published: e.target.checked }))} /></label>
           </div>
         </Modal>
       )}
