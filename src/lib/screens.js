@@ -3,7 +3,8 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare, Repeat, MapPin, ShieldCheck,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare, Repeat, MapPin, ShieldCheck, Car,
+  PieChart, Gauge, Bug, Mail,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -28,6 +29,9 @@ export const NAV_GROUPS = [
       { key: 'investments', label: 'Investimentos', path: '/investimentos', icon: LineChart },
       { key: 'debts', label: 'Dívidas', path: '/dividas', icon: Landmark },
       { key: 'payoff', label: 'Quitação de Dívidas', path: '/quitacao', icon: TrendingUp },
+      { key: 'goalplan', label: 'Planejador de Objetivo', path: '/objetivo', icon: Target },
+      { key: 'household', label: 'Rateio da Casa', path: '/rateio', icon: Users },
+      { key: 'envelopes', label: 'Envelopes de Orçamento', path: '/envelopes', icon: Mail },
       { key: 'cashflow', label: 'Fluxo Projetado', path: '/fluxo', icon: Activity },
       { key: 'subscriptions', label: 'Assinaturas', path: '/assinaturas', icon: RefreshCw },
       { key: 'safes', label: 'Cofres Virtuais', path: '/cofres', icon: Vault },
@@ -42,6 +46,10 @@ export const NAV_GROUPS = [
       { key: 'behavioral', label: 'Análise Comportamental', path: '/comportamental', icon: BarChart3 },
       { key: 'recurrences', label: 'Radar de Recorrências', path: '/recorrencias', icon: Repeat },
       { key: 'compare', label: 'Comparador de Períodos', path: '/comparador', icon: GitCompare },
+      { key: 'moneymap', label: 'Para Onde Vai o Dinheiro', path: '/para-onde-vai', icon: PieChart },
+      { key: 'heatmap', label: 'Calendário de Calor', path: '/mapa-de-calor', icon: CalendarDays },
+      { key: 'antspend', label: 'Gastos-Formiga', path: '/gastos-formiga', icon: Bug },
+      { key: 'creditscore', label: 'Score de Crédito', path: '/score', icon: Gauge },
     ],
   },
   {
@@ -49,7 +57,10 @@ export const NAV_GROUPS = [
     items: [
       { key: 'simulator', label: 'Simulador', path: '/simulador', icon: Calculator },
       { key: 'compound', label: 'Juros Compostos', path: '/juros-compostos', icon: Calculator },
+      { key: 'pricesac', label: 'Financiamento Price × SAC', path: '/price-sac', icon: GitCompare },
+      { key: 'billsplit', label: 'Racha da Conta', path: '/racha', icon: Users },
       { key: 'emergency', label: 'Reserva de Emergência', path: '/reserva', icon: ShieldCheck },
+      { key: 'salary', label: 'Salário Líquido (CLT)', path: '/salario-liquido', icon: Wallet },
       { key: 'fire', label: 'Independência (FIRE)', path: '/fire', icon: Flame },
       { key: 'tax', label: 'Imposto de Renda', path: '/imposto-de-renda', icon: Landmark },
       { key: 'market', label: 'Mercado & Indicadores', path: '/mercado', icon: TrendingUp },
@@ -61,10 +72,15 @@ export const NAV_GROUPS = [
     label: 'Consultas',
     items: [
       { key: 'converter', label: 'Conversor de Moedas', path: '/conversor', icon: ArrowRightLeft },
+      { key: 'fxhistory', label: 'Câmbio com Histórico', path: '/cambio-historico', icon: ArrowRightLeft },
+      { key: 'indicators', label: 'Indicadores Econômicos', path: '/indicadores', icon: Landmark },
+      { key: 'stocks', label: 'Ações & FIIs', path: '/acoes', icon: LineChart },
+      { key: 'savingscdb', label: 'Poupança × CDB', path: '/poupanca-cdb', icon: PiggyBank },
       { key: 'holidays', label: 'Feriados Nacionais', path: '/feriados', icon: CalendarDays },
       { key: 'cnpj', label: 'Consulta CNPJ', path: '/cnpj', icon: Building2 },
       { key: 'cep', label: 'Consulta de CEP', path: '/cep', icon: MapPin },
       { key: 'banks', label: 'Consulta de Bancos', path: '/bancos', icon: Building2 },
+      { key: 'fipe', label: 'Tabela FIPE', path: '/fipe', icon: Car },
     ],
   },
   {

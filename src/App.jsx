@@ -40,6 +40,21 @@ import EmergencyFund from './pages/EmergencyFund.jsx';
 import PeriodCompare from './pages/PeriodCompare.jsx';
 import BanksLookup from './pages/BanksLookup.jsx';
 import DebtPayoff from './pages/DebtPayoff.jsx';
+import SalaryNet from './pages/SalaryNet.jsx';
+import Fipe from './pages/Fipe.jsx';
+import GoalPlanner from './pages/GoalPlanner.jsx';
+import PriceSac from './pages/PriceSac.jsx';
+import BillSplit from './pages/BillSplit.jsx';
+import SpendHeatmap from './pages/SpendHeatmap.jsx';
+import MoneyMap from './pages/MoneyMap.jsx';
+import CreditScore from './pages/CreditScore.jsx';
+import SmallSpends from './pages/SmallSpends.jsx';
+import EconIndicators from './pages/EconIndicators.jsx';
+import Stocks from './pages/Stocks.jsx';
+import CurrencyHistory from './pages/CurrencyHistory.jsx';
+import SavingsVsCdb from './pages/SavingsVsCdb.jsx';
+import HouseholdSplit from './pages/HouseholdSplit.jsx';
+import Envelopes from './pages/Envelopes.jsx';
 import TicketsCenter from './pages/TicketsCenter.jsx';
 import Investments from './pages/Investments.jsx';
 import Debts from './pages/Debts.jsx';
@@ -121,6 +136,21 @@ export default function App() {
         <Route path="/comparador" element={<Protected screenKey="compare"><PeriodCompare /></Protected>} />
         <Route path="/bancos" element={<Protected screenKey="banks"><BanksLookup /></Protected>} />
         <Route path="/quitacao" element={<Protected screenKey="payoff"><DebtPayoff /></Protected>} />
+        <Route path="/salario-liquido" element={<Protected screenKey="salary"><SalaryNet /></Protected>} />
+        <Route path="/fipe" element={<Protected screenKey="fipe"><Fipe /></Protected>} />
+        <Route path="/objetivo" element={<Protected screenKey="goalplan"><GoalPlanner /></Protected>} />
+        <Route path="/price-sac" element={<Protected screenKey="pricesac"><PriceSac /></Protected>} />
+        <Route path="/racha" element={<Protected screenKey="billsplit"><BillSplit /></Protected>} />
+        <Route path="/mapa-de-calor" element={<Protected screenKey="heatmap"><SpendHeatmap /></Protected>} />
+        <Route path="/para-onde-vai" element={<Protected screenKey="moneymap"><MoneyMap /></Protected>} />
+        <Route path="/score" element={<Protected screenKey="creditscore"><CreditScore /></Protected>} />
+        <Route path="/gastos-formiga" element={<Protected screenKey="antspend"><SmallSpends /></Protected>} />
+        <Route path="/indicadores" element={<Protected screenKey="indicators"><EconIndicators /></Protected>} />
+        <Route path="/acoes" element={<Protected screenKey="stocks"><Stocks /></Protected>} />
+        <Route path="/cambio-historico" element={<Protected screenKey="fxhistory"><CurrencyHistory /></Protected>} />
+        <Route path="/poupanca-cdb" element={<Protected screenKey="savingscdb"><SavingsVsCdb /></Protected>} />
+        <Route path="/rateio" element={<Protected screenKey="household"><HouseholdSplit /></Protected>} />
+        <Route path="/envelopes" element={<Protected screenKey="envelopes"><Envelopes /></Protected>} />
         <Route path="/gatilhos" element={<Protected screenKey="triggers"><Agents /></Protected>} />
         <Route path="/chamados" element={<Protected screenKey="tickets"><TicketsCenter /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
