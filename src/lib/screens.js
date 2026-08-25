@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare, Repeat, MapPin,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare, Repeat, MapPin, ShieldCheck,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -27,6 +27,7 @@ export const NAV_GROUPS = [
       { key: 'payments', label: 'Pagar & Receber', path: '/pagamentos', icon: CircleDollarSign },
       { key: 'investments', label: 'Investimentos', path: '/investimentos', icon: LineChart },
       { key: 'debts', label: 'Dívidas', path: '/dividas', icon: Landmark },
+      { key: 'payoff', label: 'Quitação de Dívidas', path: '/quitacao', icon: TrendingUp },
       { key: 'cashflow', label: 'Fluxo Projetado', path: '/fluxo', icon: Activity },
       { key: 'subscriptions', label: 'Assinaturas', path: '/assinaturas', icon: RefreshCw },
       { key: 'safes', label: 'Cofres Virtuais', path: '/cofres', icon: Vault },
@@ -40,6 +41,7 @@ export const NAV_GROUPS = [
       { key: 'health', label: 'Saúde Financeira', path: '/saude', icon: HeartPulse },
       { key: 'behavioral', label: 'Análise Comportamental', path: '/comportamental', icon: BarChart3 },
       { key: 'recurrences', label: 'Radar de Recorrências', path: '/recorrencias', icon: Repeat },
+      { key: 'compare', label: 'Comparador de Períodos', path: '/comparador', icon: GitCompare },
     ],
   },
   {
@@ -47,6 +49,7 @@ export const NAV_GROUPS = [
     items: [
       { key: 'simulator', label: 'Simulador', path: '/simulador', icon: Calculator },
       { key: 'compound', label: 'Juros Compostos', path: '/juros-compostos', icon: Calculator },
+      { key: 'emergency', label: 'Reserva de Emergência', path: '/reserva', icon: ShieldCheck },
       { key: 'fire', label: 'Independência (FIRE)', path: '/fire', icon: Flame },
       { key: 'tax', label: 'Imposto de Renda', path: '/imposto-de-renda', icon: Landmark },
       { key: 'market', label: 'Mercado & Indicadores', path: '/mercado', icon: TrendingUp },
@@ -61,6 +64,7 @@ export const NAV_GROUPS = [
       { key: 'holidays', label: 'Feriados Nacionais', path: '/feriados', icon: CalendarDays },
       { key: 'cnpj', label: 'Consulta CNPJ', path: '/cnpj', icon: Building2 },
       { key: 'cep', label: 'Consulta de CEP', path: '/cep', icon: MapPin },
+      { key: 'banks', label: 'Consulta de Bancos', path: '/bancos', icon: Building2 },
     ],
   },
   {
