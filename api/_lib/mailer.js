@@ -9,7 +9,7 @@ function transporter(cfg) {
   _key = key; return _tx;
 }
 
-// Envia e-mail se configurado/habilitado. Nunca lanca (nao quebra o fluxo principal).
+// Envia e-mail se configurado/habilitado. Nunca lanca (não quebra o fluxo principal).
 export async function sendMail({ to, subject, html, replyTo }) {
   try {
     const cfg = await getMailConfig();
@@ -49,7 +49,7 @@ export function tpl(title, bodyHtml, opts = {}) {
           </tr></table>
         </div>
       </div>
-      <div style="padding:14px 28px;background:#f8fafc;color:#94a3b8;font-size:11px;text-align:center">Monvy — Gestao Financeira Pessoal · ${opts.footerNote || 'e-mail automatico, por favor nao responda.'}</div>
+      <div style="padding:14px 28px;background:#f8fafc;color:#94a3b8;font-size:11px;text-align:center">Monvy — Gestao Financeira Pessoal · ${opts.footerNote || 'e-mail automático, por favor não responda.'}</div>
     </div>
   </div>`;
 }

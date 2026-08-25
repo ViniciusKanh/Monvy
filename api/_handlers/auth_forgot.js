@@ -12,7 +12,7 @@ function baseUrl(req) {
 
 // POST /api/auth/forgot-password { email }
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo nao permitido' });
+  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo não permitido' });
   if (!rateLimit('forgot:' + clientIp(req), 5, 60000)) return sendJson(res, 429, { error: 'Muitas tentativas. Aguarde.' });
   try {
     await ensureSchema();
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
       await db().execute({ sql: 'UPDATE users SET reset_token = ?, reset_expires = ?, updated_date = ? WHERE id = ?', args: [token, expires, nowIso(), u.id] });
       const link = `${baseUrl(req)}/redefinir-senha?token=${token}`;
-      await sendMail({ to: mail, subject: 'Monvy — Redefinicao de senha', html: tpl('Redefinir sua senha', `Ola${u.full_name ? ' ' + u.full_name : ''}, recebemos um pedido para redefinir sua senha. O link expira em 1 hora. Se nao foi voce, ignore este e-mail.`, { ctaText: 'Criar nova senha', ctaUrl: link }) });
+      await sendMail({ to: mail, subject: 'Monvy — Redefinição de senha', html: tpl('Redefinir sua senha', `Olá${u.full_name ? ' ' + u.full_name : ''}, recebemos um pedido para redefinir sua senha. O link expira em 1 hora. Se não foi você, ignore este e-mail.`, { ctaText: 'Criar nova senha', ctaUrl: link }) });
     }
     // resposta neutra sempre
     return sendJson(res, 200, { ok: true });

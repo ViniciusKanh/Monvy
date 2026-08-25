@@ -10,7 +10,7 @@ import profile from '../_handlers/auth_profile.js';
 import twofa from '../_handlers/auth_2fa.js';
 import { sendJson } from '../_lib/auth.js';
 
-const map = { login, register, me, verify, resend, 'forgot-password': forgot, 'reset-password': reset, 'change-password': change, profile, '2fa': twofa };
+const map = { login, register, me, verify, resend, forgot, reset, 'forgot-password': forgot, 'reset-password': reset, 'change-password': change, profile, '2fa': twofa };
 export default function handler(req, res) {
   const parts = (req.url || '').split('?')[0].split('/').filter(Boolean);
   const i = parts.indexOf('auth');

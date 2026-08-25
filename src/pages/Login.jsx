@@ -112,7 +112,8 @@ export default function Login() {
               </div>
               <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? <Spinner className="w-4 h-4" /> : (needs2fa ? 'Verificar e entrar' : 'Entrar')}</Button>
             </form>
-            <p className="text-sm text-muted text-center mt-6">Nao tem conta? <Link to="/cadastro" className="text-emerald-600 font-semibold">Cadastre-se</Link></p>
+            <p className="text-sm text-muted text-center mt-6">Não tem conta? <Link to="/cadastro" className="text-emerald-600 font-semibold">Cadastre-se</Link></p>
+            <p className="text-xs text-muted text-center mt-3 pt-3 border-t border-[hsl(var(--border))]">Dúvidas ou problemas? Fale com o suporte: <a href="mailto:vinicius-souza.santos@unesp.br" className="text-emerald-600 font-semibold hover:underline">vinicius-souza.santos@unesp.br</a></p>
           </div>
         </div>
       </div>

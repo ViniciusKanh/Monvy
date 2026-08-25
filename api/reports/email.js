@@ -11,13 +11,13 @@ function bar(label, value, max, color) {
 
 // POST /api/reports/email  { to?, summary }
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo nao permitido' });
+  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo não permitido' });
   try {
     await ensureSchema();
     const auth = getAuth(req);
-    if (!auth) return sendJson(res, 401, { error: 'Nao autenticado' });
+    if (!auth) return sendJson(res, 401, { error: 'Não autenticado' });
     const { to, summary } = await readBody(req);
-    if (!summary) return sendJson(res, 400, { error: 'Dados do relatorio ausentes' });
+    if (!summary) return sendJson(res, 400, { error: 'Dados do relatório ausentes' });
     const dest = to || auth.email;
 
     const maxCat = Math.max(1, ...(summary.categories || []).map((c) => c.value));
@@ -30,25 +30,25 @@ export default async function handler(req, res) {
       </tr>
       <tr><td colspan="3" style="height:8px"></td></tr>
       <tr>
-        <td style="padding:10px;background:#eef2ff;border-radius:10px"><div style="font-size:11px;color:#64748b">Saldo do periodo</div><div style="font-weight:800;color:#4f46e5">${brl(summary.bal)}</div></td>
+        <td style="padding:10px;background:#eef2ff;border-radius:10px"><div style="font-size:11px;color:#64748b">Saldo do período</div><div style="font-weight:800;color:#4f46e5">${brl(summary.bal)}</div></td>
         <td style="width:8px"></td>
-        <td style="padding:10px;background:#f5f3ff;border-radius:10px"><div style="font-size:11px;color:#64748b">Taxa de poupanca</div><div style="font-weight:800;color:#7c3aed">${Number(summary.rate || 0).toFixed(1)}%</div></td>
+        <td style="padding:10px;background:#f5f3ff;border-radius:10px"><div style="font-size:11px;color:#64748b">Taxa de poupança</div><div style="font-weight:800;color:#7c3aed">${Number(summary.rate || 0).toFixed(1)}%</div></td>
       </tr></table>`;
 
     const topEx = (summary.topExpenses || []).slice(0, 5).map((t) => itemRow(t.name || 'Despesa', '', brl(t.value), '#e11d48')).join('');
     const insightBox = summary.insight ? `<div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:#eef2ff;color:#3730a3;font-size:13px;line-height:1.5">💡 ${String(summary.insight).replace(/</g, '&lt;')}</div>` : '';
 
-    const html = tpl(`Seu relatorio financeiro — ${summary.periodLabel || ''}`,
-      `Ola${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas financas (contas + cartao).<br/>
-       <div style="margin-top:6px;color:#0b1330;font-weight:700">Patrimonio total: ${brl(summary.totalBalance)}</div>
+    const html = tpl(`Seu relatório financeiro — ${summary.periodLabel || ''}`,
+      `Olá${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas finanças (contas + cartão).<br/>
+       <div style="margin-top:6px;color:#0b1330;font-weight:700">Patrimônio total: ${brl(summary.totalBalance)}</div>
        ${kpis}
        ${insightBox}
        <div style="font-weight:700;color:#0b1330;margin:16px 0 6px">Despesas por categoria</div>
-       ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no periodo.</div>'}
+       ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no período.</div>'}
        ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:16px 0 4px">Maiores despesas</div>${itemsTable([topEx])}` : ''}`);
 
-    const r = await sendMail({ to: dest, subject: `Monvy — Relatorio ${summary.periodLabel || ''}`, html });
+    const r = await sendMail({ to: dest, subject: `Monvy — Relatório ${summary.periodLabel || ''}`, html });
     if (r.sent) return sendJson(res, 200, { ok: true, to: dest });
-    return sendJson(res, 400, { error: r.error || 'Envio de e-mail nao configurado/habilitado.' });
+    return sendJson(res, 400, { error: r.error || 'Envio de e-mail não configurado/habilitado.' });
   } catch (e) { return sendJson(res, 500, { error: e.message }); }
 }

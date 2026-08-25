@@ -1,5 +1,5 @@
 // Avaliacao de robos em TEMPO REAL (event-driven), disparada quando os dados mudam.
-// Complementa o cron diario: aqui os robos com CONDICOES sao checados na hora.
+// Complementa o cron diario: aqui os robos com CONDICOES são checados na hora.
 import { db, newId, nowIso } from './db.js';
 import { getMailConfig } from './settings.js';
 import { sendMail, tpl, itemsTable, itemRow } from './mailer.js';
@@ -7,7 +7,7 @@ import { sendMail, tpl, itemsTable, itemRow } from './mailer.js';
 const numv = (v) => { const x = Number(v); return isNaN(x) ? 0 : x; };
 const opTest = (op, a, b) => ({ lt: a < b, lte: a <= b, gt: a > b, gte: a >= b, eq: Math.abs(a - b) < 0.005 }[op] ?? false);
 const OP_LABEL = { lt: 'menor que', lte: 'menor ou igual a', gt: 'maior que', gte: 'maior ou igual a', eq: 'igual a' };
-const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mes', month_income: 'Receita do mes', month_expense: 'Despesa do mes', savings_rate: 'Taxa de poupanca', category_spend: 'Gasto na categoria', pending_count: 'Vencidos nao pagos', net_worth: 'Patrimonio liquido', open_tickets: 'Chamados em aberto', debt_monthly: 'Parcelas de dividas/mes', goals_saved: 'Guardado em metas', card_invoice_total: 'Faturas de cartao em aberto', investments_total: 'Total investido' };
+const METRIC_LABEL = { total_balance: 'Saldo total das contas', month_balance: 'Saldo do mês', month_income: 'Receita do mês', month_expense: 'Despesa do mês', savings_rate: 'Taxa de poupança', category_spend: 'Gasto na categoria', pending_count: 'Vencidos não pagos', net_worth: 'Patrimônio liquido', open_tickets: 'Chamados em aberto', debt_monthly: 'Parcelas de dívidas/mês', goals_saved: 'Guardado em metas', card_invoice_total: 'Faturas de cartão em aberto', investments_total: 'Total investido' };
 const UNIT = { savings_rate: '%', pending_count: 'un', open_tickets: 'un' };
 const FOCUS_LABEL = { geral: 'assistente geral', saldo: 'saldo e contas', gastos: 'gastos', entradas: 'entradas e renda', patrimonio: 'patrimonio', mercado: 'mercado e impostos', vencimentos: 'vencimentos', inteligencia: 'inteligencia' };
 const brl = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numv(v));
@@ -52,7 +52,7 @@ async function resolveNotifs(uid, ref) {
 }
 const parseCfg = (t) => { try { return t.config ? (typeof t.config === 'string' ? JSON.parse(t.config) : t.config) : null; } catch { return null; } };
 
-// Avalia os robos do usuario AGORA (por evento). So dispara robos com condicoes; respeita cooldown.
+// Avalia os robos do usuário AGORA (por evento). So dispara robos com condicoes; respeita cooldown.
 export async function evaluateAgentsEvent(uid) {
   try {
     const user = (await db().execute({ sql: `SELECT id, email, full_name FROM users WHERE id=?`, args: [uid] })).rows[0];
@@ -84,14 +84,14 @@ export async function evaluateAgentsEvent(uid) {
         continue;
       }
 
-      // cooldown: condicao verdadeira, mas nao repetir dentro da janela (cooldownDays dias, ou 6h por padrao)
+      // cooldown: condicao verdadeira, mas não repetir dentro da janela (cooldownDays dias, ou 6h por padrao)
       const gapMs = (Number(c.cooldownDays) > 0 ? Number(c.cooldownDays) * 86400000 : 6 * 3600000);
       if (tr.last_fired) { const last = new Date(String(tr.last_fired)).getTime(); if (isFinite(last) && (now - last) < gapMs) continue; }
 
       if (mail === null) mail = await getMailConfig();
       const acts = Array.isArray(c.actions) && c.actions.length ? c.actions : (c.action ? [{ action: c.action, subject: c.subject, message: c.message }] : [{ action: 'notify' }]);
       const situacaoTxt = evals.map((e) => `${METRIC_LABEL[e.cond.metric] || e.cond.metric}: ${fmtMetric(e.cond.metric, e.val)}`).join(' · ');
-      const robo = tr.name || 'Robo Monvy'; const emoji = c.emoji || '🤖'; const setor = FOCUS_LABEL[c.focus] || 'financas';
+      const robo = tr.name || 'Robo Monvy'; const emoji = c.emoji || '🤖'; const setor = FOCUS_LABEL[c.focus] || 'finanças';
       const primeiroNome = (user.full_name || '').split(' ')[0];
       let did = 0;
 
@@ -113,8 +113,8 @@ export async function evaluateAgentsEvent(uid) {
           await notify(uid, { kind: 'alert', title: `${emoji} ${robo}`, text: `${assunto} — ${msg}`, ref: tr.id });
           if (mail.enabled && user.email) {
             const rows = evals.map((e) => itemRow(METRIC_LABEL[e.cond.metric] || e.cond.metric, `condicao: ${OP_LABEL[e.cond.op]} ${fmtMetric(e.cond.metric, Number(e.cond.value))}`, fmtMetric(e.cond.metric, e.val), '#e11d48'));
-            const corpo = `Oi${primeiroNome ? ' ' + primeiroNome : ''}, aqui é o <b>${robo}</b>, seu robô de ${setor}.<br/><br/>${String(msg).replace(/</g, '&lt;')}<div style="margin-top:12px;font-weight:700;color:#0b1330">Situacao atual</div>${itemsTable(rows)}`;
-            await sendMail({ to: user.email, subject: `${emoji} ${robo}: ${assunto}`, html: tpl(`${emoji} ${robo}`, corpo, { footerNote: `mensagem automatica do seu robô ${robo}.` }) }).catch(() => {});
+            const corpo = `Oi${primeiroNome ? ' ' + primeiroNome : ''}, aqui é o <b>${robo}</b>, seu robô de ${setor}.<br/><br/>${String(msg).replace(/</g, '&lt;')}<div style="margin-top:12px;font-weight:700;color:#0b1330">Situação atual</div>${itemsTable(rows)}`;
+            await sendMail({ to: user.email, subject: `${emoji} ${robo}: ${assunto}`, html: tpl(`${emoji} ${robo}`, corpo, { footerNote: `mensagem automática do seu robô ${robo}.` }) }).catch(() => {});
           }
           did++;
         } else { // notify (padrao)

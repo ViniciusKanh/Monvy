@@ -24,7 +24,7 @@ function baseUrl(req) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo nao permitido' });
+  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo não permitido' });
   try {
     await ensureSchema();
     const { email, password, full_name } = await readBody(req);
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     if (String(password).length < 8) return sendJson(res, 400, { error: 'A senha deve ter ao menos 8 caracteres' });
     const mail = String(email).toLowerCase().trim();
     const exists = await db().execute({ sql: 'SELECT id FROM users WHERE email = ?', args: [mail] });
-    if (exists.rows.length) return sendJson(res, 409, { error: 'Este email ja esta cadastrado' });
+    if (exists.rows.length) return sendJson(res, 409, { error: 'Este email já esta cadastrado' });
 
     const hash = await hashPassword(password);
     const now = nowIso();
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       to: mail,
       subject: 'Confirme seu e-mail — Monvy',
       html: tpl('Confirme seu e-mail para ativar a conta',
-        `Ola${full_name ? ' ' + full_name : ''}, que bom ter voce no Monvy!<br/><br/>Para ativar sua conta e comecar a organizar suas financas, confirme seu e-mail clicando no botao abaixo. O link e pessoal e intransferivel.`,
+        `Olá${full_name ? ' ' + full_name : ''}, que bom ter você no Monvy!<br/><br/>Para ativar sua conta e comecar a organizar suas finanças, confirme seu e-mail clicando no botao abaixo. O link e pessoal e intransferivel.`,
         { ctaText: 'Confirmar meu e-mail', ctaUrl: link }),
     });
 

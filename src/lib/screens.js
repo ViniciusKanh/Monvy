@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare, Repeat, MapPin,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -39,12 +39,14 @@ export const NAV_GROUPS = [
       { key: 'intelligence', label: 'Inteligência', path: '/inteligencia', icon: Brain },
       { key: 'health', label: 'Saúde Financeira', path: '/saude', icon: HeartPulse },
       { key: 'behavioral', label: 'Análise Comportamental', path: '/comportamental', icon: BarChart3 },
+      { key: 'recurrences', label: 'Radar de Recorrências', path: '/recorrencias', icon: Repeat },
     ],
   },
   {
     label: 'Ferramentas',
     items: [
       { key: 'simulator', label: 'Simulador', path: '/simulador', icon: Calculator },
+      { key: 'compound', label: 'Juros Compostos', path: '/juros-compostos', icon: Calculator },
       { key: 'fire', label: 'Independência (FIRE)', path: '/fire', icon: Flame },
       { key: 'tax', label: 'Imposto de Renda', path: '/imposto-de-renda', icon: Landmark },
       { key: 'market', label: 'Mercado & Indicadores', path: '/mercado', icon: TrendingUp },
@@ -58,6 +60,7 @@ export const NAV_GROUPS = [
       { key: 'converter', label: 'Conversor de Moedas', path: '/conversor', icon: ArrowRightLeft },
       { key: 'holidays', label: 'Feriados Nacionais', path: '/feriados', icon: CalendarDays },
       { key: 'cnpj', label: 'Consulta CNPJ', path: '/cnpj', icon: Building2 },
+      { key: 'cep', label: 'Consulta de CEP', path: '/cep', icon: MapPin },
     ],
   },
   {

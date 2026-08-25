@@ -33,6 +33,9 @@ import Help from './pages/Help.jsx';
 import OnboardingConfig from './pages/OnboardingConfig.jsx';
 import Agents from './pages/Agents.jsx';
 import Chat from './pages/Chat.jsx';
+import CompoundInterest from './pages/CompoundInterest.jsx';
+import Recurrences from './pages/Recurrences.jsx';
+import CepLookup from './pages/CepLookup.jsx';
 import TicketsCenter from './pages/TicketsCenter.jsx';
 import Investments from './pages/Investments.jsx';
 import Debts from './pages/Debts.jsx';
@@ -107,6 +110,9 @@ export default function App() {
         <Route path="/config-novos-usuarios" element={<Protected screenKey="newusers"><OnboardingConfig /></Protected>} />
         <Route path="/agentes" element={<Protected screenKey="triggers"><Agents /></Protected>} />
         <Route path="/chat" element={<Protected screenKey="chat"><Chat /></Protected>} />
+        <Route path="/juros-compostos" element={<Protected screenKey="compound"><CompoundInterest /></Protected>} />
+        <Route path="/recorrencias" element={<Protected screenKey="recurrences"><Recurrences /></Protected>} />
+        <Route path="/cep" element={<Protected screenKey="cep"><CepLookup /></Protected>} />
         <Route path="/gatilhos" element={<Protected screenKey="triggers"><Agents /></Protected>} />
         <Route path="/chamados" element={<Protected screenKey="tickets"><TicketsCenter /></Protected>} />
         <Route path="/conciliacao" element={<Protected screenKey="reconciliation"><Reconciliation /></Protected>} />
