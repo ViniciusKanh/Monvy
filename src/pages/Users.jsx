@@ -5,7 +5,10 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button, Card, Modal, Spinner, Badge, EmptyState } from '../components/ui';
 import { NAV_GROUPS } from '../lib/screens.js';
-import { Users as UsersIcon, ShieldCheck, Trash2, SlidersHorizontal, Smartphone, RotateCcw } from 'lucide-react';
+import { Users as UsersIcon, ShieldCheck, Trash2, SlidersHorizontal, Smartphone, RotateCcw, CheckCheck, Eraser, Globe } from 'lucide-react';
+
+// Todas as telas que podem ser liberadas para usuários comuns (exclui as só-admin)
+const GRANTABLE_KEYS = NAV_GROUPS.flatMap((g) => g.items.filter((i) => !i.adminOnly).map((i) => i.key));
 
 export default function Users() {
   const qc = useQueryClient();
@@ -16,6 +19,7 @@ export default function Users() {
   const [role, setRole] = useState('user');
   const [require2fa, setRequire2fa] = useState(false);
   const [active, setActive] = useState(true);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   const save = useMutation({
     mutationFn: ({ id, data }) => Admin.updateUser(id, data),
@@ -23,12 +27,24 @@ export default function Users() {
   });
   const del = useMutation({ mutationFn: (id) => Admin.removeUser(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }) });
 
+  const grantAll = useMutation({
+    mutationFn: async () => {
+      const alvos = users.filter((u) => u.role !== 'admin');
+      for (const u of alvos) await Admin.updateUser(u.id, { allowed_screens: GRANTABLE_KEYS });
+      return alvos.length;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); setConfirmAll(false); },
+  });
+
   const openEdit = (u) => { setEditing(u); setScreens(u.allowed_screens || []); setRole(u.role); setRequire2fa(!!u.require_2fa); setActive(u.is_active !== false); };
   const toggle = (key) => setScreens((s) => s.includes(key) ? s.filter((k) => k !== key) : [...s, key]);
 
+  const naoAdmins = users.filter((u) => u.role !== 'admin').length;
+
   return (
     <div>
-      <PageHeader title="Usuários & Acessos" subtitle="Controle quem acessa cada tela do sistema" />
+      <PageHeader title="Usuários & Acessos" subtitle="Controle quem acessa cada tela do sistema"
+        actions={<Button variant="outline" onClick={() => setConfirmAll(true)} disabled={naoAdmins === 0}><Globe className="w-4 h-4" /> Liberar todas as telas para todos</Button>} />
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
         : users.length === 0 ? <Card><EmptyState icon={UsersIcon} title="Nenhum usuário" /></Card>
@@ -64,6 +80,16 @@ export default function Users() {
             {role === 'admin' && <span className="text-xs text-emerald-600">Admin acessa todas as telas.</span>}
           </div>
 
+          {role !== 'admin' && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs text-muted">{screens.length} de {GRANTABLE_KEYS.length} telas liberadas</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setScreens(GRANTABLE_KEYS)}><CheckCheck className="w-4 h-4" /> Marcar todas</Button>
+                <Button size="sm" variant="outline" onClick={() => setScreens([])}><Eraser className="w-4 h-4" /> Limpar</Button>
+              </div>
+            </div>
+          )}
+
           {role !== 'admin' && NAV_GROUPS.map((g) => (
             <div key={g.label}>
               <p className="text-xs font-bold tracking-widest text-muted mb-2">{g.label.toUpperCase()}</p>
@@ -94,6 +120,17 @@ export default function Users() {
               </Button>
             )}
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={confirmAll} onClose={() => setConfirmAll(false)} title="Liberar todas as telas para todos" maxWidth="max-w-md"
+        footer={<><Button variant="outline" onClick={() => setConfirmAll(false)}>Cancelar</Button><Button onClick={() => grantAll.mutate()} disabled={grantAll.isPending}>{grantAll.isPending ? <Spinner className="w-4 h-4" /> : 'Confirmar'}</Button></>}>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+            <Globe className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>Todos os {naoAdmins} usuário(s) comuns passarão a ter acesso a todas as {GRANTABLE_KEYS.length} telas do sistema.</p>
+          </div>
+          <p className="text-muted">Administradores já acessam tudo e não são alterados. Você pode reajustar acessos individualmente depois, a qualquer momento.</p>
         </div>
       </Modal>
     </div>
