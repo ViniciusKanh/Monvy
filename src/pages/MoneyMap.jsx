@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Category, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Spinner, Select, Field, EmptyState } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
@@ -58,6 +59,9 @@ export default function MoneyMap() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><PieChart className="w-6 h-6 text-indigo-500" /> Para Onde Vai Meu Dinheiro</span>}
         subtitle="Mapa das suas despesas por categoria — quanto maior o bloco, maior o gasto" />
+
+      <AiInsight storageKey="moneymap" title="Para onde vai seu dinheiro (IA)" agentFocus="gastos por categoria"
+        prompt="Olhando minhas categorias de gasto, diga em até 3 frases para onde meu dinheiro está indo e qual categoria tem mais potencial de corte." />
 
       <Card><Field label="Período"><Select value={periodo} onChange={(e) => setPeriodo(e.target.value)} className="max-w-xs">
         <option value="1">Este mês</option><option value="3">Últimos 3 meses</option><option value="6">Últimos 6 meses</option><option value="12">Últimos 12 meses</option><option value="all">Tudo</option>

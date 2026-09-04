@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Account, Category, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Badge, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey } from '../lib/utils.js';
@@ -52,6 +53,9 @@ export default function Intelligence() {
     <div className="space-y-4 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Brain className="w-6 h-6 text-indigo-500" /> Central de Inteligência</span>}
         subtitle="Insights, anomalias e previsões automáticas (contas + cartão) — 100% local" />
+
+      <AiInsight storageKey="intelligence" title="Leitura inteligente do mês" agentFocus="inteligência"
+        prompt="Em até 3 frases, aponte os 2 pontos de atenção mais importantes das minhas finanças deste mês e termine com 1 ação prática. Seja direto e use números quando ajudar." />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

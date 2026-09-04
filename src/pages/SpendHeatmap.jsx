@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Spinner, Select, Field } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
@@ -57,6 +58,9 @@ export default function SpendHeatmap() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><CalendarDays className="w-6 h-6 text-orange-500" /> Calendário de Calor</span>}
         subtitle="Veja em quais dias você mais gasta — calculado 100% no seu dispositivo" />
+
+      <AiInsight storageKey="heatmap" title="Padrão de dias (IA)" agentFocus="padrão de gastos"
+        prompt="Analise em quais dias eu mais gasto (dia da semana e período do mês). Em até 3 frases, aponte o padrão e dê 1 dica prática para suavizar os picos." />
 
       <Card><Field label="Período"><Select value={meses} onChange={(e) => setMeses(e.target.value)} className="max-w-xs">
         <option value="3">Últimos 3 meses</option><option value="6">Últimos 6 meses</option><option value="12">Últimos 12 meses</option>

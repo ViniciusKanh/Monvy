@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Account, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Spinner, Input, Field } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
@@ -77,6 +78,9 @@ export default function CreditScore() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Gauge className="w-6 h-6 text-emerald-500" /> Score de Crédito Estimado</span>}
         subtitle="Estimativa baseada nos seus próprios dados — não é o Serasa/SPC, é um termômetro pessoal" />
+
+      <AiInsight storageKey="creditscore" title="Como subir seu score (IA)" agentFocus="crédito"
+        prompt="Com base na minha renda, reserva, comprometimento e taxa de poupança, dê 3 recomendações práticas e priorizadas para melhorar meu score de crédito estimado. Seja direto." />
 
       <Card><Field label="Parcelas de dívidas por mês (R$) — opcional"><Input type="number" value={dividaMensal} onChange={(e) => setDividaMensal(e.target.value)} placeholder="ex: 800" className="max-w-xs" /></Field>
         <p className="text-xs text-muted mt-1">Some empréstimos, financiamentos e parcelamentos que você paga mensalmente.</p></Card>

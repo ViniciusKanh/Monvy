@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Subscription, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Spinner, Badge, EmptyState } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
@@ -27,6 +28,9 @@ export default function Recurrences() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Repeat className="w-6 h-6 text-indigo-500" /> Radar de Recorrências</span>}
         subtitle="Detecta assinaturas, cobranças recorrentes e aumentos de preço — 100% local, sem IA de terceiros" />
+
+      <AiInsight storageKey="recurrences" title="Onde economizar (IA)" agentFocus="assinaturas e recorrências"
+        prompt="Analise minhas assinaturas e cobranças recorrentes. Em até 3 frases, aponte onde dá pra economizar e qual assinatura reavaliar primeiro." />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Reveal i={0}><Card className="py-4 hover-lift"><p className="text-xs text-muted flex items-center gap-1"><RefreshCw className="w-3 h-3 text-emerald-500" /> Assinaturas ativas</p><p className="font-display text-2xl font-bold">{activeSubs.length}</p></Card></Reveal>

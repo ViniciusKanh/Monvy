@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Account, Category, CreditCard, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Spinner, Badge } from '../components/ui';
 import { Reveal, useCountUp } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
@@ -37,6 +38,9 @@ export default function FinancialHealth() {
     <div className="space-y-4 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><HeartPulse className="w-6 h-6 text-emerald-500" /> Saúde Financeira</span>}
         subtitle="Diagnostico automático com contas e cartao — 100% local" />
+
+      <AiInsight storageKey="health" title="Diagnóstico com IA" agentFocus="saúde financeira"
+        prompt="Avalie minha saúde financeira em até 3 frases (poupança, reserva e comprometimento) e termine com 2 dicas objetivas para melhorar. Seja direto." />
 
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Score */}

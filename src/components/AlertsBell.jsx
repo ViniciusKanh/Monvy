@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Transaction, CreditCardInvoice, Subscription, Category, Account, Notification } from '../api/entities.js';
 import { computeAlerts } from '../lib/analytics.js';
 import { getFxAlerts, isHit } from '../lib/fxAlerts.js';
+import { isDismissed, dismissAlert, dismissMany } from '../lib/alertDismiss.js';
 import { Bell, AlertTriangle, CalendarClock, PiggyBank, Zap, Wallet, TrendingDown, CheckCircle2, DollarSign, Ticket, FileText, CheckCheck } from 'lucide-react';
 
 const KIND_ICON = { overdue: AlertTriangle, invoice: CalendarClock, budget: PiggyBank, anomaly: Zap, balance: Wallet, savings: TrendingDown, fx: DollarSign, reminder: CalendarClock, summary: FileText, ticket: Ticket, alert: Zap, info: Bell };
@@ -20,6 +21,7 @@ export function AlertsBell({ dark }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [, force] = useState(0);
   const ref = useRef(null);
 
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
@@ -48,13 +50,18 @@ export function AlertsBell({ dark }) {
     }).filter(Boolean);
   }, [fx]);
 
-  const alerts = useMemo(() => [...fxAlerts, ...baseAlerts], [fxAlerts, baseAlerts]);
+  const alerts = useMemo(() => [...fxAlerts, ...baseAlerts].filter((a) => !isDismissed(a)), [fxAlerts, baseAlerts]);
   const unread = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
   const count = unread.length + alerts.length;
 
   const markRead = useMutation({ mutationFn: (id) => Notification.update(id, { read: true }), onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }) });
-  const markAll = useMutation({ mutationFn: async () => { for (const n of unread) await Notification.update(n.id, { read: true }); }, onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }) });
+  const markAll = useMutation({
+    mutationFn: async () => { for (const n of unread) await Notification.update(n.id, { read: true }); },
+    onSuccess: () => { dismissMany(alerts); force((v) => v + 1); qc.invalidateQueries({ queryKey: ['notifications'] }); },
+  });
   const openNotif = (n) => { markRead.mutate(n.id); setOpen(false); if (n.path) navigate(n.path); };
+  const openAlert = (a) => { dismissAlert(a); force((v) => v + 1); setOpen(false); if (a.path) navigate(a.path); };
+  const dismissOne = (e, a) => { e.stopPropagation(); dismissAlert(a); force((v) => v + 1); };
 
   useEffect(() => {
     const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -73,7 +80,7 @@ export function AlertsBell({ dark }) {
         <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] card p-0 z-50 overflow-hidden animate-[popIn_.15s_ease]">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))]">
             <h4 className="font-semibold text-sm text-[hsl(var(--text))] flex items-center gap-2"><Bell className="w-4 h-4" /> Notificações</h4>
-            {unread.length > 0 && <button onClick={() => markAll.mutate()} className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCheck className="w-3.5 h-3.5" /> Marcar lidas</button>}
+            {count > 0 && <button onClick={() => markAll.mutate()} className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCheck className="w-3.5 h-3.5" /> Marcar lidas</button>}
           </div>
           <div className="max-h-96 overflow-y-auto">
             {count === 0 ? (
@@ -90,10 +97,13 @@ export function AlertsBell({ dark }) {
                 ); })}
                 {alerts.length > 0 && <p className="px-4 pt-2 pb-1 text-[10px] font-bold tracking-widest text-muted">AGORA</p>}
                 {alerts.map((a) => { const Icon = KIND_ICON[a.kind] || Bell; return (
-                  <button key={a.id} onClick={() => { setOpen(false); navigate(a.path); }} className="w-full flex items-start gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 text-left border-b border-[hsl(var(--border))] last:border-0">
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${SEV[a.severity]}`}><Icon className="w-4 h-4" /></span>
-                    <div className="min-w-0"><p className="text-sm font-semibold text-[hsl(var(--text))] leading-tight">{a.title}</p><p className="text-xs text-muted leading-tight mt-0.5">{a.text}</p></div>
-                  </button>
+                  <div key={a.id} className="group w-full flex items-start gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 border-b border-[hsl(var(--border))] last:border-0">
+                    <button onClick={() => openAlert(a)} className="flex items-start gap-3 text-left flex-1 min-w-0">
+                      <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${SEV[a.severity]}`}><Icon className="w-4 h-4" /></span>
+                      <div className="min-w-0"><p className="text-sm font-semibold text-[hsl(var(--text))] leading-tight">{a.title}</p><p className="text-xs text-muted leading-tight mt-0.5">{a.text}</p></div>
+                    </button>
+                    <button onClick={(e) => dismissOne(e, a)} title="Dispensar" className="shrink-0 p-1 rounded-md text-muted hover:text-rose-500 hover:bg-black/5 dark:hover:bg-white/10"><CheckCircle2 className="w-4 h-4" /></button>
+                  </div>
                 ); })}
               </>
             )}

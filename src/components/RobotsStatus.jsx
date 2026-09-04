@@ -42,10 +42,22 @@ export function RobotsStatus({ dark }) {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen((v) => !v)} className={`relative p-2 rounded-xl transition ${dark ? 'hover:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/10'}`} title="Seus robôs">
-        <Bot className="w-5 h-5" />
-        {activeCount > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">{activeCount}</span>}
-        {signaling.length > 0 && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[hsl(var(--card))] animate-pulse" />}
+      <button onClick={() => setOpen((v) => !v)} title="Seus robôs"
+        className={`relative flex items-center gap-2 rounded-xl transition h-10 pl-1.5 pr-2 sm:pr-3 ${signaling.length > 0 ? 'ring-1 ring-amber-400/60' : ''} ${dark ? 'hover:bg-white/10' : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}>
+        <span className="relative flex -space-x-2">
+          {robots.slice(0, 3).map((r) => (
+            <span key={r.id} className="relative w-7 h-7 rounded-lg flex items-center justify-center text-sm ring-2 ring-[hsl(var(--card))]" style={{ background: 'linear-gradient(135deg,#10b98133,#6366f133)' }}>
+              {r.emoji}
+              <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[hsl(var(--card))] ${r.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+            </span>
+          ))}
+          {robots.length > 3 && <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ring-2 ring-[hsl(var(--card))] bg-black/10 dark:bg-white/15">+{robots.length - 3}</span>}
+        </span>
+        <span className="hidden sm:flex flex-col leading-none text-left">
+          <span className={`text-xs font-semibold ${dark ? 'text-white' : ''}`}>Robôs</span>
+          <span className={`text-[10px] ${signaling.length > 0 ? 'text-amber-500 font-medium' : dark ? 'text-white/70' : 'text-muted'}`}>{signaling.length > 0 ? 'sinalizando' : `${activeCount} ativo${activeCount === 1 ? '' : 's'}`}</span>
+        </span>
+        {signaling.length > 0 && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />}
       </button>
 
       {open && (

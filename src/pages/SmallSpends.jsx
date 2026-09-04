@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Spinner, Input, Field, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
@@ -47,6 +48,9 @@ export default function SmallSpends() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><Bug className="w-6 h-6 text-amber-500" /> Detector de Gastos-Formiga</span>}
         subtitle="Pequenas compras que se repetem e, somadas, pesam no fim do mês — tudo analisado localmente" />
+
+      <AiInsight storageKey="antspend" title="Ataque às formigas (IA)" agentFocus="gastos-formiga"
+        prompt="Analise meus pequenos gastos recorrentes (gastos-formiga). Em até 3 frases, diga quais hábitos mais pesam e sugira 2 cortes simples que liberam dinheiro no mês." />
 
       <Card><Field label="Considerar compras até (R$)"><Input type="number" value={teto} onChange={(e) => setTeto(e.target.value)} className="max-w-xs" /></Field>
         <p className="text-xs text-muted mt-1">Compras pequenas que aparecem 3+ vezes nos últimos 3 meses são tratadas como gasto-formiga.</p></Card>

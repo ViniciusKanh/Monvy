@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Transaction, Account, Category, CreditCardTransaction } from '../api/entities.js';
+import { Transaction, Account, Category, CreditCardTransaction, AppSettings } from '../api/entities.js';
+import { AiWordCloud } from '../components/AiWordCloud.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Button, Select, Badge, Spinner } from '../components/ui';
 import { formatCurrency, monthKey, monthLabel, monthRange, MONTHS_PT } from '../lib/utils.js';
@@ -23,6 +24,8 @@ export default function Reports() {
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: settingsList = [] } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
+  const geminiKey = settingsList[0]?.gemini_api_key;
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
   const tx = useMemo(() => combineExpenses(transactions, cardTxs), [transactions, cardTxs]);
@@ -208,6 +211,9 @@ export default function Reports() {
             </table></div>}
         </Card>
       </div>
+
+      {/* Nuvem de palavras dos gastos */}
+      <AiWordCloud cardTxs={cardTxs} transactions={transactions} apiKey={geminiKey} />
 
       {/* Extrato detalhado (para PDF) */}
       <Card>

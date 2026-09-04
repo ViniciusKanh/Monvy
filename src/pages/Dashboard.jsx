@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Account, Transaction, Category, CreditCard, CreditCardTransaction, Goal, Subscription, CreditCardInvoice } from '../api/entities.js';
+import { Account, Transaction, Category, CreditCard, CreditCardTransaction, Goal, Subscription, CreditCardInvoice, AppSettings } from '../api/entities.js';
+import { AiWordCloud } from '../components/AiWordCloud.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLang } from '../context/LangContext.jsx';
 import { Card, Spinner } from '../components/ui';
@@ -60,6 +61,8 @@ export default function Dashboard() {
   const { data: subs = [] } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: () => CreditCardInvoice.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: settingsList = [] } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
+  const geminiKey = settingsList[0]?.gemini_api_key;
   const { data: fx } = useQuery({ queryKey: ['fx-usd'], queryFn: fetchFx, retry: 1, staleTime: 60_000, refetchInterval: 120_000 });
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
@@ -366,6 +369,8 @@ export default function Dashboard() {
       </div>
 
       </div>
+
+      <div style={{ order: 98 }}><AiWordCloud cardTxs={cardTxs} transactions={transactions} apiKey={geminiKey} /></div>
 
       <div style={{ order: ordOf('overview') }} className={vis('overview') ? '' : 'hidden'}>
       {/* Visao geral de gastos + comparativo por categoria */}

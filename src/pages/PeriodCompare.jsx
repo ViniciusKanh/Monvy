@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Category, CreditCardTransaction } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Card, Select, Spinner } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthLabel } from '../lib/utils.js';
@@ -58,6 +59,9 @@ export default function PeriodCompare() {
     <div className="space-y-5 animate-fadeIn">
       <PageHeader title={<span className="flex items-center gap-2"><GitCompare className="w-6 h-6 text-indigo-500" /> Comparador de Períodos</span>}
         subtitle="Compare dois meses lado a lado: receitas, despesas e categorias" />
+
+      <AiInsight storageKey="compare" title="O que mudou (IA)" agentFocus="comparação de períodos"
+        prompt="Compare meus dois últimos meses. Em até 3 frases, explique o que mais mudou (categorias que subiram ou caíram) e o provável motivo." />
 
       <Card className="py-3">
         <div className="flex items-center gap-2 flex-wrap">
