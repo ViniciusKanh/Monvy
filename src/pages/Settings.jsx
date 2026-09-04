@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppSettings, Auth, Admin, Account, Category, Transaction, CreditCard, CreditCardTransaction, Goal, Subscription, Investment, Debt } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme, ACCENTS } from '../context/ThemeContext.jsx';
+import { useLang } from '../context/LangContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Spinner, Badge } from '../components/ui';
 import { toast } from '../lib/toast.js';
-import { Sun, Moon, ShieldCheck, KeyRound, Bell, Palette, User, Sparkles, ExternalLink, Eye, EyeOff, Check, Camera, Lock, Mail, Send, Smartphone, Download, Upload } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, KeyRound, Bell, Palette, User, Sparkles, ExternalLink, Eye, EyeOff, Check, Camera, Lock, Mail, Send, Smartphone, Download, Upload, Languages } from 'lucide-react';
 
 // redimensiona a imagem para ~256px e devolve dataURL (evita foto gigante no banco)
 function resizeImage(file, max = 256) {
@@ -30,6 +31,7 @@ export default function Settings() {
   const qc = useQueryClient();
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const { theme, setTheme, accent, setAccent } = useTheme();
+  const { lang, setLang, langs, t } = useLang();
   const { data: list = [], isLoading } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
   const settings = list[0];
   const fileRef = useRef(null);
@@ -196,6 +198,22 @@ export default function Settings() {
               ))}
             </div>
             <p className="text-xs text-muted mt-3">Paleta atual: <b className="text-[hsl(var(--text))]">{ACCENTS.find((a) => a.k === accent)?.label || 'Esmeralda'}</b>. A escolha fica salva neste dispositivo.</p>
+          </div>
+        </Card>
+
+        {/* Idioma */}
+        <Card className="hover-lift">
+          <h3 className="font-semibold mb-1 flex items-center gap-2"><Languages className="w-4 h-4 text-sky-500" /> {t('settings.language_title')}</h3>
+          <p className="text-xs text-muted mb-4">{t('settings.language_desc')}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {langs.map((l) => (
+              <button key={l.code} onClick={() => setLang(l.code)}
+                className={`flex items-center gap-2 p-3 rounded-xl border-2 text-left transition hover-lift ${lang === l.code ? 'border-sky-500 bg-sky-50 dark:bg-sky-500/10' : 'border-[hsl(var(--border))] hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                <span className="text-xl">{l.flag}</span>
+                <span className="text-sm font-semibold flex-1 truncate">{l.label}</span>
+                {lang === l.code && <Check className="w-4 h-4 text-sky-500 shrink-0" />}
+              </button>
+            ))}
           </div>
         </Card>
 

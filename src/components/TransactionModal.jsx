@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Input, Select, Field, Modal, Textarea, Spinner } from './ui';
-import { Paperclip, X, FileText, Eye, Building2 } from 'lucide-react';
-import { todayIso } from '../lib/utils.js';
+import { Paperclip, X, FileText, Eye, EyeOff, Building2, Wallet } from 'lucide-react';
+import { todayIso, formatCurrency } from '../lib/utils.js';
 import { CategoryRule } from '../api/entities.js';
 import { buildCategoryIndex, predictCategory, matchRule } from '../lib/categoryPredictor.js';
+import { useHideBalances } from '../lib/useHideBalances.js';
+
+function BalanceLine({ value, hidden, onToggle }) {
+  if (value == null) return null;
+  const neg = value < 0;
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+      <Wallet className="w-3.5 h-3.5 text-muted" />
+      <span className="text-muted">Saldo:</span>
+      <span className={`font-semibold ${neg ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}`}>{hidden ? '••••••' : formatCurrency(value)}</span>
+      <button type="button" onClick={onToggle} className="ml-auto p-1 rounded-md text-muted hover:bg-black/5 dark:hover:bg-white/10" title={hidden ? 'Mostrar saldos' : 'Esconder saldos'}>
+        {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+      </button>
+    </div>
+  );
+}
 
 const TYPES = [
   { v: 'expense', label: 'Despesa', cls: 'text-rose-600 border-rose-500 bg-rose-50 dark:bg-rose-500/10' },
@@ -83,6 +99,9 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
     } catch { setCnpj({ busy: false, hint: 'CNPJ não encontrado na base publica.' }); }
   }
 
+  const [hideBal, toggleBal] = useHideBalances();
+  const balOf = (id) => { const a = accounts.find((x) => x.id === id); return a ? Number(a.current_balance || 0) : null; };
+
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const onDesc = (e) => {
     const v = e.target.value;
@@ -133,6 +152,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
             <option value="">Selecione</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </Select>
+          <BalanceLine value={balOf(form.account_id)} hidden={hideBal} onToggle={toggleBal} />
         </Field>
         {form.type === 'transfer' ? (
           <Field label="Conta de destino">
@@ -140,6 +160,7 @@ export function TransactionModal({ open, onClose, onSubmit, saving, accounts, ca
               <option value="">Selecione</option>
               {accounts.filter((a) => a.id !== form.account_id).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
+            <BalanceLine value={balOf(form.account_to_id)} hidden={hideBal} onToggle={toggleBal} />
           </Field>
         ) : (
           <Field label="Categoria">

@@ -9,6 +9,7 @@ import { Bootstrap } from '../api/entities.js';
 import { Sidebar } from './Sidebar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { useLang } from '../context/LangContext.jsx';
 import { NAV_GROUPS } from '../lib/screens.js';
 import { Logo } from '../components/Logo.jsx';
 import { Menu, X, Sun, Moon, Search } from 'lucide-react';
@@ -33,19 +34,22 @@ function currentIcon(pathname) {
   return LayoutDashboard;
 }
 
-function currentTitle(pathname) {
+function currentNavKey(pathname) {
   for (const g of NAV_GROUPS) {
     const it = g.items.find((i) => i.path === pathname);
-    if (it) return it.label;
+    if (it) return it;
   }
-  return 'Monvy';
+  return null;
 }
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, canAccess } = useAuth();
   const { theme, toggle } = useTheme();
+  const { t } = useLang();
   const location = useLocation();
+  const navItem = currentNavKey(location.pathname);
+  const pageTitle = navItem ? t('nav.' + navItem.key, navItem.label) : 'Monvy';
   const qc = useQueryClient();
   const [onboarded, setOnboarded] = useState(() => { try { return localStorage.getItem('monvy_onboarded') === '1'; } catch { return false; } });
   const { data: accs, isSuccess: accsReady } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list(), enabled: !!user });
@@ -102,7 +106,7 @@ export function AppLayout() {
                 {(() => { const It = currentIcon(location.pathname); return <It className="w-[18px] h-[18px]" />; })()}
               </span>
               <div>
-                <h1 className="font-display font-bold text-xl leading-none">{currentTitle(location.pathname)}</h1>
+                <h1 className="font-display font-bold text-xl leading-none">{pageTitle}</h1>
                 <p className="text-[11px] text-muted capitalize mt-1">{today}</p>
               </div>
             </div>
@@ -150,7 +154,7 @@ export function AppLayout() {
             <NavLink key={it.key} to={it.path} end={it.path === '/'}
               className={({ isActive }) => cn('flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium',
                 isActive ? 'text-emerald-500' : 'text-muted')}>
-              <it.icon className="w-5 h-5" />{it.label}
+              <it.icon className="w-5 h-5" /><span className="truncate max-w-full">{t('nav.' + it.key, it.label)}</span>
             </NavLink>
           ))}
         </nav>

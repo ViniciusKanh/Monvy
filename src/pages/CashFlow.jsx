@@ -128,8 +128,27 @@ export default function CashFlow() {
     return SOURCES.map((s) => ({ ...s, value: m[s.key] || 0, pct: Math.round((m[s.key] || 0) / total * 100) })).filter((s) => s.value > 0).sort((a, b) => b.value - a.value);
   }, [events]);
 
+  // Resumo mês a mês: entradas, saídas e saldo projetado ao fim de cada mês
+  const monthly = useMemo(() => {
+    const meses = {};
+    for (const e of events) {
+      const mk = e.date.slice(0, 7);
+      meses[mk] = meses[mk] || { mk, inc: 0, out: 0 };
+      if (e.amount >= 0) meses[mk].inc += e.amount; else meses[mk].out += Math.abs(e.amount);
+    }
+    const ordered = Object.values(meses).sort((a, b) => (a.mk < b.mk ? -1 : 1));
+    let bal = startBalance;
+    return ordered.map((m) => {
+      bal += m.inc - m.out;
+      const [y, mo] = m.mk.split('-');
+      const label = new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      return { ...m, saldoFim: bal, label };
+    });
+  }, [events, startBalance]);
+
   const toggle = (k) => setOff((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const healthy = !firstNeg;
+  const semEventos = events.length === 0;
 
   if (isLoading) return <LoadingScreen label="Projetando seu fluxo de caixa..." />;
 
@@ -138,6 +157,18 @@ export default function CashFlow() {
       <PageHeader title={<span className="flex items-center gap-2"><Activity className="w-6 h-6 text-sky-500" /> Fluxo de Caixa Projetado</span>}
         subtitle="Saldo dia a dia com recebimentos, contas fixas, assinaturas, faturas e parcelas"
         actions={<Select value={horizon} onChange={(e) => setHorizon(Number(e.target.value))} className="w-auto"><option value={30}>30 dias</option><option value={60}>60 dias</option><option value={90}>90 dias</option><option value={180}>180 dias</option></Select>} />
+
+      <div className="flex items-start gap-2 p-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 text-sm">
+        <Activity className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>Partimos do seu <b>saldo de hoje</b> ({formatCurrency(startBalance)}) e somamos/subtraímos o que <b>ainda vai entrar e sair</b> nos próximos {horizon} dias: contas a pagar/receber, lançamentos fixos, assinaturas, faturas de cartão e parcelas. O gráfico mostra como seu saldo tende a evoluir dia a dia.</span>
+      </div>
+
+      {semEventos && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>Nenhum evento futuro registrado — por isso a projeção fica plana no saldo atual. Para dar vida à previsão: marque lançamentos como <b>fixos/recorrentes</b>, deixe contas como <b>a pagar/receber</b>, e cadastre assinaturas, faturas e parcelas de dívidas.</span>
+        </div>
+      )}
 
       {/* HERO */}
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft" style={{ background: healthy ? 'linear-gradient(135deg,#0ea5e9 0%,#0d9488 60%,#059669 100%)' : 'linear-gradient(135deg,#f43f5e 0%,#f97316 60%,#f59e0b 100%)' }}>
@@ -190,6 +221,30 @@ export default function CashFlow() {
           </AreaChart>
         </ResponsiveContainer>
       </Card>
+
+      {monthly.length > 0 && (
+        <Card>
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><CalendarClock className="w-4 h-4 text-sky-500" /> Resumo mês a mês</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-muted text-xs text-left border-b border-[hsl(var(--border))]">
+                <th className="py-2 font-medium">Mês</th><th className="py-2 font-medium text-right">Entradas</th><th className="py-2 font-medium text-right">Saídas</th><th className="py-2 font-medium text-right">Saldo no fim</th>
+              </tr></thead>
+              <tbody>
+                {monthly.map((m) => (
+                  <tr key={m.mk} className="border-b border-[hsl(var(--border))] last:border-0">
+                    <td className="py-2 capitalize font-medium">{m.label}</td>
+                    <td className="py-2 text-right text-emerald-500">+{formatCurrency(m.inc)}</td>
+                    <td className="py-2 text-right text-rose-500">-{formatCurrency(m.out)}</td>
+                    <td className={`py-2 text-right font-semibold ${m.saldoFim < 0 ? 'text-rose-500' : ''}`}>{formatCurrency(m.saldoFim)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-muted mt-2">O saldo no fim de cada mês já considera o mês anterior — é o efeito acumulado da sua previsão.</p>
+        </Card>
+      )}
 
       {outBySource.length > 0 && (
         <Card>

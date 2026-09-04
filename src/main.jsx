@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@ta
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import { LangProvider } from './context/LangContext.jsx';
 import { Toaster } from './components/Toaster.jsx';
 import { toast } from './lib/toast.js';
 import './index.css';
@@ -27,12 +28,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <App />
-            <Toaster />
-          </AuthProvider>
-        </BrowserRouter>
+        <LangProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <App />
+              <Toaster />
+            </AuthProvider>
+          </BrowserRouter>
+        </LangProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>

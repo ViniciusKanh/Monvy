@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Account, Transaction, Category, CreditCard, CreditCardTransaction, Goal, Subscription, CreditCardInvoice } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useLang } from '../context/LangContext.jsx';
 import { Card, Spinner } from '../components/ui';
 import { RobotsSummaryCard } from '../components/RobotsSummaryCard.jsx';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
@@ -39,6 +40,7 @@ async function fetchFx() {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
   const [mk, setMk] = useState(monthKey(new Date()));
   const [hide, setHide] = useState(false);
@@ -146,7 +148,7 @@ export default function Dashboard() {
   if (la || lt) return <DashSkeleton />;
 
   const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const greet = hour < 12 ? t('dash.greeting_morning') : hour < 18 ? t('dash.greeting_afternoon') : t('dash.greeting_evening');
   const rate = Math.max(0, Math.min(100, Math.round(cur.rate)));
   const savedGoals = goals.reduce((s, g) => s + Number(g.current_amount || 0), 0);
 
