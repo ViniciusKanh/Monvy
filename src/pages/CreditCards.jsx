@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { CreditCard, CreditCardTransaction, CreditCardInvoice, Account, Category, AppSettings, Ai, Cards } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button, Card, Input, Select, Field, Modal, Spinner, EmptyState, Badge } from '../components/ui';
@@ -8,7 +9,7 @@ import { toast } from '../lib/toast.js';
 import { formatCurrency, monthKey, monthLabel, todayIso } from '../lib/utils.js';
 import { colorAt } from '../lib/analytics.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
-import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc } from 'lucide-react';
+import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock } from 'lucide-react';
 
 const BRANDS = ['visa', 'mastercard', 'elo', 'amex', 'hipercard', 'other'];
 const emptyCard = { name: '', last_digits: '', brand: 'visa', closing_day: 1, due_day: 10, credit_limit: '', color: '#6d28d9', account_id: '' };
@@ -17,6 +18,7 @@ const CARD_COLORS = ['#6d28d9', '#0b1330', '#0f766e', '#1e293b', '#7c2d12', '#83
 
 export default function CreditCards() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data: cards = [], isLoading } = useQuery({ queryKey: ['cards'], queryFn: () => CreditCard.list() });
   const { data: txs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: () => CreditCardInvoice.list() });
@@ -52,6 +54,21 @@ export default function CreditCards() {
     return Object.values(map).sort((a, b) => b.value - a.value).map((x, i) => ({ ...x, color: x.color || colorAt(i) }));
   }, [monthTxs, catMap]);
   const maxCat = topCats[0]?.value || 1;
+
+  // insights do cartão selecionado (vencimento, melhor dia de compra, parcelas futuras)
+  const stats = useMemo(() => {
+    if (!selected) return null;
+    const now = new Date(new Date().toISOString().slice(0, 10) + 'T00:00');
+    const dim = (y, m) => new Date(y, m + 1, 0).getDate();
+    const dd = Number(selected.due_day) || 10;
+    let due = new Date(now.getFullYear(), now.getMonth(), Math.min(dd, dim(now.getFullYear(), now.getMonth())));
+    if (due < now) due = new Date(now.getFullYear(), now.getMonth() + 1, Math.min(dd, dim(now.getFullYear(), now.getMonth() + 1)));
+    const daysToDue = Math.round((due - now) / 86400000);
+    const closing = Number(selected.closing_day) || 1;
+    const bestBuyDay = (closing % dim(now.getFullYear(), now.getMonth())) + 1;
+    const future = txs.filter((t) => t.card_id === selected.id && t.competence_month && t.competence_month > mk).reduce((s, t) => s + Number(t.amount), 0);
+    return { due, daysToDue, bestBuyDay, future };
+  }, [selected, txs, mk]);
 
   // ----- mutations -----
   const saveCard = useMutation({ mutationFn: (p) => editingCard ? CreditCard.update(editingCard.id, p) : CreditCard.create(p), onSuccess: () => { qc.invalidateQueries({ queryKey: ['cards'] }); setCardModal(false); } });
@@ -153,67 +170,65 @@ export default function CreditCards() {
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
         : cards.length === 0 ? <Card><EmptyState icon={CardIcon} title="Nenhum cartao" subtitle="Cadastre um cartao de crédito para controlar faturas e limites." action={<Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartao</Button>} /></Card>
-        : (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Lista de cartões */}
-            <div className="space-y-4">
-              {cards.map((c, i) => {
-                const cUsage = c.credit_limit ? Math.min(100, Math.round((txs.filter((t) => t.card_id === c.id && (t.competence_month === mk || String(t.date).slice(0, 7) === mk)).reduce((s, t) => s + Number(t.amount), 0) / Number(c.credit_limit)) * 100)) : 0;
-                const active = selected?.id === c.id;
-                return (
-                  <Reveal key={c.id} i={i}>
-                    <button onClick={() => setSelectedId(c.id)} className="w-full text-left">
-                      <div className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-card transition hover-lift ${active ? 'ring-2 ring-emerald-400' : ''}`} style={{ background: `linear-gradient(135deg, ${c.color || CARD_COLORS[i % CARD_COLORS.length]}, #05070f 140%)` }}>
-                        <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-white/10" />
-                        <div className="relative flex justify-between items-start">
-                          <div className="w-10 h-7 rounded-md bg-gradient-to-br from-yellow-300 to-yellow-500" />
-                          <div className="flex items-center gap-2"><Nfc className="w-5 h-5 opacity-70" /><span className="uppercase text-xs font-bold tracking-widest">{c.brand}</span></div>
-                        </div>
-                        <p className="relative mt-6 tracking-[0.2em] text-lg">•••• •••• •••• {c.last_digits || '0000'}</p>
-                        <div className="relative flex justify-between items-end mt-4">
-                          <div><p className="text-[10px] text-white/60 uppercase">Titular</p><p className="font-semibold text-sm">{c.name}</p></div>
-                          <div className="text-right"><p className="text-[10px] text-white/60 uppercase">Vence</p><p className="font-semibold text-sm">dia {c.due_day}</p></div>
-                        </div>
-                        {c.credit_limit > 0 && (
-                          <div className="relative mt-3">
-                            <div className="h-1.5 rounded-full bg-white/20 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${cUsage}%`, background: cUsage >= 90 ? '#fb7185' : cUsage >= 70 ? '#fbbf24' : '#34d399' }} /></div>
-                            <p className="text-[10px] text-white/70 mt-1">{cUsage}% do limite usado</p>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  </Reveal>
-                );
-              })}
-            </div>
+        : selected && (
+          <div className="space-y-5">
+            {/* Cartão em destaque + números da fatura */}
+            <div className="grid lg:grid-cols-[minmax(0,400px)_1fr] gap-5 items-start">
+              <div className="space-y-3">
+                {/* cartão realista grande */}
+                <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-card aspect-[1.6/1]" style={{ background: `linear-gradient(135deg, ${selected.color || '#6d28d9'}, #05070f 145%)` }}>
+                  <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-white/10" />
+                  <div className="absolute -left-10 -bottom-14 w-40 h-40 rounded-full bg-white/[0.06]" />
+                  <div className="relative flex justify-between items-start">
+                    <div className="w-12 h-9 rounded-md bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-inner" />
+                    <div className="flex items-center gap-2"><Nfc className="w-6 h-6 opacity-70" /><span className="uppercase text-sm font-bold tracking-[0.2em]">{selected.brand}</span></div>
+                  </div>
+                  <p className="relative mt-7 tracking-[0.28em] text-xl sm:text-2xl font-display">•••• •••• •••• {selected.last_digits || '0000'}</p>
+                  <div className="relative flex justify-between items-end mt-6">
+                    <div><p className="text-[10px] text-white/55 uppercase tracking-wide">Titular</p><p className="font-semibold">{selected.name}</p></div>
+                    <div className="text-right"><p className="text-[10px] text-white/55 uppercase tracking-wide">Vencimento</p><p className="font-semibold">dia {selected.due_day}</p></div>
+                    {selected.credit_limit > 0 && (
+                      <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
+                        <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="5" />
+                        <circle cx="26" cy="26" r="21" fill="none" stroke={usage >= 90 ? '#fb7185' : usage >= 70 ? '#fbbf24' : '#34d399'} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(usage / 100) * (2 * Math.PI * 21)} ${2 * Math.PI * 21}`} transform="rotate(-90 26 26)" />
+                        <text x="26" y="30" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff">{usage}%</text>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditCard(selected)}><Pencil className="w-4 h-4" /> Editar</Button>
+                  <Button size="sm" variant="outline" className="text-rose-500" onClick={() => { if (confirm('Excluir este cartão?')) delCard.mutate(selected.id); }}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+              </div>
 
-            {/* Detalhe do cartão selecionado */}
-            {selected && (
-              <div className="lg:col-span-2 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button onClick={() => shiftMonth(-1)} className="p-2 rounded-lg card"><ChevronLeft className="w-4 h-4" /></button>
                     <span className="font-semibold min-w-[130px] text-center capitalize">{monthLabel(mk)}</span>
                     <button onClick={() => shiftMonth(1)} className="p-2 rounded-lg card"><ChevronRight className="w-4 h-4" /></button>
                   </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => openEditCard(selected)} className="p-2 rounded-lg card"><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => delCard.mutate(selected.id)} className="p-2 rounded-lg card text-rose-500"><Trash2 className="w-4 h-4" /></button>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Card className="py-3"><p className="text-xs text-muted">Fatura</p><p className="font-display text-lg font-bold"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p></Card>
-                  <Card className="py-3"><p className="text-xs text-muted">Limite disponível</p><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '-'}</p></Card>
-                  <Card className="py-3"><p className="text-xs text-muted">Lançamentos</p><p className="font-display text-lg font-bold">{monthTxs.length}</p></Card>
-                  <Card className="py-3"><p className="text-xs text-muted">Vencimento</p><p className="font-display text-lg font-bold">dia {selected.due_day}</p></Card>
+                  <Card className="py-3"><p className="text-xs text-muted">Fatura de {monthLabel(mk).split(' ')[0]}</p><p className="font-display text-lg font-bold"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p></Card>
+                  <Card className="py-3"><p className="text-xs text-muted">Limite disponível</p><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '—'}</p></Card>
+                  {stats && <Card className="py-3"><p className="text-xs text-muted">Vence em</p><p className={`font-display text-lg font-bold ${stats.daysToDue <= 3 ? 'text-rose-500' : stats.daysToDue <= 7 ? 'text-amber-500' : ''}`}>{stats.daysToDue === 0 ? 'hoje' : `${stats.daysToDue} dias`}</p></Card>}
+                  {stats && <Card className="py-3"><p className="text-xs text-muted">Melhor dia de compra</p><p className="font-display text-lg font-bold">dia {stats.bestBuyDay}</p></Card>}
                 </div>
+
+                {stats && stats.future > 0 && (
+                  <div className="flex items-start gap-2 rounded-xl p-3 text-sm bg-indigo-500/[0.07] text-indigo-700 dark:text-indigo-300">
+                    <CalendarClock className="w-4 h-4 mt-0.5 shrink-0" /> <span>Você já tem <b>{formatCurrency(stats.future)}</b> em parcelas caindo nas próximas faturas deste cartão.</span>
+                  </div>
+                )}
 
                 {selected.credit_limit > 0 && (
                   <Card className="py-3">
                     <div className="flex justify-between text-xs mb-1"><span className="text-muted">Uso do limite</span><span className="font-semibold">{usage}% de {formatCurrency(selected.credit_limit)}</span></div>
                     <div className="h-2.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${usage}%`, background: usage >= 90 ? '#f43f5e' : usage >= 70 ? '#f59e0b' : '#10b981' }} /></div>
-                    {usage >= 80 && <p className="text-xs text-amber-500 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Você já usou {usage}% do limite deste cartao.</p>}
+                    {usage >= 80 && <p className="text-xs text-amber-500 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Você já usou {usage}% do limite deste cartão.</p>}
                   </Card>
                 )}
 
@@ -236,43 +251,68 @@ export default function CreditCards() {
                     </Card>
                   );
                 })()}
+              </div>
+            </div>
 
-                {topCats.length > 0 && (
-                  <Card>
-                    <h3 className="font-semibold mb-3 text-sm">Onde você gastou neste cartao</h3>
-                    <div className="space-y-2.5">
-                      {topCats.slice(0, 5).map((c, i) => (
-                        <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />{c.name}</span><span className="font-semibold">{formatCurrency(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(c.value / maxCat) * 100}%`, background: c.color }} /></div></div>
-                      ))}
-                    </div>
-                  </Card>
-                )}
-
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                  <h3 className="font-semibold">Lançamentos</h3>
-                  <div className="flex gap-2">
-                    <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleInvoiceFile} />
-                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>{importing ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Importar fatura</>}</Button>
-                    {monthTxs.some((t) => t.imported_from_pdf) && <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir os lançamentos importados desta fatura?')) delImported.mutate(); }} disabled={delImported.isPending}>{delImported.isPending ? <Spinner className="w-4 h-4" /> : <><Trash2 className="w-4 h-4 text-rose-500" /> Excluir fatura</>}</Button>}
-                    <Button size="sm" onClick={() => { setTxForm({ ...emptyTx }); setTxModal(true); }}><Plus className="w-4 h-4" /> Compra</Button>
-                  </div>
-                </div>
-
-                {monthTxs.length === 0 ? <Card><EmptyState icon={CardIcon} title="Sem lançamentos" subtitle="Adicione compras ou importe a fatura em PDF." /></Card>
-                  : (
-                    <Card className="p-0 divide-y divide-[hsl(var(--border))]">
-                      {monthTxs.map((t) => (
-                        <div key={t.id} className="flex items-center gap-3 px-4 py-3">
-                          <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: catMap[t.category_id]?.color || '#64748b' }}><CardIcon className="w-4 h-4" /></span>
-                          <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description}</p><div className="flex items-center gap-2 text-xs text-muted">{catMap[t.category_id]?.name || 'Sem categoria'}{t.installments_total > 1 ? <Badge color="blue">{t.installment_current}/{t.installments_total}</Badge> : null}{t.imported_from_pdf ? <Badge color="violet">PDF</Badge> : null}</div></div>
-                          <p className="font-semibold text-rose-500">{formatCurrency(t.amount)}</p>
-                          <button onClick={() => delTx.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      ))}
-                    </Card>
-                  )}
+            {/* Strip para trocar de cartão */}
+            {cards.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+                {cards.map((c, i) => {
+                  const active = selected.id === c.id;
+                  return (
+                    <button key={c.id} onClick={() => setSelectedId(c.id)}
+                      className={`relative shrink-0 w-40 rounded-xl p-3 text-white text-left transition ${active ? 'ring-2 ring-emerald-400' : 'opacity-80 hover:opacity-100'}`}
+                      style={{ background: `linear-gradient(135deg, ${c.color || CARD_COLORS[i % CARD_COLORS.length]}, #05070f 150%)` }}>
+                      <div className="flex items-center justify-between"><span className="text-[10px] uppercase tracking-widest font-bold opacity-70">{c.brand}</span><CardIcon className="w-4 h-4 opacity-70" /></div>
+                      <p className="text-sm font-semibold truncate mt-3">{c.name}</p>
+                      <p className="text-[11px] tracking-wider opacity-70">•••• {c.last_digits || '0000'}</p>
+                    </button>
+                  );
+                })}
+                <button onClick={openNewCard} className="shrink-0 w-40 rounded-xl border-2 border-dashed border-[hsl(var(--border))] text-muted hover:text-emerald-500 hover:border-emerald-500 flex flex-col items-center justify-center gap-1 transition"><Plus className="w-5 h-5" /><span className="text-xs font-medium">Novo cartão</span></button>
               </div>
             )}
+
+            {/* Automação: robô do cartão */}
+            <button onClick={() => navigate('/agentes')} className="w-full flex items-center gap-3 text-left rounded-2xl p-3 border border-indigo-500/30 bg-indigo-500/[0.06] hover:bg-indigo-500/10 transition">
+              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-indigo-500 text-white flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4" /></span>
+              <span className="min-w-0"><span className="text-sm font-semibold block">Robô de olho no cartão</span><span className="text-xs text-muted block">Receba um aviso quando a fatura fechar, o vencimento chegar ou o limite passar de 80%. Toque para ativar.</span></span>
+            </button>
+
+            {topCats.length > 0 && (
+              <Card>
+                <h3 className="font-semibold mb-3 text-sm">Onde você gastou neste cartão</h3>
+                <div className="space-y-2.5">
+                  {topCats.slice(0, 6).map((c, i) => (
+                    <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />{c.name}</span><span className="font-semibold">{formatCurrency(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(c.value / maxCat) * 100}%`, background: c.color }} /></div></div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <h3 className="font-semibold">Lançamentos da fatura</h3>
+              <div className="flex gap-2">
+                <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleInvoiceFile} />
+                <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>{importing ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Importar fatura (PDF)</>}</Button>
+                {monthTxs.some((t) => t.imported_from_pdf) && <Button size="sm" variant="outline" onClick={() => { if (confirm('Excluir os lançamentos importados desta fatura?')) delImported.mutate(); }} disabled={delImported.isPending}>{delImported.isPending ? <Spinner className="w-4 h-4" /> : <><Trash2 className="w-4 h-4 text-rose-500" /> Excluir fatura</>}</Button>}
+                <Button size="sm" onClick={() => { setTxForm({ ...emptyTx }); setTxModal(true); }}><Plus className="w-4 h-4" /> Compra</Button>
+              </div>
+            </div>
+
+            {monthTxs.length === 0 ? <Card><EmptyState icon={CardIcon} title="Sem lançamentos" subtitle="Adicione compras ou importe a fatura em PDF." /></Card>
+              : (
+                <Card className="p-0 divide-y divide-[hsl(var(--border))]">
+                  {monthTxs.map((t) => (
+                    <div key={t.id} className="group flex items-center gap-3 px-4 py-3">
+                      <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: catMap[t.category_id]?.color || '#64748b' }}><CardIcon className="w-4 h-4" /></span>
+                      <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description}</p><div className="flex items-center gap-2 text-xs text-muted">{catMap[t.category_id]?.name || 'Sem categoria'}{t.installments_total > 1 ? <Badge color="blue">{t.installment_current}/{t.installments_total}</Badge> : null}{t.imported_from_pdf ? <Badge color="violet">PDF</Badge> : null}</div></div>
+                      <p className="font-semibold font-display text-rose-500">{formatCurrency(t.amount)}</p>
+                      <button onClick={() => delTx.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 sm:opacity-0 sm:group-hover:opacity-100 transition"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </Card>
+              )}
           </div>
         )}
 

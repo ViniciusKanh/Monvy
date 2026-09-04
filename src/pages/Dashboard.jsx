@@ -160,8 +160,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <p className="text-sm text-muted">{greet},</p>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight">{(user?.full_name || 'Usuário').split(' ')[0]} <span className="inline-block animate-[floaty_3s_ease-in-out_infinite]">👋</span></h1>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight">{greet}, {(user?.full_name || 'Usuário').split(' ')[0]} <span className="inline-block animate-[floaty_3s_ease-in-out_infinite]">👋</span></h1>
+          <p className="text-sm text-muted mt-0.5">{t('dash.subtitle')} · <span className="capitalize">{monthLabel(mk)}</span></p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 card px-1 py-1">
@@ -204,12 +204,12 @@ export default function Dashboard() {
           <div className="relative">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] tracking-[0.28em] text-slate-400 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> PATRIMONIO TOTAL</p>
+                <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Patrimônio total</p>
                 <div className="flex items-end gap-3 mt-2 flex-wrap">
                   <p className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-none"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
                   <span className={`mb-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/20'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mês</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-1.5">{accounts.length} conta(s) · {cards.length} cartao(oes) · {money(savedGoals)} guardado em metas</p>
+                <p className="text-xs text-slate-400 mt-1.5">{accounts.length} conta(s) · {cards.length} cartão(ões) · {money(savedGoals)} guardado em metas</p>
                 {(() => {
                   const usd = Number((fx?.USDBRL || {}).bid) || 0;
                   const eur = Number((fx?.EURBRL || {}).bid) || 0;
@@ -219,7 +219,7 @@ export default function Dashboard() {
                     <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
                       {usd > 0 && <span className="flex items-center gap-1">🇺🇸 {hide ? '••••' : `US$ ${f(totalBalance / usd)}`}</span>}
                       {eur > 0 && <span className="flex items-center gap-1">🇪🇺 {hide ? '••••' : `€ ${f(totalBalance / eur)}`}</span>}
-                      <span className="text-slate-500">· patrimonio no câmbio de hoje</span>
+                      <span className="text-slate-500">· patrimônio no câmbio de hoje</span>
                     </p>
                   );
                 })()}
@@ -233,7 +233,7 @@ export default function Dashboard() {
               if (!tot) return null;
               return (
                 <div className="mt-6">
-                  <div className="flex items-center justify-between mb-1.5"><span className="text-[11px] text-slate-400 uppercase tracking-wider">Alocacao por conta</span></div>
+                  <div className="flex items-center justify-between mb-1.5"><span className="text-xs text-slate-400 font-medium">Onde está seu dinheiro</span></div>
                   <div className="flex h-2.5 rounded-full overflow-hidden bg-white/10 gap-0.5">
                     {pos.map((a, i) => <div key={a.id} className="transition-all" style={{ width: `${(a.current_balance / tot) * 100}%`, background: a.color || colorAt(i) }} title={a.name} />)}
                   </div>
@@ -526,7 +526,7 @@ function HeroStat({ label, value, pct, good, tone }) {
       <p className="font-bold text-lg mt-0.5" style={{ color: tone }}>{value}</p>
       {show
         ? <p className={`text-[11px] flex items-center gap-0.5 ${positive ? 'text-emerald-300' : 'text-rose-300'}`}>{up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{Math.abs(pct).toFixed(0)}%</p>
-        : <p className="text-[11px] text-slate-500">estavel</p>}
+        : <p className="text-[11px] text-slate-500">estável</p>}
     </div>
   );
 }
