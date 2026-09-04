@@ -173,7 +173,7 @@ export default function Dashboard() {
 
       {customize && (
         <Card>
-          <div className="flex items-center justify-between mb-2"><h3 className="font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4 text-emerald-500" /> Personalizar painel</h3><button onClick={() => setCustomize(false)} className="text-sm text-emerald-600 font-semibold">Concluir</button></div>
+          <div className="flex items-center justify-between mb-2"><h3 className="font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4 text-emerald-500" /> {t('dash.customize')}</h3><button onClick={() => setCustomize(false)} className="text-sm text-emerald-600 font-semibold">{t('dash.done')}</button></div>
           <div className="space-y-1.5">
             {layout.order.map((id, idx) => { const w = WIDGET_DEFS.find((x) => x.id === id); return (
               <div key={id} className="flex items-center gap-2 p-2 rounded-lg bg-black/5 dark:bg-white/5">
@@ -242,9 +242,9 @@ export default function Dashboard() {
             })()}
 
             <div className="grid grid-cols-3 gap-3 mt-5">
-              <HeroStat label={`Entradas · ${monthLabel(mk).split(' ')[0]}`} value={val(cur.inc)} pct={pctChange(cur.inc, prev.inc)} good="up" tone="#34d399" />
-              <HeroStat label="Saidas" value={val(cur.exp)} pct={pctChange(cur.exp, prev.exp)} good="down" tone="#fb7185" />
-              <HeroStat label="Saldo" value={val(cur.bal)} pct={pctChange(cur.bal, prev.bal)} good="up" tone="#818cf8" />
+              <HeroStat label={`${t('dash.inflow')} · ${monthLabel(mk).split(' ')[0]}`} value={val(cur.inc)} pct={pctChange(cur.inc, prev.inc)} good="up" tone="#34d399" />
+              <HeroStat label={t('dash.outflow')} value={val(cur.exp)} pct={pctChange(cur.exp, prev.exp)} good="down" tone="#fb7185" />
+              <HeroStat label={t('dash.balance')} value={val(cur.bal)} pct={pctChange(cur.bal, prev.bal)} good="up" tone="#818cf8" />
             </div>
           </div>
 
@@ -275,10 +275,10 @@ export default function Dashboard() {
 
       {/* KPIs com tendencia */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Reveal i={0}><Kpi label="Receitas" amount={cur.inc} hidden={hide} icon={TrendingUp} tone="emerald" pct={pctChange(cur.inc, prev.inc)} good="up" spark={series6.map((s) => s.inc)} /></Reveal>
-        <Reveal i={1}><Kpi label="Despesas" amount={cur.exp} hidden={hide} icon={TrendingDown} tone="rose" pct={pctChange(cur.exp, prev.exp)} good="down" spark={series6.map((s) => s.exp)} /></Reveal>
-        <Reveal i={2}><Kpi label="Saldo do mês" amount={cur.bal} hidden={hide} icon={Wallet} tone={cur.bal < 0 ? 'rose' : 'indigo'} pct={pctChange(cur.bal, prev.bal)} good="up" spark={series6.map((s) => s.net)} /></Reveal>
-        <Reveal i={3}><Kpi label="Taxa de poupança" amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
+        <Reveal i={0}><Kpi label={t('dash.income')} amount={cur.inc} hidden={hide} icon={TrendingUp} tone="emerald" pct={pctChange(cur.inc, prev.inc)} good="up" spark={series6.map((s) => s.inc)} /></Reveal>
+        <Reveal i={1}><Kpi label={t('dash.expenses')} amount={cur.exp} hidden={hide} icon={TrendingDown} tone="rose" pct={pctChange(cur.exp, prev.exp)} good="down" spark={series6.map((s) => s.exp)} /></Reveal>
+        <Reveal i={2}><Kpi label={t('dash.month_balance')} amount={cur.bal} hidden={hide} icon={Wallet} tone={cur.bal < 0 ? 'rose' : 'indigo'} pct={pctChange(cur.bal, prev.bal)} good="up" spark={series6.map((s) => s.net)} /></Reveal>
+        <Reveal i={3}><Kpi label={t('dash.savings_rate')} amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
       </div>
 
       <RobotsSummaryCard />
@@ -287,7 +287,7 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2 hover-lift">
-          <div className="flex items-center justify-between mb-1"><h3 className="font-semibold">Fluxo de Caixa</h3><span className="text-xs text-muted">receita, despesa e saldo — 6 meses</span></div>
+          <div className="flex items-center justify-between mb-1"><h3 className="font-semibold">{t('dash.cashflow')}</h3><span className="text-xs text-muted">{t('dash.cashflow_sub')}</span></div>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={series6} barGap={4}>
               <defs><linearGradient id="dInc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.95} /><stop offset="100%" stopColor="#10b981" stopOpacity={0.5} /></linearGradient><linearGradient id="dExp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" stopOpacity={0.95} /><stop offset="100%" stopColor="#f43f5e" stopOpacity={0.5} /></linearGradient></defs>
@@ -303,9 +303,9 @@ export default function Dashboard() {
         </Card>
 
         <Card className="hover-lift">
-          <h3 className="font-semibold">Gastos por Categoria</h3>
+          <h3 className="font-semibold">{t('dash.by_category')}</h3>
           <p className="text-xs text-muted mb-2 capitalize">{monthLabel(mk)}</p>
-          {byCategory.length === 0 ? <div className="flex flex-col items-center justify-center h-[220px] text-muted text-sm"><PiggyBank className="w-8 h-8 mb-2 opacity-40" />Sem despesas no mês</div>
+          {byCategory.length === 0 ? <div className="flex flex-col items-center justify-center h-[220px] text-muted text-sm"><PiggyBank className="w-8 h-8 mb-2 opacity-40" />{t('dash.no_expenses_month')}</div>
             : (<>
               <div className="relative">
                 <ResponsiveContainer width="100%" height={180}>
@@ -358,10 +358,10 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </Card>
         <div className="grid grid-cols-2 gap-3 content-start">
-          <ActionTile color="#10b981" icon={ArrowUpRight} label="Receita" onClick={() => navigate('/lançamentos')} />
-          <ActionTile color="#f43f5e" icon={ArrowDownRight} label="Despesa" onClick={() => navigate('/lançamentos')} />
-          <ActionTile color="#6366f1" icon={CardIcon} label="Cartões" onClick={() => navigate('/cartões')} />
-          <ActionTile color="#8b5cf6" icon={Target} label="Metas" onClick={() => navigate('/metas')} />
+          <ActionTile color="#10b981" icon={ArrowUpRight} label={t('dash.act_income')} onClick={() => navigate('/lancamentos')} />
+          <ActionTile color="#f43f5e" icon={ArrowDownRight} label={t('dash.act_expense')} onClick={() => navigate('/lancamentos')} />
+          <ActionTile color="#6366f1" icon={CardIcon} label={t('dash.act_cards')} onClick={() => navigate('/cartoes')} />
+          <ActionTile color="#8b5cf6" icon={Target} label={t('dash.act_goals')} onClick={() => navigate('/metas')} />
         </div>
       </div>
 
@@ -372,10 +372,10 @@ export default function Dashboard() {
       {byCategory.length > 0 && (
         <div className="grid md:grid-cols-2 gap-5">
           <Card className="hover-lift">
-            <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Visao Geral de Gastos</h3><span className="text-xs text-muted capitalize">{monthLabel(mk)}</span></div>
+            <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">{t('dash.overview')}</h3><span className="text-xs text-muted capitalize">{monthLabel(mk)}</span></div>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="rounded-xl p-3 bg-sky-50 dark:bg-sky-500/10"><p className="text-xs text-muted">Essenciais</p><p className="font-bold text-lg text-sky-600 dark:text-sky-300">{val(overview.ess)}</p></div>
-              <div className="rounded-xl p-3 bg-violet-50 dark:bg-violet-500/10"><p className="text-xs text-muted">Variaveis</p><p className="font-bold text-lg text-violet-600 dark:text-violet-300">{val(overview.varr)}</p></div>
+              <div className="rounded-xl p-3 bg-sky-50 dark:bg-sky-500/10"><p className="text-xs text-muted">{t('dash.essentials')}</p><p className="font-bold text-lg text-sky-600 dark:text-sky-300">{val(overview.ess)}</p></div>
+              <div className="rounded-xl p-3 bg-violet-50 dark:bg-violet-500/10"><p className="text-xs text-muted">{t('dash.variable')}</p><p className="font-bold text-lg text-violet-600 dark:text-violet-300">{val(overview.varr)}</p></div>
             </div>
             <div className="flex h-3 rounded-full overflow-hidden bg-black/10 dark:bg-white/10">
               <div className="bg-sky-500 transition-all" style={{ width: `${overview.essPct}%` }} title="Essenciais" />
@@ -390,8 +390,8 @@ export default function Dashboard() {
           </Card>
 
           <Card className="hover-lift">
-            <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Comparativo por Categoria</h3><span className="text-xs text-muted">vs mes anterior</span></div>
-            {comparison.length === 0 ? <p className="text-sm text-muted py-8 text-center">Sem dados para comparar.</p>
+            <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">{t('dash.compare_cat')}</h3><span className="text-xs text-muted">{t('dash.vs_prev')}</span></div>
+            {comparison.length === 0 ? <p className="text-sm text-muted py-8 text-center">{t('dash.no_compare')}</p>
               : <div className="space-y-3">{comparison.map((c, i) => { const maxv = comparison[0]?.value || 1; const up = c.delta > 0; return (
                 <div key={i}>
                   <div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2 truncate"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color || colorAt(i) }} />{c.name}</span>
@@ -410,8 +410,8 @@ export default function Dashboard() {
       {/* Recentes + A vencer */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Lançamentos recentes</h3><button onClick={() => navigate('/lançamentos')} className="text-sm text-emerald-600 font-semibold hover:underline flex items-center gap-1">Ver todos <ArrowRight className="w-3.5 h-3.5" /></button></div>
-          {recent.length === 0 ? <div className="py-10 text-center text-sm text-muted">Nenhum lançamento em {monthLabel(mk)}. <button onClick={() => navigate('/lançamentos')} className="text-emerald-600 font-semibold">Adicionar</button></div>
+          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">{t('dash.recent')}</h3><button onClick={() => navigate('/lancamentos')} className="text-sm text-emerald-600 font-semibold hover:underline flex items-center gap-1">{t('dash.see_all')} <ArrowRight className="w-3.5 h-3.5" /></button></div>
+          {recent.length === 0 ? <div className="py-10 text-center text-sm text-muted">{t('dash.no_expenses_month')} · {monthLabel(mk)}. <button onClick={() => navigate('/lancamentos')} className="text-emerald-600 font-semibold">{t('dash.add')}</button></div>
             : <div className="divide-y divide-[hsl(var(--border))]">{recent.map((t) => {
               const cat = catMap[t.category_id];
               const isCard = t._src === 'card';
@@ -437,7 +437,7 @@ export default function Dashboard() {
 
         <Card>
           <h3 className="font-semibold flex items-center gap-2 mb-3"><CalendarClock className="w-4 h-4 text-sky-500" /> A vencer</h3>
-          {upcoming.length === 0 ? <div className="py-8 text-center text-sm text-muted">Nada a vencer este mês.</div>
+          {upcoming.length === 0 ? <div className="py-8 text-center text-sm text-muted">{t('dash.nothing_due')}</div>
             : <div className="space-y-2">{upcoming.map((u, i) => (
               <div key={i} className="flex items-center gap-2 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5">
                 <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: u.kind === 'inv' ? '#6366f11f' : '#0ea5e91f' }}>{u.kind === 'inv' ? <CardIcon className="w-4 h-4 text-indigo-500" /> : <CalendarClock className="w-4 h-4 text-sky-500" />}</span>

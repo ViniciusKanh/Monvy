@@ -2,6 +2,8 @@ import { cn } from '../../lib/utils.js';
 import { X, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLang } from '../../context/LangContext.jsx';
+import { translatePhrase } from '../../lib/i18n.js';
 
 export function Button({ variant = 'primary', size = 'md', className, children, ...props }) {
   const variants = {
@@ -87,11 +89,13 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
 }
 
 export function EmptyState({ icon: Icon, title, subtitle, action }) {
+  const { lang } = useLang();
+  const tp = (v) => (typeof v === 'string' ? translatePhrase(lang, v) : v);
   return (
     <div className="flex flex-col items-center justify-center text-center py-14 text-muted">
       {Icon && <div className="w-14 h-14 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center mb-3"><Icon className="w-7 h-7" /></div>}
-      <p className="font-semibold text-[hsl(var(--text))]">{title}</p>
-      {subtitle && <p className="text-sm mt-1 max-w-sm">{subtitle}</p>}
+      <p className="font-semibold text-[hsl(var(--text))]">{tp(title)}</p>
+      {subtitle && <p className="text-sm mt-1 max-w-sm">{tp(subtitle)}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

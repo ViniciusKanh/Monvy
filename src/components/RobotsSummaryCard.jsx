@@ -17,7 +17,8 @@ export function RobotsSummaryCard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
-  const [summary, setSummary] = useState(null); // { parts:[{robot,text,via}], via }
+  const SUM_KEY = 'monvy_robot_summary';
+  const [summary, setSummary] = useState(() => { try { return JSON.parse(localStorage.getItem(SUM_KEY)) || null; } catch { return null; } }); // { parts, via, at, fired }
   const [summaryBusy, setSummaryBusy] = useState(false);
   const { data: agents = [], isLoading } = useQuery({ queryKey: ['triggers'], queryFn: () => Trigger.list(), refetchInterval: 60_000 });
   const { data: notifications = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => Notification.list({ _limit: 50 }), refetchInterval: 60_000 });
@@ -39,12 +40,14 @@ export function RobotsSummaryCard() {
   const activeCount = robots.filter((r) => r.active).length;
   const recentAlerts = useMemo(() => notifications.filter((n) => n.kind === 'alert' || n.kind === 'ticket').slice(0, 3), [notifications]);
 
-  const gerarResumo = async () => {
+  const gerarResumo = async (fired = 0) => {
     setSummaryBusy(true);
     try {
-      const q = 'Faça um resumo curto e claro da minha situação financeira deste mês (saldo, entradas, saídas e o que se destaca) e traga 2 ou 3 insights práticos e acionáveis. Seja direto.';
+      const q = 'Faça um resumo curto e claro da minha situação financeira deste mês (saldo, entradas, saídas e o que mais se destaca) e traga 2 ou 3 insights práticos e acionáveis, cada um começando com um verbo. Seja direto e use números quando ajudar.';
       const { parts } = await converse({ question: q, ctx, agents, primary: null, apiKey, history: [] });
-      setSummary({ parts, via: parts[0]?.via });
+      const payload = { parts, via: parts[0]?.via, at: Date.now(), fired };
+      setSummary(payload);
+      try { localStorage.setItem(SUM_KEY, JSON.stringify(payload)); } catch { /* ignore */ }
     } catch (e) { toast.error(e.message || 'Não consegui gerar o resumo agora.'); } finally { setSummaryBusy(false); }
   };
 
@@ -54,7 +57,7 @@ export function RobotsSummaryCard() {
       const { fired } = await Robots.check();
       qc.invalidateQueries({ queryKey: ['notifications'] }); qc.invalidateQueries({ queryKey: ['triggers'] });
       toast.success(fired ? `${fired} alerta(s) gerado(s) pelos robôs.` : 'Tudo certo — nenhum alerta agora.');
-      gerarResumo();
+      await gerarResumo(fired);
     }
     catch (e) { toast.error(e.message || 'Falha ao verificar'); } finally { setBusy(false); }
   };
@@ -94,15 +97,17 @@ export function RobotsSummaryCard() {
 
         {(summaryBusy || summary) && (
           <div className="mb-3 rounded-xl border border-[hsl(var(--border))] bg-black/[0.02] dark:bg-white/[0.03] p-3">
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
               <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resumo dos robôs</span>
-              {summary && <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted">{summary.via === 'gemini' ? <><Sparkles className="w-3 h-3 text-emerald-500" /> IA generativa</> : <><Cpu className="w-3 h-3" /> Motor local</>}</span>}
+              {summary && !summaryBusy && <span className="text-[10px] text-muted">· {rel(new Date(summary.at).toISOString())}</span>}
+              {summary && !summaryBusy && <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted">{summary.via === 'gemini' ? <><Sparkles className="w-3 h-3 text-emerald-500" /> IA generativa</> : <><Cpu className="w-3 h-3" /> Motor local</>}</span>}
             </div>
             {summaryBusy ? (
               <div className="flex items-center gap-2 text-sm text-muted py-1"><Spinner className="w-4 h-4 text-emerald-500" /> Os robôs estão analisando seus dados…</div>
             ) : (
               <div className="space-y-2.5">
+                {summary.fired > 0 && <p className="text-[11px] text-amber-600 dark:text-amber-400">⚠ {summary.fired} alerta(s) gerado(s) nesta verificação.</p>}
                 {summary.parts.map((p, i) => (
                   <div key={i} className="flex gap-2">
                     <span className="w-6 h-6 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)' }}>{p.robot.emoji}</span>
@@ -118,7 +123,7 @@ export function RobotsSummaryCard() {
         )}
 
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="flex-1" onClick={check} disabled={busy || summaryBusy}>{busy ? <Spinner className="w-4 h-4" /> : <><RefreshCw className="w-4 h-4" /> Verificar agora</>}</Button>
+          <Button size="sm" variant="outline" className="flex-1" onClick={check} disabled={busy || summaryBusy}>{busy || summaryBusy ? <Spinner className="w-4 h-4" /> : <><RefreshCw className="w-4 h-4" /> {summary ? 'Verificar de novo' : 'Verificar agora'}</>}</Button>
           <Button size="sm" className="flex-1" onClick={() => navigate('/chat')}><MessageSquare className="w-4 h-4" /> Perguntar</Button>
         </div>
       </>)}

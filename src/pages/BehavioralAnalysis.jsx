@@ -1,18 +1,35 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Transaction, Category, CreditCardTransaction } from '../api/entities.js';
+import { Transaction, Category, CreditCardTransaction, Account, Investment, Debt, Goal, Subscription, CreditCardInvoice, AppSettings } from '../api/entities.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
-import { Card, Spinner, Badge } from '../components/ui';
+import { Card, Spinner, Badge, Button } from '../components/ui';
+import { toast } from '../lib/toast.js';
 import { formatCurrency } from '../lib/utils.js';
 import { lastMonths, monthlySeries, weekdaySpending, behaviorProfile, combineExpenses, detectSubscriptions } from '../lib/analytics.js';
+import { answerHybrid } from '../lib/chat.js';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, LineChart, Line, BarChart, Bar, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { ShieldCheck, Activity, TrendingUp, Clock, BarChart3, HeartPulse, RefreshCw, CalendarRange } from 'lucide-react';
+import { ShieldCheck, Activity, TrendingUp, Clock, BarChart3, HeartPulse, RefreshCw, CalendarRange, Sparkles, Cpu, Brain, Lightbulb } from 'lucide-react';
+
+const AI_KEY = 'monvy_behavior_ai';
 
 export default function BehavioralAnalysis() {
+  const { user } = useAuth();
   const { data: transactions = [], isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
+  const { data: investments = [] } = useQuery({ queryKey: ['investments'], queryFn: () => Investment.list() });
+  const { data: debts = [] } = useQuery({ queryKey: ['debts'], queryFn: () => Debt.list() });
+  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: () => Goal.list() });
+  const { data: subsAll = [] } = useQuery({ queryKey: ['subscriptions'], queryFn: () => Subscription.list() });
+  const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: () => CreditCardInvoice.list() });
+  const { data: settingsList = [] } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
+  const apiKey = settingsList[0]?.gemini_api_key;
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
+
+  const [ai, setAi] = useState(() => { try { return JSON.parse(localStorage.getItem(AI_KEY)) || null; } catch { return null; } });
+  const [aiBusy, setAiBusy] = useState(false);
 
   const months = useMemo(() => lastMonths(6), []);
   const tx = useMemo(() => combineExpenses(transactions, cardTxs), [transactions, cardTxs]);
@@ -32,6 +49,28 @@ export default function BehavioralAnalysis() {
   }, [tx]);
   const peakPart = partsOfMonth.reduce((a, c) => (c.value > a.value ? c : a), partsOfMonth[0]);
 
+  // Principal alavanca: onde mexer primeiro tem mais efeito
+  const lever = useMemo(() => {
+    const cands = [];
+    if (b.distribution[0]) cands.push({ k: 'categoria', peso: b.distribution[0].value, txt: `Sua maior categoria é ${b.distribution[0].name} (${formatCurrency(b.distribution[0].value)}). Cortar 15% aqui já libera ${formatCurrency(b.distribution[0].value * 0.15)}.` });
+    if (b.impulsivity >= 35) cands.push({ k: 'impulso', peso: b.avgTicket * b.impulsivity, txt: `Impulsividade alta (${b.impulsivity}%). Adote a regra das 24h para compras acima de ${formatCurrency(b.avgTicket * 2)}.` });
+    if (recurringMonthly > 0) cands.push({ k: 'recorrente', peso: recurringMonthly * 2, txt: `Você tem ${formatCurrency(recurringMonthly)}/mês em recorrentes. Revisar 1–2 assinaturas é ganho garantido todo mês.` });
+    if (b.weekendPct >= 40) cands.push({ k: 'fds', peso: b.weekendPct * 10, txt: `Fins de semana pesam ${b.weekendPct}% dos gastos. Definir um teto de lazer no FDS costuma ajudar bastante.` });
+    return cands.sort((a, c) => c.peso - a.peso)[0] || null;
+  }, [b, recurringMonthly]);
+
+  const gerarIA = async () => {
+    setAiBusy(true);
+    try {
+      const ctx = { user, transactions: tx, accounts, categories, catMap, investments, debts, goals, subs: subsAll, invoices };
+      const q = `Faça uma leitura comportamental das minhas finanças. Meu perfil calculado é "${b.profile}" (impulsividade ${b.impulsivity}%, consistência ${b.consistency}%, taxa de poupança ${b.savingsRate}%, ${b.weekendPct}% dos gastos no fim de semana, pico às ${b.peakDay}, ticket médio ${formatCurrency(b.avgTicket)}). Explique em 3 a 4 frases o que esse padrão diz sobre meus hábitos e traga 3 recomendações práticas e personalizadas, cada uma começando com um verbo. Seja direto, sem repetir só os números.`;
+      const { text, via } = await answerHybrid({ question: q, ctx, agent: { name: 'Analista', focusLabel: 'Análise comportamental' }, apiKey, history: [] });
+      const payload = { text, via, at: Date.now() };
+      setAi(payload);
+      try { localStorage.setItem(AI_KEY, JSON.stringify(payload)); } catch { /* ignore */ }
+    } catch (e) { toast.error(e.message || 'Não consegui gerar a leitura agora.'); } finally { setAiBusy(false); }
+  };
+
   if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
 
   return (
@@ -40,15 +79,29 @@ export default function BehavioralAnalysis() {
         subtitle="Seus padrões de consumo (contas + cartão), decodificados — 100% local" />
 
       {/* Perfil */}
-      <div className="rounded-2xl p-6 shadow-soft" style={{ background: 'linear-gradient(120deg,#eef2ff,#faf5ff)' }}>
+      <div className="rounded-2xl p-6 text-white shadow-soft" style={{ background: 'linear-gradient(120deg,#4338ca,#7c3aed)' }}>
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 flex items-center justify-center text-indigo-600"><ShieldCheck className="w-7 h-7" /></div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2"><h2 className="font-display text-2xl font-bold text-slate-800">Perfil: {b.profile}</h2><Badge color="violet">{b.profile}</Badge></div>
-            <p className="text-sm text-slate-600 mt-1 max-w-2xl">{b.desc}</p>
+          <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0"><ShieldCheck className="w-7 h-7" /></div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap"><h2 className="font-display text-2xl font-bold">Perfil: {b.profile}</h2></div>
+            <p className="text-sm text-white/85 mt-1 max-w-2xl">{b.desc}</p>
+            {lever && <div className="mt-3 flex items-start gap-2 rounded-xl bg-white/10 p-3 text-sm"><Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" /><span><b>Onde mexer primeiro:</b> {lever.txt}</span></div>}
           </div>
         </div>
       </div>
+
+      {/* Leitura por IA */}
+      <Card>
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <h3 className="font-semibold flex items-center gap-2"><Brain className="w-4 h-4 text-violet-500" /> Leitura inteligente
+            {ai && <span className="text-[10px] font-normal text-muted inline-flex items-center gap-1 ml-1">{ai.via === 'gemini' ? <><Sparkles className="w-3 h-3 text-emerald-500" /> Gemini</> : <><Cpu className="w-3 h-3" /> Motor local</>}</span>}
+          </h3>
+          <Button size="sm" variant="outline" onClick={gerarIA} disabled={aiBusy}>{aiBusy ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4" /> {ai ? 'Gerar de novo' : 'Gerar leitura'}</>}</Button>
+        </div>
+        {aiBusy ? <div className="flex items-center gap-2 text-sm text-muted py-2"><Spinner className="w-4 h-4 text-violet-500" /> Analisando seu comportamento…</div>
+          : ai ? <p className="text-sm whitespace-pre-line leading-relaxed">{ai.text}</p>
+          : <p className="text-sm text-muted">Gere uma análise personalizada dos seus hábitos {apiKey ? 'com IA generativa (Gemini)' : 'com o motor local'}, a partir dos dados abaixo. Ela fica salva até você gerar de novo.</p>}
+      </Card>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
