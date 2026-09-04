@@ -68,12 +68,25 @@ export function AiWordCloud({ cardTxs = [], transactions = [], apiKey, compact }
       {words.length === 0 ? (
         <p className="text-sm text-muted py-6 text-center">Sem gastos de cartão suficientes para montar a nuvem. Importe uma fatura ou lance compras no cartão.</p>
       ) : (
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 py-4">
-          {words.map((x, i) => (
-            <span key={i} className="font-display font-bold leading-none transition hover:scale-110 cursor-default"
-              style={{ fontSize: `${12 + x.p * 2.2}px`, color: PALETTE[i % PALETTE.length], opacity: 0.55 + (x.p / 10) * 0.45 }}
-              title={`peso ${x.p}`}>{x.w}</span>
-          ))}
+        <div className="relative rounded-2xl overflow-hidden p-5 sm:p-6" style={{ background: 'radial-gradient(120% 120% at 50% 0%, hsl(var(--muted)/0.08), transparent 70%)' }}>
+          <div className="absolute -top-10 -right-8 w-40 h-40 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,.12), transparent 70%)' }} />
+          <div className="relative flex flex-wrap items-center justify-center gap-2">
+            {[...words].sort((a, b) => b.p - a.p).map((x, i) => {
+              const c = PALETTE[i % PALETTE.length];
+              const big = x.p >= 7;
+              return (
+                <span key={i} title={`peso ${x.p}`}
+                  className="inline-flex items-center rounded-full font-semibold leading-none transition hover:scale-105 cursor-default"
+                  style={{
+                    fontSize: `${12 + x.p * 1.7}px`,
+                    padding: `${4 + x.p * 0.7}px ${8 + x.p}px`,
+                    color: c,
+                    background: `${c}${big ? '26' : '14'}`,
+                    border: `1px solid ${c}${big ? '55' : '22'}`,
+                  }}>{x.w}</span>
+              );
+            })}
+          </div>
         </div>
       )}
       {!cloud && apiKey && <p className="text-[11px] text-muted text-center">Toque em “Gerar com IA” para o Gemini organizar a nuvem a partir da sua fatura.</p>}

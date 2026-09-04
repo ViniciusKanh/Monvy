@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { combineExpenses } from '../lib/analytics.js';
 import { answerHybrid } from '../lib/chat.js';
 import { Card, Spinner, Button } from './ui';
+import { Markdown } from './Markdown.jsx';
 import { toast } from '../lib/toast.js';
 import { Sparkles, Cpu, Brain } from 'lucide-react';
 
@@ -52,7 +53,7 @@ export function AiInsight({ prompt, storageKey, title = 'Análise inteligente', 
         <Button size="sm" variant="outline" onClick={gerar} disabled={busy}>{busy ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4" /> {data ? 'Gerar de novo' : 'Analisar com IA'}</>}</Button>
       </div>
       {busy ? <div className="flex items-center gap-2 text-sm text-muted py-2"><Spinner className="w-4 h-4 text-violet-500" /> Analisando seus dados…</div>
-        : data ? <p className="text-sm whitespace-pre-line leading-relaxed">{data.text}</p>
+        : data ? <Markdown text={data.text} className="text-sm" />
         : <p className="text-sm text-muted">{apiKey ? 'Gere uma análise curta e personalizada com IA generativa (Gemini).' : 'Gere uma análise curta com o motor local (sem IA de terceiros).'}</p>}
     </Card>
   );

@@ -8,6 +8,7 @@ import { toast } from '../lib/toast.js';
 import { formatCurrency } from '../lib/utils.js';
 import { lastMonths, monthlySeries, weekdaySpending, behaviorProfile, combineExpenses, detectSubscriptions } from '../lib/analytics.js';
 import { answerHybrid } from '../lib/chat.js';
+import { Markdown } from '../components/Markdown.jsx';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, LineChart, Line, BarChart, Bar, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { ShieldCheck, Activity, TrendingUp, Clock, BarChart3, HeartPulse, RefreshCw, CalendarRange, Sparkles, Cpu, Brain, Lightbulb } from 'lucide-react';
 
@@ -99,7 +100,7 @@ export default function BehavioralAnalysis() {
           <Button size="sm" variant="outline" onClick={gerarIA} disabled={aiBusy}>{aiBusy ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4" /> {ai ? 'Gerar de novo' : 'Gerar leitura'}</>}</Button>
         </div>
         {aiBusy ? <div className="flex items-center gap-2 text-sm text-muted py-2"><Spinner className="w-4 h-4 text-violet-500" /> Analisando seu comportamento…</div>
-          : ai ? <p className="text-sm whitespace-pre-line leading-relaxed">{ai.text}</p>
+          : ai ? <Markdown text={ai.text} className="text-sm" />
           : <p className="text-sm text-muted">Gere uma análise personalizada dos seus hábitos {apiKey ? 'com IA generativa (Gemini)' : 'com o motor local'}, a partir dos dados abaixo. Ela fica salva até você gerar de novo.</p>}
       </Card>
 

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { FOCUS_LABEL } from '../lib/assistant.js';
 import { converse } from '../lib/chat.js';
 import { Card, Button, Spinner } from './ui';
+import { Markdown } from './Markdown.jsx';
 import { toast } from '../lib/toast.js';
 import { Bot, RefreshCw, MessageSquare, ChevronRight, Sparkles, Cpu } from 'lucide-react';
 
@@ -113,7 +114,7 @@ export function RobotsSummaryCard() {
                     <span className="w-6 h-6 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#10b98122,#6366f122)' }}>{p.robot.emoji}</span>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold">{p.robot.name} <span className="text-muted font-normal">· {p.robot.focusLabel}</span></p>
-                      <p className="text-sm whitespace-pre-line leading-snug">{p.text}</p>
+                      <Markdown text={p.text} className="text-sm" />
                     </div>
                   </div>
                 ))}
