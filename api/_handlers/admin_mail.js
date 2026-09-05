@@ -1,7 +1,7 @@
 import { ensureSchema } from '../_lib/db.js';
 import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 import { getMailConfig, setSetting } from '../_lib/settings.js';
-import { sendMail, tpl, envConfigured } from '../_lib/mailer.js';
+import { sendMail, tpl, envConfigured, envMissing } from '../_lib/mailer.js';
 
 export default async function handler(req, res) {
   try {
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const c = await getMailConfig();
-      return sendJson(res, 200, { from: c.from, has_password: !!c.password, enabled: c.enabled, notifyNewUser: c.notifyNewUser, notifyPassword: c.notifyPassword, notifyAlerts: c.notifyAlerts, smtp_env: envConfigured() });
+      return sendJson(res, 200, { from: c.from, has_password: !!c.password, enabled: c.enabled, notifyNewUser: c.notifyNewUser, notifyPassword: c.notifyPassword, notifyAlerts: c.notifyAlerts, smtp_env: envConfigured(), smtp_missing: envMissing() });
     }
     if (req.method === 'PUT') {
       const b = await readBody(req);

@@ -311,7 +311,7 @@ export default function Settings() {
             <div className={`mb-3 flex items-start gap-2 p-3 rounded-xl text-sm ${mail?.smtp_env ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300'}`}>
               {mail?.smtp_env
                 ? <><Send className="w-4 h-4 mt-0.5 shrink-0" /><span>Provedor externo (SMTP por variáveis de ambiente) <b>ativo</b>. Os e-mails saem por ele; o Gmail abaixo fica só como reserva.</span></>
-                : <><Send className="w-4 h-4 mt-0.5 shrink-0" /><span>Usando <b>Gmail</b> (sem provedor externo). Para sair do limite diário do Gmail, configure <b>EMAIL_HOST/PORT/USER/PASS/FROM</b> na Vercel e faça redeploy.</span></>}
+                : <><Send className="w-4 h-4 mt-0.5 shrink-0" /><span>Usando <b>Gmail</b> (sem provedor externo). {mail?.smtp_missing?.length ? <>Faltam variáveis: <b>{mail.smtp_missing.join(', ')}</b>.</> : <>As variáveis existem, mas este deploy ainda não as enxerga — faça <b>Redeploy</b> na Vercel (variável nova só vale em deploy novo).</>}</span></>}
             </div>
             <div className="space-y-3">
               <Field label="E-mail remetente"><Input type="email" value={mailForm.from} onChange={(e) => setMailForm((f) => ({ ...f, from: e.target.value }))} placeholder="você@gmail.com" /></Field>

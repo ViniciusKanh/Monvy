@@ -6,6 +6,8 @@ const E = process.env;
 // Tem prioridade sobre o Gmail salvo no banco — resolve o limite diário do Gmail.
 // true quando o provedor SMTP externo (ex.: Brevo) está configurado por env
 export function envConfigured() { return !!(E.EMAIL_HOST && E.EMAIL_USER && E.EMAIL_PASS); }
+// quais variáveis obrigatórias ainda faltam (para diagnóstico no painel)
+export function envMissing() { return ['EMAIL_HOST', 'EMAIL_USER', 'EMAIL_PASS'].filter((k) => !E[k]); }
 
 function envSmtp() {
   if (!E.EMAIL_HOST || !E.EMAIL_USER || !E.EMAIL_PASS) return null;
