@@ -4,6 +4,9 @@ import { getMailConfig } from './settings.js';
 const E = process.env;
 // Provedor SMTP por variáveis de ambiente (Brevo, Resend, SendGrid, SES, etc.).
 // Tem prioridade sobre o Gmail salvo no banco — resolve o limite diário do Gmail.
+// true quando o provedor SMTP externo (ex.: Brevo) está configurado por env
+export function envConfigured() { return !!(E.EMAIL_HOST && E.EMAIL_USER && E.EMAIL_PASS); }
+
 function envSmtp() {
   if (!E.EMAIL_HOST || !E.EMAIL_USER || !E.EMAIL_PASS) return null;
   const port = Number(E.EMAIL_PORT || 587);

@@ -133,7 +133,7 @@ export default function Settings() {
   const [testTo, setTestTo] = useState('');
   useEffect(() => { if (mail) setMailForm((f) => ({ ...f, from: mail.from || '', enabled: !!mail.enabled, notifyNewUser: !!mail.notifyNewUser, notifyPassword: !!mail.notifyPassword, notifyAlerts: !!mail.notifyAlerts, password: '' })); }, [mail]);
   const saveMail = useMutation({ mutationFn: () => Admin.saveMail(mailForm), onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminmail'] }); toast.success('Configuração de e-mail salva'); setMailForm((f) => ({ ...f, password: '' })); } });
-  const testMail = useMutation({ mutationFn: () => Admin.testMail(testTo || user?.email), onSuccess: (r) => toast.success('E-mail de teste enviado para ' + (r.to || user?.email)) });
+  const testMail = useMutation({ mutationFn: () => Admin.testMail(testTo || user?.email), onSuccess: (r) => toast.success(`E-mail de teste enviado para ${r.to || user?.email}${r.via ? ` (via ${r.via === 'smtp' ? 'provedor externo' : 'Gmail'})` : ''}`) });
 
   const onPhoto = async (e) => {
     const file = e.target.files?.[0]; e.target.value = '';
@@ -306,8 +306,13 @@ export default function Settings() {
         {/* Envio de e-mail (somente admin) */}
         {isAdmin && (
           <Card className="hover-lift">
-            <h3 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-4 h-4 text-emerald-500" /> Envio de E-mail (Gmail)</h3>
-            <p className="text-xs text-muted mb-3">Use um Gmail + <b>senha de app</b> para o Monvy enviar e-mails (cadastro, troca de senha, alertas).</p>
+            <h3 className="font-semibold flex items-center gap-2 mb-1"><Mail className="w-4 h-4 text-emerald-500" /> Envio de E-mail</h3>
+            <p className="text-xs text-muted mb-3">Use um provedor SMTP (Brevo/Resend/SES) pelas variáveis de ambiente, ou um Gmail + <b>senha de app</b> como alternativa.</p>
+            <div className={`mb-3 flex items-start gap-2 p-3 rounded-xl text-sm ${mail?.smtp_env ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300'}`}>
+              {mail?.smtp_env
+                ? <><Send className="w-4 h-4 mt-0.5 shrink-0" /><span>Provedor externo (SMTP por variáveis de ambiente) <b>ativo</b>. Os e-mails saem por ele; o Gmail abaixo fica só como reserva.</span></>
+                : <><Send className="w-4 h-4 mt-0.5 shrink-0" /><span>Usando <b>Gmail</b> (sem provedor externo). Para sair do limite diário do Gmail, configure <b>EMAIL_HOST/PORT/USER/PASS/FROM</b> na Vercel e faça redeploy.</span></>}
+            </div>
             <div className="space-y-3">
               <Field label="E-mail remetente"><Input type="email" value={mailForm.from} onChange={(e) => setMailForm((f) => ({ ...f, from: e.target.value }))} placeholder="você@gmail.com" /></Field>
               <Field label="Senha de app do Gmail" hint={mail?.has_password ? 'Ja configurada — preencha só para alterar' : 'Gere em myaccount.google.com/apppasswords'}>

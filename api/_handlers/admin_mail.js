@@ -1,7 +1,7 @@
 import { ensureSchema } from '../_lib/db.js';
 import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 import { getMailConfig, setSetting } from '../_lib/settings.js';
-import { sendMail, tpl } from '../_lib/mailer.js';
+import { sendMail, tpl, envConfigured } from '../_lib/mailer.js';
 
 export default async function handler(req, res) {
   try {
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const c = await getMailConfig();
-      return sendJson(res, 200, { from: c.from, has_password: !!c.password, enabled: c.enabled, notifyNewUser: c.notifyNewUser, notifyPassword: c.notifyPassword, notifyAlerts: c.notifyAlerts });
+      return sendJson(res, 200, { from: c.from, has_password: !!c.password, enabled: c.enabled, notifyNewUser: c.notifyNewUser, notifyPassword: c.notifyPassword, notifyAlerts: c.notifyAlerts, smtp_env: envConfigured() });
     }
     if (req.method === 'PUT') {
       const b = await readBody(req);
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       const b = await readBody(req);
       const to = b.to || auth.email;
       const r = await sendMail({ to, subject: 'Monvy — E-mail de teste', html: tpl('Funcionou! ✅', 'Seu envio de e-mail esta configurado corretamente. A partir de agora o Monvy pode notificar por e-mail.') });
-      if (r.sent) return sendJson(res, 200, { ok: true, to });
+      if (r.sent) return sendJson(res, 200, { ok: true, to, via: r.via });
       return sendJson(res, 400, { error: r.error || 'Envio nao configurado/habilitado.' });
     }
     return sendJson(res, 405, { error: 'Metodo nao permitido' });
