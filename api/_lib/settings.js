@@ -11,11 +11,15 @@ export async function setSetting(key, value) {
   });
 }
 export async function getMailConfig() {
-  const [from, password, enabled, nu, np, na] = await Promise.all(
-    ['mail_from', 'mail_password', 'mail_enabled', 'notify_new_user', 'notify_password', 'notify_alerts'].map(getSetting)
+  const [from, password, enabled, nu, np, na, sHost, sPort, sUser, sPass, sFrom, sName] = await Promise.all(
+    ['mail_from', 'mail_password', 'mail_enabled', 'notify_new_user', 'notify_password', 'notify_alerts',
+      'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from', 'smtp_from_name'].map(getSetting)
   );
   return {
     from: from || '', password: password || '', enabled: enabled === '1',
     notifyNewUser: nu !== '0', notifyPassword: np !== '0', notifyAlerts: na !== '0',
+    // provedor SMTP externo (Brevo/Resend/SES) configurado pelo painel do admin
+    smtpHost: sHost || '', smtpPort: Number(sPort) || 587, smtpUser: sUser || '', smtpPass: sPass || '',
+    smtpFrom: sFrom || '', smtpFromName: sName || 'Monvy',
   };
 }

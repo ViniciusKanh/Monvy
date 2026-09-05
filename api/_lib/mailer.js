@@ -33,8 +33,15 @@ function transporter(opts) {
 // Assim, se o primeiro falhar (ex.: limite diário), tenta o próximo automaticamente.
 function providers(cfg) {
   const list = [];
+  // 1) SMTP configurado pelo painel do admin (tem prioridade)
+  if (cfg && cfg.smtpHost && cfg.smtpUser && cfg.smtpPass) {
+    const port = Number(cfg.smtpPort) || 587;
+    list.push({ label: 'smtp', host: cfg.smtpHost, port, secure: port === 465, user: cfg.smtpUser, pass: cfg.smtpPass, fromAddr: cfg.smtpFrom || cfg.smtpUser, fromName: cfg.smtpFromName || 'Monvy' });
+  }
+  // 2) SMTP por variáveis de ambiente (ex.: Brevo na Vercel)
   const env = envSmtp();
-  if (env) list.push({ label: 'smtp', host: env.host, port: env.port, secure: env.secure, user: env.user, pass: env.pass, fromAddr: env.fromAddr, fromName: env.fromName });
+  if (env) list.push({ label: 'env', host: env.host, port: env.port, secure: env.secure, user: env.user, pass: env.pass, fromAddr: env.fromAddr, fromName: env.fromName });
+  // 3) Gmail salvo no banco (reserva)
   if (cfg && cfg.enabled && cfg.from && cfg.password) list.push({ label: 'gmail', host: 'smtp.gmail.com', port: 465, secure: true, user: cfg.from, pass: cfg.password, fromAddr: cfg.from, fromName: 'Monvy' });
   return list;
 }

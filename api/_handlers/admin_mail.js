@@ -12,7 +12,16 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const c = await getMailConfig();
-      return sendJson(res, 200, { from: c.from, has_password: !!c.password, enabled: c.enabled, notifyNewUser: c.notifyNewUser, notifyPassword: c.notifyPassword, notifyAlerts: c.notifyAlerts, smtp_env: envConfigured(), smtp_missing: envMissing() });
+      const dbSmtp = !!(c.smtpHost && c.smtpUser && c.smtpPass);
+      return sendJson(res, 200, {
+        from: c.from, has_password: !!c.password, enabled: c.enabled,
+        notifyNewUser: c.notifyNewUser, notifyPassword: c.notifyPassword, notifyAlerts: c.notifyAlerts,
+        smtp_env: envConfigured(), smtp_missing: envMissing(),
+        // provedor SMTP configurado pelo painel
+        smtp_db: dbSmtp, smtp_host: c.smtpHost, smtp_port: c.smtpPort, smtp_user: c.smtpUser, smtp_from: c.smtpFrom, smtp_from_name: c.smtpFromName, has_smtp_pass: !!c.smtpPass,
+        // provedor efetivamente em uso agora
+        active_provider: dbSmtp ? 'smtp_painel' : (envConfigured() ? 'smtp_env' : (c.enabled && c.from && c.password ? 'gmail' : 'nenhum')),
+      });
     }
     if (req.method === 'PUT') {
       const b = await readBody(req);
@@ -22,6 +31,14 @@ export default async function handler(req, res) {
       if (b.notifyNewUser !== undefined) await setSetting('notify_new_user', b.notifyNewUser ? '1' : '0');
       if (b.notifyPassword !== undefined) await setSetting('notify_password', b.notifyPassword ? '1' : '0');
       if (b.notifyAlerts !== undefined) await setSetting('notify_alerts', b.notifyAlerts ? '1' : '0');
+      // provedor SMTP externo pelo painel (Brevo/Resend/SES)
+      if (b.smtp_host !== undefined) await setSetting('smtp_host', String(b.smtp_host).trim());
+      if (b.smtp_port !== undefined) await setSetting('smtp_port', String(b.smtp_port).trim());
+      if (b.smtp_user !== undefined) await setSetting('smtp_user', String(b.smtp_user).trim());
+      if (b.smtp_pass) await setSetting('smtp_pass', b.smtp_pass); // só atualiza se enviado
+      if (b.smtp_from !== undefined) await setSetting('smtp_from', String(b.smtp_from).trim());
+      if (b.smtp_from_name !== undefined) await setSetting('smtp_from_name', String(b.smtp_from_name).trim());
+      if (b.smtp_clear) { for (const k of ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from', 'smtp_from_name']) await setSetting(k, ''); }
       return sendJson(res, 200, { ok: true });
     }
     if (req.method === 'POST') {
