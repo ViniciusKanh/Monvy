@@ -36,12 +36,18 @@ export default async function handler(req, res) {
     if (!pdfBase64) return sendJson(res, 400, { error: 'Envie o PDF da fatura.' });
 
     const catList = categories.map((c) => c.name).filter(Boolean);
-    const prompt = `Extraia TODOS os lancamentos de uma fatura de cartao brasileira (leia a fatura inteira, todas as paginas).
-SINAL: compras/IOF/juros/tarifas = amount POSITIVO; estornos/creditos/reembolsos/devolucoes (linha com "-" ou "−") = amount NEGATIVO.
-NAO inclua: "pagamento de fatura anterior", "pagamento recebido", "saldo anterior", "total", "limite".
-A soma dos amounts (com sinal) deve bater com o total da fatura. Informe tambem o total impresso na fatura em "invoice_total".
-Categorias validas: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'} (use "Estorno" para creditos).
-Parcelado: preencha installment_current/installments_total (ex 2/10); senao 1/1.
+    const prompt = `Voce le faturas de cartao (Nubank e outros) e extrai APENAS as COMPRAS REAIS da secao de transacoes. Leia a fatura inteira e liste cada compra UMA UNICA VEZ (nao duplique).
+
+IGNORE COMPLETAMENTE (nao sao compras, sao mecanica de pagamento/divida) qualquer linha que contenha:
+"Pagamento recebido", "Fatura anterior", "Saldo", "Total a pagar", "Total de compras", "Pagamento minimo", "Limite",
+"Desconto de antecipacao", "Antecipada - Parcela", "Antecipada -", "Encerramento de divida", "Estorno de juros da divida", "Estorno de pagamento de transferencia", "Reversao de Desconto", "Desconto Antecipacao", "Pix", "Saque".
+
+Estornos/creditos de uma COMPRA real (ex.: "Credito de <loja>", "Estorno de <loja>") => inclua com amount NEGATIVO e category "Estorno".
+Compras normais (lojas, apps, assinaturas, IOF, mercado, transporte) => amount POSITIVO.
+
+Para cada item: date (YYYY-MM-DD), description curta e limpa (remova " - Parcela x/y"), amount, category (a melhor entre: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'}), installment_current e installments_total (ex 2/10; senao 1/1).
+Informe "invoice_total" = o valor de "Total a pagar" do resumo da fatura.
+
 Responda SO JSON: {"invoice_total":0,"items":[{"date":"YYYY-MM-DD","description":"","amount":0,"category":"","installment_current":1,"installments_total":1}]}`;
 
     const payload = {
@@ -70,12 +76,21 @@ Responda SO JSON: {"invoice_total":0,"items":[{"date":"YYYY-MM-DD","description"
       let parsed;
       try { parsed = JSON.parse(text); } catch { try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { parsed = null; } }
       if (!parsed) { if (!firstErr) firstErr = `${m}: resposta invalida`; continue; }
-      const items = (parsed.items || parsed || []).map((it) => ({
-        date: it.date, description: it.description || 'Compra', amount: Number(it.amount) || 0,
-        category: it.category || 'Outros',
-        installment_current: Number(it.installment_current) || 1,
-        installments_total: Number(it.installments_total) || 1,
-      })).filter((it) => it.amount !== 0);
+      // normaliza texto p/ filtros
+      const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const NOISE = ['pagamento recebido', 'fatura anterior', 'total a pagar', 'total de compras', 'pagamento minimo', 'desconto de antecipa', 'antecipada - parcela', 'antecipada -', 'encerramento de divida', 'estorno de juros da divida', 'estorno de pagamento de transfer', 'reversao de desconto', 'desconto antecipacao', 'saldo em aberto'];
+      const seenItems = new Set();
+      const items = (parsed.items || parsed || [])
+        .map((it) => ({
+          date: it.date, description: (it.description || 'Compra').replace(/\s*-\s*parcela\s*\d+\/\d+/i, '').trim() || 'Compra',
+          amount: Number(it.amount) || 0,
+          category: it.category || 'Outros',
+          installment_current: Number(it.installment_current) || 1,
+          installments_total: Number(it.installments_total) || 1,
+        }))
+        .filter((it) => it.amount !== 0)
+        .filter((it) => { const d = norm(it.description); return !NOISE.some((k) => d.includes(k)); })
+        .filter((it) => { const key = `${it.date}|${norm(it.description)}|${it.amount}|${it.installment_current}/${it.installments_total}`; if (seenItems.has(key)) return false; seenItems.add(key); return true; });
       const total = items.reduce((s, it) => s + it.amount, 0);
       const declaredTotal = Number(parsed.invoice_total) || null;
       return sendJson(res, 200, { items, total, declaredTotal, model: m });
