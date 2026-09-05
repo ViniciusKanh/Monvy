@@ -96,16 +96,22 @@ body {
 .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.06) 1px, transparent 0); background-size: 22px 22px; }
 
 /* Impressao (Exportar PDF do Relatorio) */
+@page { margin: 12mm; }
 @media print {
   aside, header, nav, .aurora, .print\:hidden { display: none !important; }
   .lg\:ml-72 { margin-left: 0 !important; }
-  main { padding: 0 !important; }
+  main { padding: 0 !important; max-width: 100% !important; }
   html, body { background: #fff !important; }
   body { background-image: none !important; }
-  .card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; page-break-inside: avoid; }
+  .card, .rounded-2xl, .rounded-3xl { box-shadow: none !important; break-inside: avoid; page-break-inside: avoid; }
+  .card { border: 1px solid #e2e8f0 !important; }
   .hover-lift:hover { transform: none !important; box-shadow: none !important; }
   .print-break { break-before: page; page-break-before: always; }
-  .animate-fadeIn { animation: none !important; }
+  .animate-fadeIn, .animate-gradient, .sheen, .glow-pulse { animation: none !important; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  table { break-inside: auto; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; } /* repete cabeçalho da tabela em cada página */
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 

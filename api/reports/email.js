@@ -36,16 +36,41 @@ export default async function handler(req, res) {
       </tr></table>`;
 
     const topEx = (summary.topExpenses || []).slice(0, 5).map((t) => itemRow(t.name || 'Despesa', '', brl(t.value), '#e11d48')).join('');
-    const insightBox = summary.insight ? `<div style="margin-top:16px;padding:12px 14px;border-radius:12px;background:#eef2ff;color:#3730a3;font-size:13px;line-height:1.5">💡 ${String(summary.insight).replace(/</g, '&lt;')}</div>` : '';
+
+    // Análises do período (lista de insights) — mais completo
+    const insightsArr = Array.isArray(summary.insights) ? summary.insights.filter(Boolean) : (summary.insight ? [summary.insight] : []);
+    const insightsBlock = insightsArr.length
+      ? `<div style="margin-top:16px;padding:14px 16px;border-radius:12px;background:#eef2ff">
+           <div style="color:#3730a3;font-weight:800;font-size:13px;margin-bottom:6px">💡 Análises do período</div>
+           ${insightsArr.map((s) => `<div style="display:flex;gap:8px;margin:5px 0;color:#3730a3;font-size:13px;line-height:1.5"><span>•</span><span>${String(s).replace(/</g, '&lt;')}</span></div>`).join('')}
+         </div>`
+      : '';
+
+    // Mês a mês (receita / despesa / saldo)
+    const mRows = (summary.monthly || []).map((m) => `<tr>
+        <td style="padding:7px 0;border-bottom:1px solid #eef2f7;color:#0b1330;font-size:13px">${m.name}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #eef2f7;text-align:right;color:#059669;font-size:13px">${brl(m.inc)}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #eef2f7;text-align:right;color:#e11d48;font-size:13px">${brl(m.exp)}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #eef2f7;text-align:right;font-weight:700;font-size:13px;color:${(m.net || 0) >= 0 ? '#059669' : '#e11d48'}">${brl(m.net)}</td>
+      </tr>`).join('');
+    const monthlyBlock = mRows
+      ? `<div style="font-weight:700;color:#0b1330;margin:18px 0 6px">Mês a mês</div>
+         <table style="width:100%;border-collapse:collapse">
+           <tr style="color:#94a3b8;font-size:12px"><td style="padding:4px 0">Mês</td><td style="padding:4px 0;text-align:right">Receita</td><td style="padding:4px 0;text-align:right">Despesa</td><td style="padding:4px 0;text-align:right">Saldo</td></tr>
+           ${mRows}
+         </table>`
+      : '';
 
     const html = tpl(`Seu relatório financeiro — ${summary.periodLabel || ''}`,
       `Olá${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas finanças (contas + cartão).<br/>
        <div style="margin-top:6px;color:#0b1330;font-weight:700">Patrimônio total: ${brl(summary.totalBalance)}</div>
        ${kpis}
-       ${insightBox}
-       <div style="font-weight:700;color:#0b1330;margin:16px 0 6px">Despesas por categoria</div>
+       ${insightsBlock}
+       ${monthlyBlock}
+       <div style="font-weight:700;color:#0b1330;margin:18px 0 6px">Despesas por categoria</div>
        ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no período.</div>'}
-       ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:16px 0 4px">Maiores despesas</div>${itemsTable([topEx])}` : ''}`);
+       ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:18px 0 4px">Maiores despesas</div>${itemsTable([topEx])}` : ''}
+       <div style="margin-top:18px;color:#64748b;font-size:12px">Quer a planilha completa? Abra o Monvy → Relatórios → Excel para baixar entradas e saídas detalhadas.</div>`);
 
     const r = await sendMail({ to: dest, subject: `Monvy — Relatório ${summary.periodLabel || ''}`, html });
     if (r.sent) return sendJson(res, 200, { ok: true, to: dest });

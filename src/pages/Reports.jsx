@@ -7,10 +7,11 @@ import { Card, Button, Select, Badge, Spinner } from '../components/ui';
 import { formatCurrency, monthKey, monthLabel, monthRange, MONTHS_PT } from '../lib/utils.js';
 import { combineExpenses, categoryTrends } from '../lib/analytics.js';
 import { BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { FileText, Download, Printer, TrendingUp, TrendingDown, Lightbulb, Sparkles } from 'lucide-react';
+import { FileText, Download, Printer, TrendingUp, TrendingDown, Lightbulb, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { Reports as ReportsApi } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
+import { exportReportXlsx } from '../lib/exportXlsx.js';
 import { Mail } from 'lucide-react';
 
 const COLORS = ['#ef4444', '#3b82f6', '#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899', '#10b981', '#64748b'];
@@ -86,15 +87,29 @@ export default function Reports() {
     const a = document.createElement('a'); a.href = url; a.download = `monvy-relatório-${period}m.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
+  const periodLabel = period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`;
+
+  const exportExcel = () => {
+    exportReportXlsx({
+      periodLabel, totals, totalBalance,
+      monthly: monthly.map((m) => ({ name: m.name, Receita: m.Receita, Despesa: m.Despesa, net: m.net })),
+      byCategory: byCategory.map((c) => ({ name: c.name, value: c.value })),
+      statement: statement.map((t) => ({ date: t.date, type: t.type, description: t.description || catMap[t.category_id]?.name || '', category: catMap[t.category_id]?.name || '', amount: Number(t.amount), status: t.status || 'pending' })),
+    }, `monvy-relatorio-${period}m`);
+    toast.success('Planilha Excel gerada.');
+  };
+
   const [emailing, setEmailing] = useState(false);
   const sendByEmail = async () => {
     setEmailing(true);
     try {
       await ReportsApi.email({ summary: {
-        name: user?.full_name, periodLabel: period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`,
+        name: user?.full_name, periodLabel,
         inc: totals.inc, exp: totals.exp, bal: totals.bal, rate: totals.rate, totalBalance,
         categories: byCategory.map((c) => ({ name: c.name, value: c.value })),
         topExpenses: topExpenses.map((t) => ({ name: t.description || catMap[t.category_id]?.name || 'Despesa', value: Number(t.amount) })),
+        monthly: monthly.map((m) => ({ name: m.name, inc: m.Receita, exp: m.Despesa, net: m.net })),
+        insights: insights.map((i) => i.m),
         insight: rising ? `${rising.name} cresceu ${rising.change.toFixed(0)}% no período — vale acompanhar.` : (totals.rate >= 20 ? `Ótima taxa de poupança: ${totals.rate.toFixed(0)}%.` : null),
       } });
       toast.success('Relatório enviado para o seu e-mail!');
@@ -109,6 +124,7 @@ export default function Reports() {
         <div className="flex items-center gap-2 print:hidden flex-wrap">
           <Select value={endMk} onChange={(e) => setEndMk(e.target.value)} className="w-auto">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</Select>
           <Select value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="w-auto"><option value={1}>Somente o mes</option><option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option></Select>
+          <Button variant="outline" onClick={exportExcel}><FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Excel</Button>
           <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4" /> CSV</Button>
           <Button variant="outline" onClick={sendByEmail} disabled={emailing}>{emailing ? <Spinner className="w-4 h-4" /> : <><Mail className="w-4 h-4" /> Enviar por e-mail</>}</Button>
           <Button onClick={() => window.print()}><Printer className="w-4 h-4" /> Exportar PDF</Button>
