@@ -16,6 +16,18 @@ const emptyCard = { name: '', last_digits: '', brand: 'visa', closing_day: 1, du
 const emptyTx = { description: '', amount: '', date: todayIso(), category_id: '', installments_total: 1 };
 const CARD_COLORS = ['#6d28d9', '#0b1330', '#0f766e', '#1e293b', '#7c2d12', '#831843'];
 
+// limpa a lista lida da fatura: remove mecânica de dívida/antecipação, estornos e duplicados
+const NOISE_TERMS = ['pagamento recebido', 'fatura anterior', 'total a pagar', 'total de compras', 'pagamento minimo', 'desconto de antecipa', 'antecipada - parcela', 'antecipada -', 'encerramento de divida', 'estorno de juros da divida', 'estorno de pagamento de transfer', 'reversao de desconto', 'desconto antecipacao', 'saldo em aberto'];
+const normTxt = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function cleanInvoiceItems(items) {
+  const seen = new Set();
+  return (items || [])
+    .map((it) => ({ ...it, description: String(it.description || 'Compra').replace(/\s*-\s*parcela\s*\d+\/\d+/i, '').trim() || 'Compra', amount: Number(it.amount) || 0, installments_total: Number(it.installments_total) || 1, installment_current: Number(it.installment_current) || 1 }))
+    .filter((it) => it.amount !== 0)
+    .filter((it) => { const d = normTxt(it.description); return !NOISE_TERMS.some((k) => d.includes(k)); })
+    .filter((it) => { const key = `${it.date}|${normTxt(it.description)}|${it.amount}|${it.installment_current}/${it.installments_total}`; if (seen.has(key)) return false; seen.add(key); return true; });
+}
+
 export default function CreditCards() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -38,6 +50,7 @@ export default function CreditCards() {
   const [payMode, setPayMode] = useState('full');
   const [payAmount, setPayAmount] = useState('');
   const [importing, setImporting] = useState(false);
+  const [review, setReview] = useState(null); // { source, declaredTotal, estornos, items:[{...,include}] }
   const fileRef = useRef(null);
 
   const selected = cards.find((c) => c.id === selectedId) || cards[0];
@@ -111,36 +124,32 @@ export default function CreditCards() {
       r.readAsDataURL(file);
     });
   }
-  async function importRows(items, source, declaredTotal) {
-    // limpeza: remove a mecânica de dívida/antecipação (não são compras) e duplicados
-    const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const NOISE = ['pagamento recebido', 'fatura anterior', 'total a pagar', 'total de compras', 'pagamento minimo', 'desconto de antecipa', 'antecipada - parcela', 'antecipada -', 'encerramento de divida', 'estorno de juros da divida', 'estorno de pagamento de transfer', 'reversao de desconto', 'desconto antecipacao', 'saldo em aberto'];
-    const seen = new Set();
-    const clean = (items || [])
-      .map((it) => ({ ...it, description: String(it.description || 'Compra').replace(/\s*-\s*parcela\s*\d+\/\d+/i, '').trim() || 'Compra', amount: Number(it.amount) || 0 }))
-      .filter((it) => it.amount !== 0)
-      .filter((it) => { const d = norm(it.description); return !NOISE.some((k) => d.includes(k)); })
-      .filter((it) => { const key = `${it.date}|${norm(it.description)}|${it.amount}|${it.installment_current}/${it.installments_total}`; if (seen.has(key)) return false; seen.add(key); return true; });
-
+  // abre o modal de revisão com as compras lidas (o usuário confere/desmarca antes de salvar)
+  function openReview(items, source, declaredTotal) {
+    const clean = cleanInvoiceItems(items);
     const estornos = clean.filter((it) => it.amount < 0).length;
-    const compras = clean.filter((it) => it.amount > 0); // estornos não entram na fatura
-
-    const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
-    const cache = {}; const rows = [];
-    for (const it of compras) {
-      let catId = predictCategory(it.description, idx);
-      const hint = it.category || it.categoryHint;
-      if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
-      // tudo cai na competência da fatura selecionada (não espalha para outros meses)
-      rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
-    }
-    if (rows.length) await CreditCardTransaction.bulkCreate(rows);
-    await Cards.generateInvoices();
-    qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
-    const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
-    toast.success(`${rows.length} compra(s) importada(s) (${source})${estornos ? ` · ${estornos} estorno(s) ignorado(s)` : ''} · total ${formatCurrency(total)}.`);
-    if (declaredTotal) toast.info(`Total a pagar da fatura (impresso): ${formatCurrency(declaredTotal)}. Pode diferir da soma das compras quando há parcelas antecipadas ou estornos.`);
+    const compras = clean.filter((it) => it.amount > 0).map((it, i) => ({ ...it, _k: i, include: true }));
+    if (!compras.length) { toast.error('Não encontrei compras válidas na fatura.'); return; }
+    setReview({ source, declaredTotal: declaredTotal || null, estornos, items: compras });
   }
+
+  const commitReview = useMutation({
+    mutationFn: async () => {
+      const chosen = review.items.filter((it) => it.include);
+      const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
+      const cache = {}; const rows = [];
+      for (const it of chosen) {
+        let catId = predictCategory(it.description, idx);
+        const hint = it.category || it.categoryHint;
+        if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
+        rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
+      }
+      if (rows.length) await CreditCardTransaction.bulkCreate(rows);
+      await Cards.generateInvoices();
+      return rows.length;
+    },
+    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success(`${n} compra(s) importada(s).`); setReview(null); },
+  });
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file || !selected) return;
@@ -153,7 +162,7 @@ export default function CreditCards() {
         try {
           const base64 = await fileToBase64(file);
           const { items = [], declaredTotal } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
-          if (items.length) { await importRows(items, 'IA', declaredTotal); setImporting(false); return; }
+          if (items.length) { openReview(items, 'IA', declaredTotal); setImporting(false); return; }
           toast.info('A IA não encontrou lançamentos — tentando leitura local...');
         } catch (aiErr) {
           toast.info('IA indisponível (' + (aiErr.message || 'erro') + ') — tentando leitura local...');
@@ -166,7 +175,7 @@ export default function CreditCards() {
       const { isInvoice, items } = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode demorar)...') });
       if (!isInvoice && items.length < 2) { toast.error('Este PDF não parece uma fatura de cartão de crédito.'); setImporting(false); return; }
       if (!items.length) { toast.error('Nao encontrei lançamentos na fatura.'); setImporting(false); return; }
-      await importRows(items, 'local');
+      openReview(items, 'local');
     } catch (err) { toast.error('Falha ao ler o PDF: ' + (err.message || err)); } finally { setImporting(false); }
   }
 
@@ -348,6 +357,51 @@ export default function CreditCards() {
           <Field label="Cor do cartão"><div className="flex gap-2 flex-wrap">{CARD_COLORS.map((c) => <button key={c} type="button" onClick={() => setCardForm((f) => ({ ...f, color: c }))} className={`w-8 h-8 rounded-full border-2 ${cardForm.color === c ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />)}</div></Field>
         </form>
       </Modal>
+
+      {/* Modal revisar importação */}
+      {review && (() => {
+        const sel = review.items.filter((i) => i.include);
+        const selTotal = sel.reduce((s, i) => s + i.amount, 0);
+        const diff = review.declaredTotal != null ? selTotal - review.declaredTotal : null;
+        const bate = diff != null && Math.abs(diff) <= 0.5;
+        const setAll = (v) => setReview((r) => ({ ...r, items: r.items.map((x) => ({ ...x, include: v })) }));
+        const toggle = (k) => setReview((r) => ({ ...r, items: r.items.map((x) => (x._k === k ? { ...x, include: !x.include } : x)) }));
+        return (
+          <Modal open onClose={() => setReview(null)} title="Revisar antes de importar" maxWidth="max-w-2xl"
+            footer={<><Button variant="outline" onClick={() => setReview(null)}>Cancelar</Button><Button onClick={() => commitReview.mutate()} disabled={commitReview.isPending || sel.length === 0}>{commitReview.isPending ? <Spinner className="w-4 h-4" /> : `Importar ${sel.length} compra(s)`}</Button></>}>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap rounded-xl p-3 bg-black/5 dark:bg-white/5">
+                <div className="text-sm">
+                  <p><b>{sel.length}</b> de {review.items.length} selecionada(s) · <b>{formatCurrency(selTotal)}</b></p>
+                  {review.declaredTotal != null && (
+                    <p className={`text-xs mt-0.5 ${bate ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      Total da fatura: {formatCurrency(review.declaredTotal)} · {bate ? 'bate ✓' : `diferença de ${formatCurrency(Math.abs(diff))}`}
+                    </p>
+                  )}
+                  {review.estornos > 0 && <p className="text-[11px] text-muted mt-0.5">{review.estornos} estorno(s) foram ignorados automaticamente.</p>}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setAll(true)}>Marcar todas</Button>
+                  <Button size="sm" variant="outline" onClick={() => setAll(false)}>Limpar</Button>
+                </div>
+              </div>
+              {review.declaredTotal != null && !bate && <p className="text-xs text-muted">Se houver parcelas antecipadas ou estornos na fatura, a soma das compras não fecha com o total a pagar — é normal. Marque só o que quer lançar.</p>}
+              <div className="max-h-[52vh] overflow-y-auto divide-y divide-[hsl(var(--border))] rounded-xl border border-[hsl(var(--border))]">
+                {review.items.map((it) => (
+                  <label key={it._k} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">
+                    <input type="checkbox" className="w-4 h-4 accent-emerald-500 shrink-0" checked={it.include} onChange={() => toggle(it._k)} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{it.description}</p>
+                      <p className="text-[11px] text-muted">{it.date ? new Date(String(it.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR') : ''} · {it.category || 'Sem categoria'}{it.installments_total > 1 ? ` · ${it.installment_current}/${it.installments_total}` : ''}</p>
+                    </div>
+                    <span className="font-semibold text-rose-500 shrink-0">{formatCurrency(it.amount)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* Modal pagar */}
       <Modal open={!!payModal} onClose={() => setPayModal(null)} title="Pagar fatura" maxWidth="max-w-md"

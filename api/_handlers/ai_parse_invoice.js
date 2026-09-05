@@ -44,6 +44,7 @@ IGNORE COMPLETAMENTE (nao sao compras, sao mecanica de pagamento/divida) qualque
 
 Estornos/creditos de uma COMPRA real (ex.: "Credito de <loja>", "Estorno de <loja>") => inclua com amount NEGATIVO e category "Estorno".
 Compras normais (lojas, apps, assinaturas, IOF, mercado, transporte) => amount POSITIVO.
+ATENCAO: NAO confunda "Antecipada - <loja> - Parcela X/N" (ignore, e antecipacao) com uma compra parcelada normal como "<loja> - Parcela 1/23" (INCLUA como compra). Inclua TODAS as compras, ate as pequenas (ex.: Google, Carrefour, Uber).
 
 Para cada item: date (YYYY-MM-DD), description curta e limpa (remova " - Parcela x/y"), amount, category (a melhor entre: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'}), installment_current e installments_total (ex 2/10; senao 1/1).
 Informe "invoice_total" = o valor de "Total a pagar" do resumo da fatura.
