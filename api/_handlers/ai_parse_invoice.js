@@ -4,18 +4,25 @@ import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 // body: { pdfBase64, apiKey, categories:[{id,name}], model? }
 // Usa Google Gemini (tier gratuito) com visao para ler a fatura em PDF
 // e devolver os lancamentos separados e ja mapeados a categorias.
-const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-2.0-flash-001', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro-latest'];
 
-// Descobre um modelo valido da chave (fallback quando os fixos dao 404)
-async function discoverModel(apiKey) {
-  try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (!r.ok) return null;
-    const data = await r.json();
-    const models = (data.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'));
-    const flash = models.find((m) => /flash/i.test(m.name)) || models[0];
-    return flash ? flash.name.replace(/^models\//, '') : null;
-  } catch { return null; }
+// Lista os modelos que a chave realmente pode usar (prioriza flash, depois pro).
+// Tenta v1beta e v1 — resolve os 404 de "model not found".
+async function listModels(apiKey) {
+  for (const ver of ['v1beta', 'v1']) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/${ver}/models?key=${apiKey}`);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const names = (data.models || [])
+        .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map((m) => m.name.replace(/^models\//, ''));
+      const flash = names.filter((n) => /flash/i.test(n));
+      const pro = names.filter((n) => /pro/i.test(n) && !/flash/i.test(n));
+      if (flash.length || pro.length) return [...flash, ...pro];
+    } catch { /* tenta a proxima versao */ }
+  }
+  return [];
 }
 
 export default async function handler(req, res) {
@@ -29,17 +36,13 @@ export default async function handler(req, res) {
     if (!pdfBase64) return sendJson(res, 400, { error: 'Envie o PDF da fatura.' });
 
     const catList = categories.map((c) => c.name).filter(Boolean);
-    const prompt = `Voce e um extrator de faturas de cartao de credito brasileiras.
-Extraia CADA item da lista de lancamentos/transacoes da fatura, INCLUSIVE estornos, creditos e reembolsos.
-REGRAS DE SINAL (MUITO IMPORTANTE):
-- Compras, IOF, juros e tarifas => amount POSITIVO.
-- Estornos, creditos, reembolsos e devolucoes (aparecem com sinal de menos "-", ou "−") => amount NEGATIVO.
-NAO inclua linhas de resumo/pagamento: "pagamento de fatura anterior", "pagamento recebido", "saldo", "total desta fatura", "limite".
-A SOMA de todos os amounts (respeitando o sinal) DEVE ser IGUAL ao total desta fatura mostrado no PDF. Confira antes de responder.
-Para cada item retorne: date (YYYY-MM-DD), description (curta e limpa), amount (numero; NEGATIVO para estorno/credito),
-category (a MAIS adequada entre: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'}; use "Estorno" para creditos e estornos),
-installment_current e installments_total (se for parcelado, ex 2/10; senao 1 e 1).
-Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount":0,"category":"","installment_current":1,"installments_total":1}]}`;
+    const prompt = `Extraia TODOS os lancamentos de uma fatura de cartao brasileira (leia a fatura inteira, todas as paginas).
+SINAL: compras/IOF/juros/tarifas = amount POSITIVO; estornos/creditos/reembolsos/devolucoes (linha com "-" ou "−") = amount NEGATIVO.
+NAO inclua: "pagamento de fatura anterior", "pagamento recebido", "saldo anterior", "total", "limite".
+A soma dos amounts (com sinal) deve bater com o total da fatura. Informe tambem o total impresso na fatura em "invoice_total".
+Categorias validas: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'} (use "Estorno" para creditos).
+Parcelado: preencha installment_current/installments_total (ex 2/10); senao 1/1.
+Responda SO JSON: {"invoice_total":0,"items":[{"date":"YYYY-MM-DD","description":"","amount":0,"category":"","installment_current":1,"installments_total":1}]}`;
 
     const payload = {
       contents: [{
@@ -51,19 +54,22 @@ Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount"
       generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
     };
 
-    let lastErr = 'Falha ao chamar o Gemini';
-    // Prefere o modelo realmente disponivel na chave (descoberto), depois os fixos
-    const discovered = model ? null : await discoverModel(apiKey);
+    let firstErr = '';
+    // Prefere os modelos que a propria chave lista; depois os fixos como reserva
+    const discovered = model ? [] : await listModels(apiKey);
     const seen = new Set();
-    const candidates = (model ? [model] : [discovered, ...MODELS]).filter((m) => m && !seen.has(m) && seen.add(m));
+    const candidates = (model ? [model] : [...discovered, ...MODELS]).filter((m) => m && !seen.has(m) && seen.add(m));
     for (const m of candidates) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!r.ok) { lastErr = `Gemini (${m}) ${r.status}: ${(await r.text()).slice(0, 200)}`; continue; }
+      let r;
+      try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); }
+      catch (e) { if (!firstErr) firstErr = `rede: ${e.message}`; continue; }
+      if (!r.ok) { const t = (await r.text()).slice(0, 160); if (!firstErr) firstErr = `${m} ${r.status}: ${t}`; continue; }
       const data = await r.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       let parsed;
-      try { parsed = JSON.parse(text); } catch { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); }
+      try { parsed = JSON.parse(text); } catch { try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { parsed = null; } }
+      if (!parsed) { if (!firstErr) firstErr = `${m}: resposta invalida`; continue; }
       const items = (parsed.items || parsed || []).map((it) => ({
         date: it.date, description: it.description || 'Compra', amount: Number(it.amount) || 0,
         category: it.category || 'Outros',
@@ -71,9 +77,10 @@ Responda SOMENTE JSON no formato: {"items":[{"date":"","description":"","amount"
         installments_total: Number(it.installments_total) || 1,
       })).filter((it) => it.amount !== 0);
       const total = items.reduce((s, it) => s + it.amount, 0);
-      return sendJson(res, 200, { items, total, model: m });
+      const declaredTotal = Number(parsed.invoice_total) || null;
+      return sendJson(res, 200, { items, total, declaredTotal, model: m });
     }
-    return sendJson(res, 502, { error: 'Nao consegui usar o Gemini. Verifique se a chave e valida e tem acesso a um modelo Flash. Detalhe: ' + lastErr });
+    return sendJson(res, 502, { error: 'Nao consegui usar o Gemini. Verifique se a chave e valida e tem acesso a um modelo Flash. Detalhe: ' + (firstErr || 'sem modelos disponiveis') });
   } catch (e) {
     return sendJson(res, 500, { error: e.message });
   }

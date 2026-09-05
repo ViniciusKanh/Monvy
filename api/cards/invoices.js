@@ -6,6 +6,14 @@ import { recalcAllAccounts } from '../_lib/hooks.js';
 const pad = (n) => String(n).padStart(2, '0');
 function addMonth(month, delta) { let [y, m] = month.split('-').map(Number); m += delta; while (m > 12) { m -= 12; y++; } while (m < 1) { m += 12; y--; } return `${y}-${pad(m)}`; }
 
+// garante a categoria de despesa "Cartão de Crédito" e devolve seu id
+async function ensureCardCategory(o) {
+  const found = (await db().execute({ sql: `SELECT id FROM Category WHERE created_by_id=? AND lower(name)=lower(?) AND type='expense' AND (is_deleted IS NULL OR is_deleted=0) LIMIT 1`, args: [o, 'Cartão de Crédito'] })).rows[0];
+  if (found) return found.id;
+  const created = await createRow('Category', o, { name: 'Cartão de Crédito', type: 'expense', color: '#6d28d9', icon: 'credit-card' });
+  return created.id;
+}
+
 // POST /api/cards/invoices  { action: 'generate' } | { action: 'pay', invoiceId, accountId }
 export default async function handler(req, res) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo nao permitido' });
@@ -45,9 +53,10 @@ export default async function handler(req, res) {
       // valor a pagar: total (padrao) ou parcial informado, nunca acima do restante
       const amount = body.amount != null ? Math.max(0, Math.min(Number(body.amount), total - already)) : (total - already);
       if (amount <= 0) return sendJson(res, 400, { error: 'Valor invalido' });
-      // pagamento vira um lancamento real (cash) que debita a conta -> conta a pagar "Fatura mes_x"
+      // pagamento vira um lancamento real (cash) que debita a conta, categorizado como "Cartão de Crédito"
+      const catId = await ensureCardCategory(o);
       const tx = await createRow('Transaction', o, {
-        date: nowIso().slice(0, 10), amount, type: 'expense', account_id: body.accountId,
+        date: nowIso().slice(0, 10), amount, type: 'expense', account_id: body.accountId, category_id: catId,
         description: `Fatura ${inv.competence_month} - ${card?.name || 'cartao'}`, status: 'completed',
       });
       const newPaid = already + amount;

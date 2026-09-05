@@ -111,7 +111,7 @@ export default function CreditCards() {
       r.readAsDataURL(file);
     });
   }
-  async function importRows(items, source) {
+  async function importRows(items, source, declaredTotal) {
     const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
     const cache = {}; const rows = [];
     for (const it of items) {
@@ -125,7 +125,12 @@ export default function CreditCards() {
     qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
     const credits = rows.filter((r) => r.amount < 0).length;
-    toast.success(`${rows.length} lançamentos (${source})${credits ? ` incl. ${credits} estorno(s)` : ''} · total ${formatCurrency(total)}. Confira com o PDF.`);
+    toast.success(`${rows.length} lançamentos (${source})${credits ? ` incl. ${credits} estorno(s)` : ''} · total ${formatCurrency(total)}.`);
+    if (declaredTotal && Math.abs(total - Number(declaredTotal)) > 0.5) {
+      toast.error(`Atenção: a soma (${formatCurrency(total)}) difere do total da fatura (${formatCurrency(declaredTotal)}). Revise os lançamentos.`);
+    } else if (declaredTotal) {
+      toast.info(`Conferido: bate com o total da fatura (${formatCurrency(declaredTotal)}).`);
+    }
   }
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
@@ -138,8 +143,8 @@ export default function CreditCards() {
         toast.info('Lendo a fatura com IA...');
         try {
           const base64 = await fileToBase64(file);
-          const { items = [] } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
-          if (items.length) { await importRows(items, 'IA'); setImporting(false); return; }
+          const { items = [], declaredTotal } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
+          if (items.length) { await importRows(items, 'IA', declaredTotal); setImporting(false); return; }
           toast.info('A IA não encontrou lançamentos — tentando leitura local...');
         } catch (aiErr) {
           toast.info('IA indisponível (' + (aiErr.message || 'erro') + ') — tentando leitura local...');
