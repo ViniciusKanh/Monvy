@@ -127,10 +127,11 @@ export default function CreditCards() {
   // abre o modal de revisão com as compras lidas (o usuário confere/desmarca antes de salvar)
   function openReview(items, source, declaredTotal) {
     const clean = cleanInvoiceItems(items);
-    const estornos = clean.filter((it) => it.amount < 0).length;
-    const compras = clean.filter((it) => it.amount > 0).map((it, i) => ({ ...it, _k: i, include: true }));
-    if (!compras.length) { toast.error('Não encontrei compras válidas na fatura.'); return; }
-    setReview({ source, declaredTotal: declaredTotal || null, estornos, items: compras });
+    if (!clean.length) { toast.error('Não encontrei compras válidas na fatura.'); return; }
+    const mapped = clean
+      .sort((a, b) => b.amount - a.amount) // compras primeiro, estornos no fim
+      .map((it, i) => { const est = it.amount < 0; return { ...it, _k: i, _estorno: est, include: !est, category: est ? 'Estorno de Cartão de Crédito' : it.category }; });
+    setReview({ source, declaredTotal: declaredTotal || null, items: mapped });
   }
 
   const commitReview = useMutation({
@@ -139,16 +140,20 @@ export default function CreditCards() {
       const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
       const cache = {}; const rows = [];
       for (const it of chosen) {
-        let catId = predictCategory(it.description, idx);
-        const hint = it.category || it.categoryHint;
-        if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
+        let catId;
+        if (it._estorno) catId = cache.__est ?? (cache.__est = await ensureCategory('Estorno de Cartão de Crédito'));
+        else {
+          catId = predictCategory(it.description, idx);
+          const hint = it.category || it.categoryHint;
+          if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
+        }
         rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
       }
       if (rows.length) await CreditCardTransaction.bulkCreate(rows);
       await Cards.generateInvoices();
       return rows.length;
     },
-    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success(`${n} compra(s) importada(s).`); setReview(null); },
+    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success(`${n} lançamento(s) importado(s).`); setReview(null); },
   });
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
@@ -368,7 +373,7 @@ export default function CreditCards() {
         const toggle = (k) => setReview((r) => ({ ...r, items: r.items.map((x) => (x._k === k ? { ...x, include: !x.include } : x)) }));
         return (
           <Modal open onClose={() => setReview(null)} title="Revisar antes de importar" maxWidth="max-w-2xl"
-            footer={<><Button variant="outline" onClick={() => setReview(null)}>Cancelar</Button><Button onClick={() => commitReview.mutate()} disabled={commitReview.isPending || sel.length === 0}>{commitReview.isPending ? <Spinner className="w-4 h-4" /> : `Importar ${sel.length} compra(s)`}</Button></>}>
+            footer={<><Button variant="outline" onClick={() => setReview(null)}>Cancelar</Button><Button onClick={() => commitReview.mutate()} disabled={commitReview.isPending || sel.length === 0}>{commitReview.isPending ? <Spinner className="w-4 h-4" /> : `Importar ${sel.length} item(ns)`}</Button></>}>
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap rounded-xl p-3 bg-black/5 dark:bg-white/5">
                 <div className="text-sm">
@@ -378,23 +383,23 @@ export default function CreditCards() {
                       Total da fatura: {formatCurrency(review.declaredTotal)} · {bate ? 'bate ✓' : `diferença de ${formatCurrency(Math.abs(diff))}`}
                     </p>
                   )}
-                  {review.estornos > 0 && <p className="text-[11px] text-muted mt-0.5">{review.estornos} estorno(s) foram ignorados automaticamente.</p>}
+                  {review.items.some((i) => i._estorno) && <p className="text-[11px] text-muted mt-0.5">Estornos vêm <b>desmarcados</b>. Marque-os para incluir e cravar o total da fatura.</p>}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setAll(true)}>Marcar todas</Button>
+                  <Button size="sm" variant="outline" onClick={() => setAll(true)}>Marcar tudo</Button>
                   <Button size="sm" variant="outline" onClick={() => setAll(false)}>Limpar</Button>
                 </div>
               </div>
-              {review.declaredTotal != null && !bate && <p className="text-xs text-muted">Se houver parcelas antecipadas ou estornos na fatura, a soma das compras não fecha com o total a pagar — é normal. Marque só o que quer lançar.</p>}
+              {review.declaredTotal != null && !bate && <p className="text-xs text-muted">Se houver parcelas antecipadas na fatura, a soma pode não fechar exatamente — marque os estornos abaixo para se aproximar do total a pagar.</p>}
               <div className="max-h-[52vh] overflow-y-auto divide-y divide-[hsl(var(--border))] rounded-xl border border-[hsl(var(--border))]">
                 {review.items.map((it) => (
-                  <label key={it._k} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">
+                  <label key={it._k} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 ${it._estorno ? 'bg-emerald-50/40 dark:bg-emerald-500/[0.04]' : ''}`}>
                     <input type="checkbox" className="w-4 h-4 accent-emerald-500 shrink-0" checked={it.include} onChange={() => toggle(it._k)} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{it.description}</p>
+                      <p className="text-sm font-medium truncate flex items-center gap-1.5">{it.description}{it._estorno && <Badge color="emerald">estorno</Badge>}</p>
                       <p className="text-[11px] text-muted">{it.date ? new Date(String(it.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR') : ''} · {it.category || 'Sem categoria'}{it.installments_total > 1 ? ` · ${it.installment_current}/${it.installments_total}` : ''}</p>
                     </div>
-                    <span className="font-semibold text-rose-500 shrink-0">{formatCurrency(it.amount)}</span>
+                    <span className={`font-semibold shrink-0 ${it._estorno ? 'text-emerald-600' : 'text-rose-500'}`}>{it._estorno ? '' : ''}{formatCurrency(it.amount)}</span>
                   </label>
                 ))}
               </div>
