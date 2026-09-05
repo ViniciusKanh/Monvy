@@ -355,11 +355,13 @@ export function detectPriceHikes(transactions) {
 
 // Combina lancamentos das contas + compras do cartao (como despesas) para analises reais
 export function combineExpenses(transactions, cardTxs = []) {
-  const mapped = (cardTxs || []).map((t) => ({
-    id: 'cc-' + t.id, type: 'expense', amount: num(t.amount),
-    date: t.competence_month ? `${t.competence_month}-15` : String(t.date).slice(0, 10),
-    category_id: t.category_id || null, description: t.description || 'Cartao de credito', status: 'completed', _card: true,
-  }));
+  const mapped = (cardTxs || [])
+    .filter((t) => num(t.amount) > 0) // estornos/créditos (valor <= 0) não entram em análises/gráficos
+    .map((t) => ({
+      id: 'cc-' + t.id, type: 'expense', amount: num(t.amount),
+      date: t.competence_month ? `${t.competence_month}-15` : String(t.date).slice(0, 10),
+      category_id: t.category_id || null, description: t.description || 'Cartao de credito', status: 'completed', _card: true,
+    }));
   return [...(transactions || []), ...mapped];
 }
 

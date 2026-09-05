@@ -112,22 +112,28 @@ export default function CreditCards() {
     });
   }
   async function importRows(items, source, declaredTotal) {
+    // soma líquida (com estornos) só para conferir a leitura com o total impresso
+    const netSum = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    // estornos (valor <= 0) NÃO entram na fatura nem nas análises — só compras
+    const compras = items.filter((it) => (Number(it.amount) || 0) > 0);
+    const skipped = items.length - compras.length;
+
     const idx = buildCategoryIndex(txs.map((t) => ({ description: t.description, category_id: t.category_id, type: 'expense' })));
     const cache = {}; const rows = [];
-    for (const it of items) {
+    for (const it of compras) {
       let catId = predictCategory(it.description, idx);
       const hint = it.category || it.categoryHint;
       if (!catId && hint) catId = cache[hint] ?? (cache[hint] = await ensureCategory(hint));
+      // tudo cai na competência da fatura selecionada (não espalha para outros meses)
       rows.push({ card_id: selected.id, description: it.description, amount: Number(it.amount) || 0, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
     }
-    await CreditCardTransaction.bulkCreate(rows);
+    if (rows.length) await CreditCardTransaction.bulkCreate(rows);
     await Cards.generateInvoices();
     qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] });
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
-    const credits = rows.filter((r) => r.amount < 0).length;
-    toast.success(`${rows.length} lançamentos (${source})${credits ? ` incl. ${credits} estorno(s)` : ''} · total ${formatCurrency(total)}.`);
-    if (declaredTotal && Math.abs(total - Number(declaredTotal)) > 0.5) {
-      toast.error(`Atenção: a soma (${formatCurrency(total)}) difere do total da fatura (${formatCurrency(declaredTotal)}). Revise os lançamentos.`);
+    toast.success(`${rows.length} compra(s) (${source})${skipped ? ` · ${skipped} estorno(s) ignorado(s)` : ''} · total ${formatCurrency(total)}.`);
+    if (declaredTotal && Math.abs(netSum - Number(declaredTotal)) > 0.5) {
+      toast.error(`Atenção: a leitura (${formatCurrency(netSum)}) difere do total da fatura (${formatCurrency(declaredTotal)}). Revise.`);
     } else if (declaredTotal) {
       toast.info(`Conferido: bate com o total da fatura (${formatCurrency(declaredTotal)}).`);
     }
