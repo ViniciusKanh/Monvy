@@ -14,7 +14,12 @@ export async function sendMail({ to, subject, html, replyTo }) {
   try {
     const cfg = await getMailConfig();
     if (!cfg.enabled || !cfg.from || !cfg.password) return { skipped: true };
-    const msg = { from: `Monvy <${cfg.from}>`, to, subject, html };
+    // versao em texto puro (melhora a entregabilidade e evita marcacao de spam)
+    const text = String(html || '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000);
+    const msg = {
+      from: `Monvy <${cfg.from}>`, to, subject, html, text,
+      headers: { 'List-Unsubscribe': `<mailto:${cfg.from}?subject=descadastrar>`, 'Auto-Submitted': 'auto-generated' },
+    };
     if (replyTo) msg.replyTo = replyTo;
     await transporter(cfg).sendMail(msg);
     return { sent: true };

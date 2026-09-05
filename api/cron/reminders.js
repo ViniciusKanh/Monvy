@@ -176,6 +176,9 @@ export default async function handler(req, res) {
         const venc = await vencData(u.id, t0, t3);
         const budget = await budgetRows(u.id, ym);
         if (!venc.count && !budget.length) continue;
+        // dedupe: se já mandamos o alerta diário hoje para este usuário, não repete
+        const already = (await db().execute({ sql: `SELECT 1 FROM Notification WHERE created_by_id=? AND kind='reminder' AND substr(created_date,1,10)=? LIMIT 1`, args: [u.id, t0] })).rows[0];
+        if (already) continue;
         let body = `Olá${u.full_name ? ' ' + u.full_name : ''}, aqui esta o resumo dos seus alertas:`;
         if (venc.rows.length) body += `<div style="margin-top:12px;font-weight:700;color:#0b1330">Vencimentos próximos ou em atraso</div>${itemsTable(venc.rows)}<div style="margin-top:6px;color:#0b1330;font-weight:700">Total a pagar: ${brl(venc.total)}</div>`;
         if (budget.length) body += `<div style="margin-top:16px;font-weight:700;color:#0b1330">Orcamento do mês</div>${itemsTable(budget)}`;
@@ -209,6 +212,8 @@ export default async function handler(req, res) {
       for (const { tr, c } of dueToday) {
         const conditions = Array.isArray(c.conditions) ? c.conditions : [];
         try {
+          // dedupe: se este robô já disparou hoje, não repete no mesmo dia (evita e-mails duplicados)
+          if (String(tr.last_fired || '').slice(0, 10) === t0) continue;
           // cooldown: não repetir dentro de X dias
           const cooldown = Number(c.cooldownDays) || 0;
           if (cooldown > 0 && tr.last_fired) {
