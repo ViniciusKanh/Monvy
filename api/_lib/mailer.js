@@ -15,37 +15,47 @@ function envSmtp() {
   };
 }
 
-let _tx = null, _key = '';
+const _txCache = {};
 function transporter(opts) {
   const key = `${opts.host}:${opts.port}:${opts.user}`;
-  if (_tx && _key === key) return _tx;
-  _tx = nodemailer.createTransport({ host: opts.host, port: opts.port, secure: opts.secure, auth: { user: opts.user, pass: opts.pass } });
-  _key = key; return _tx;
+  if (_txCache[key]) return _txCache[key];
+  const tx = nodemailer.createTransport({ host: opts.host, port: opts.port, secure: opts.secure, auth: { user: opts.user, pass: opts.pass } });
+  _txCache[key] = tx; return tx;
+}
+
+// Monta a lista de provedores disponíveis, em ordem de preferência:
+// 1) SMTP das variáveis de ambiente (ex.: Brevo)  2) Gmail salvo no banco.
+// Assim, se o primeiro falhar (ex.: limite diário), tenta o próximo automaticamente.
+function providers(cfg) {
+  const list = [];
+  const env = envSmtp();
+  if (env) list.push({ label: 'smtp', host: env.host, port: env.port, secure: env.secure, user: env.user, pass: env.pass, fromAddr: env.fromAddr, fromName: env.fromName });
+  if (cfg && cfg.enabled && cfg.from && cfg.password) list.push({ label: 'gmail', host: 'smtp.gmail.com', port: 465, secure: true, user: cfg.from, pass: cfg.password, fromAddr: cfg.from, fromName: 'Monvy' });
+  return list;
 }
 
 // Envia e-mail se configurado/habilitado. Nunca lanca (não quebra o fluxo principal).
+// Tenta cada provedor em ordem; se um falhar, cai para o próximo (fallback).
 export async function sendMail({ to, subject, html, replyTo }) {
   try {
-    const env = envSmtp();
-    let opts, fromAddr, fromName;
-    if (env) {
-      opts = { host: env.host, port: env.port, secure: env.secure, user: env.user, pass: env.pass };
-      fromAddr = env.fromAddr; fromName = env.fromName;
-    } else {
-      const cfg = await getMailConfig();
-      if (!cfg.enabled || !cfg.from || !cfg.password) return { skipped: true };
-      opts = { host: 'smtp.gmail.com', port: 465, secure: true, user: cfg.from, pass: cfg.password };
-      fromAddr = cfg.from; fromName = 'Monvy';
-    }
+    const cfg = await getMailConfig().catch(() => ({}));
+    const list = providers(cfg);
+    if (!list.length) return { skipped: true };
     // versao em texto puro (melhora a entregabilidade e evita marcacao de spam)
     const text = String(html || '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000);
-    const msg = {
-      from: `${fromName} <${fromAddr}>`, to, subject, html, text,
-      headers: { 'List-Unsubscribe': `<mailto:${fromAddr}?subject=descadastrar>`, 'Auto-Submitted': 'auto-generated' },
-    };
-    if (replyTo) msg.replyTo = replyTo;
-    await transporter(opts).sendMail(msg);
-    return { sent: true };
+    let lastErr = null;
+    for (const p of list) {
+      try {
+        const msg = {
+          from: `${p.fromName} <${p.fromAddr}>`, to, subject, html, text,
+          headers: { 'List-Unsubscribe': `<mailto:${p.fromAddr}?subject=descadastrar>`, 'Auto-Submitted': 'auto-generated' },
+        };
+        if (replyTo) msg.replyTo = replyTo;
+        await transporter(p).sendMail(msg);
+        return { sent: true, via: p.label };
+      } catch (e) { lastErr = e; /* tenta o próximo provedor */ }
+    }
+    return { error: lastErr ? lastErr.message : 'Falha ao enviar e-mail' };
   } catch (e) { return { error: e.message }; }
 }
 
