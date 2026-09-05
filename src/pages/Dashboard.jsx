@@ -9,7 +9,7 @@ import { Card, Spinner } from '../components/ui';
 import { RobotsSummaryCard } from '../components/RobotsSummaryCard.jsx';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, inMonth, monthRange } from '../lib/utils.js';
-import { PALETTE, colorAt, lastMonths, monthlySeries, monthTotals, categoryBreakdown, forecastNextMonth, detectAnomalies } from '../lib/analytics.js';
+import { PALETTE, colorAt, lastMonths, monthlySeries, monthTotals, categoryBreakdown, forecastNextMonth, detectAnomalies, combineExpenses, weekdaySpending, detectSubscriptions, detectPriceHikes } from '../lib/analytics.js';
 import { ComposedChart, Bar, Line, Area, AreaChart, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, Target, CreditCard as CardIcon, PiggyBank, Eye, EyeOff,
@@ -75,6 +75,25 @@ export default function Dashboard() {
   const prev = useMemo(() => monthTotals(transactions, prevMk), [transactions, prevMk]);
 
   const byCategory = useMemo(() => categoryBreakdown(transactions, mk, catMap), [transactions, mk, catMap]);
+
+  // dados analíticos extras (contas + cartão)
+  const tx6 = useMemo(() => combineExpenses(transactions, cardTxs), [transactions, cardTxs]);
+  const weekday = useMemo(() => weekdaySpending(tx6, null), [tx6]);
+  const savingsSeries = useMemo(() => series6.map((s) => ({ name: s.name, rate: s.inc > 0 ? Math.round(((s.inc - s.exp) / s.inc) * 100) : 0 })), [series6]);
+  const highlights = useMemo(() => {
+    const subs = detectSubscriptions(tx6);
+    const hikes = detectPriceHikes(tx6);
+    const subTotal = subs.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const avgExp6 = series6.length ? series6.reduce((a, s) => a + s.exp, 0) / series6.length : 0;
+    const reserveMonths = avgExp6 > 0 ? totalBalance / avgExp6 : 0;
+    const top = byCategory[0];
+    const out = [];
+    if (top) out.push({ icon: Flame, color: '#f43f5e', title: 'Maior categoria', value: money(top.value), sub: top.name, to: '/para-onde-vai' });
+    if (subs.length) out.push({ icon: Zap, color: '#6366f1', title: 'Assinaturas detectadas', value: `${money(subTotal)}/mês`, sub: `${subs.length} cobrança(s) recorrente(s)`, to: '/recorrencias' });
+    out.push({ icon: PiggyBank, color: reserveMonths >= 3 ? '#10b981' : '#f59e0b', title: 'Reserva de emergência', value: `${reserveMonths.toFixed(1)} meses`, sub: reserveMonths >= 6 ? 'blindado' : reserveMonths >= 3 ? 'no caminho' : 'abaixo do ideal', to: '/reserva' });
+    if (hikes.length) out.push({ icon: AlertTriangle, color: '#f59e0b', title: 'Subiram de preço', value: `${hikes.length} cobrança(s)`, sub: `ex.: ${hikes[0].name}`, to: '/recorrencias' });
+    return out;
+  }, [tx6, series6, totalBalance, byCategory]);
   const forecast = useMemo(() => forecastNextMonth(transactions, lastMonths(6, mk)), [transactions, mk]);
   const anomalies = useMemo(() => detectAnomalies(transactions, catMap), [transactions, catMap]);
   const prevByCat = useMemo(() => categoryBreakdown(transactions, prevMk, catMap), [transactions, prevMk, catMap]);
@@ -459,6 +478,58 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+      </div>
+
+      {/* Destaques das outras telas */}
+      {highlights.length > 0 && (
+        <div style={{ order: 95 }}>
+          <div className="flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /><h3 className="font-semibold">Destaques do mês</h3></div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {highlights.map((h, i) => (
+              <Reveal key={i} i={Math.min(i, 4)}>
+                <button onClick={() => navigate(h.to)} className="w-full text-left card hover-lift p-4 rounded-2xl">
+                  <span className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: `${h.color}1f`, color: h.color }}><h.icon className="w-4 h-4" /></span>
+                  <p className="text-xs text-muted">{h.title}</p>
+                  <p className="font-display text-lg font-bold leading-tight">{h.value}</p>
+                  <p className="text-xs text-muted truncate mt-0.5">{h.sub}</p>
+                </button>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Análises extras */}
+      <div style={{ order: 96 }} className="grid md:grid-cols-2 gap-5">
+        <Card className="hover-lift">
+          <h3 className="font-semibold mb-1">Gasto por dia da semana</h3>
+          <p className="text-xs text-muted mb-3">Onde o dinheiro escapa na rotina (contas + cartão)</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <ComposedChart data={weekday}>
+              <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} />
+              <YAxis width={44} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+              <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={38}>{weekday.map((e, i) => <Cell key={i} fill={e.weekend ? '#f43f5e' : '#6366f1'} />)}</Bar>
+            </ComposedChart>
+          </ResponsiveContainer>
+          <div className="flex gap-4 text-xs text-muted mt-1"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" /> fim de semana</span><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500" /> dias úteis</span></div>
+        </Card>
+
+        <Card className="hover-lift">
+          <h3 className="font-semibold mb-1">Evolução da taxa de poupança</h3>
+          <p className="text-xs text-muted mb-3">Quanto da sua renda sobrou, mês a mês (6 meses)</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={savingsSeries}>
+              <defs><linearGradient id="savR" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.35} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} />
+              <YAxis width={38} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+              <Tooltip formatter={(v) => `${v}%`} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} />
+              <Area dataKey="rate" stroke="#10b981" strokeWidth={2.5} fill="url(#savR)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
       </div>
     </div>
   );
