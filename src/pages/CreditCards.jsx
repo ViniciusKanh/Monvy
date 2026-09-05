@@ -184,9 +184,9 @@ export default function CreditCards() {
                     <div className="flex items-center gap-2"><Nfc className="w-6 h-6 opacity-70" /><span className="uppercase text-sm font-bold tracking-[0.2em]">{selected.brand}</span></div>
                   </div>
                   <p className="relative mt-7 tracking-[0.28em] text-xl sm:text-2xl font-display">•••• •••• •••• {selected.last_digits || '0000'}</p>
-                  <div className="relative flex justify-between items-end mt-6">
-                    <div><p className="text-[10px] text-white/55 uppercase tracking-wide">Titular</p><p className="font-semibold">{selected.name}</p></div>
-                    <div className="text-right"><p className="text-[10px] text-white/55 uppercase tracking-wide">Vencimento</p><p className="font-semibold">dia {selected.due_day}</p></div>
+                  <div className="relative flex justify-between items-end mt-6 gap-2">
+                    <div className="min-w-0"><p className="text-[10px] text-white/55 tracking-wide">Titular</p><p className="font-semibold truncate">{selected.name}</p></div>
+                    <div className="text-right shrink-0"><p className="text-[10px] text-white/55 tracking-wide">Vencimento</p><p className="font-semibold">dia {selected.due_day}</p></div>
                     {selected.credit_limit > 0 && (
                       <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
                         <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="5" />

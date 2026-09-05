@@ -193,33 +193,31 @@ export default function Dashboard() {
 
       {/* Hero + acoes */}
       <div className="grid lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white shadow-soft ring-1 ring-white/10"
-          style={{ background: 'linear-gradient(140deg,#070b18 0%,#0b1330 46%,#111b3f 100%)' }}>
-          <div className="absolute -top-24 -right-20 w-80 h-80 rounded-full pointer-events-none glow-pulse" style={{ background: 'radial-gradient(circle, rgba(52,211,153,.30), transparent 68%)' }} />
-          <div className="absolute -bottom-28 -left-16 w-80 h-80 rounded-full pointer-events-none glow-pulse" style={{ background: 'radial-gradient(circle, rgba(99,102,241,.24), transparent 70%)', animationDelay: '3s' }} />
-          <svg className="absolute right-3 top-3 opacity-[0.10] pointer-events-none" width="190" height="190" viewBox="0 0 190 190" fill="none" stroke="white"><circle cx="160" cy="30" r="60" strokeWidth="1" /><circle cx="160" cy="30" r="94" strokeWidth="1" /><circle cx="160" cy="30" r="128" strokeWidth="1" /></svg>
-          <div className="absolute inset-0 grid-bg opacity-25 pointer-events-none" />
-          <div className="sheen" />
+        <div className="lg:col-span-2 relative overflow-hidden rounded-3xl text-white shadow-soft ring-1 ring-white/10"
+          style={{ background: 'linear-gradient(155deg,#0a1122,#0c1430 58%,#0b1228)' }}>
+          {/* uma única luz de acento + fio de brilho no topo */}
+          <div className="absolute -top-28 -right-16 w-[22rem] h-[22rem] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(52,211,153,.20), transparent 70%)' }} />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
 
-          <div className="relative">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+          <div className="relative p-6 sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
                 <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Patrimônio total</p>
                 <div className="flex items-end gap-3 mt-2 flex-wrap">
-                  <p className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-none"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
-                  <span className={`mb-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/20'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mês</span>
+                  <p className="font-display text-[2.6rem] leading-[0.95] sm:text-6xl font-extrabold tracking-tight"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
+                  <span className={`mb-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${cur.bal >= 0 ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25' : 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/25'}`}>{cur.bal >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{val(Math.abs(cur.bal))} no mês</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-1.5">{accounts.length} conta(s) · {cards.length} cartão(ões) · {money(savedGoals)} guardado em metas</p>
+                <p className="text-xs text-slate-400 mt-2">{accounts.length} conta(s) · {cards.length} cartão(ões) · {money(savedGoals)} em metas</p>
                 {(() => {
                   const usd = Number((fx?.USDBRL || {}).bid) || 0;
                   const eur = Number((fx?.EURBRL || {}).bid) || 0;
                   if (!usd && !eur) return null;
                   const f = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                   return (
-                    <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
+                    <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
                       {usd > 0 && <span className="flex items-center gap-1">🇺🇸 {hide ? '••••' : `US$ ${f(totalBalance / usd)}`}</span>}
                       {eur > 0 && <span className="flex items-center gap-1">🇪🇺 {hide ? '••••' : `€ ${f(totalBalance / eur)}`}</span>}
-                      <span className="text-slate-500">· patrimônio no câmbio de hoje</span>
+                      <span>· no câmbio de hoje</span>
                     </p>
                   );
                 })()}
@@ -233,8 +231,8 @@ export default function Dashboard() {
               if (!tot) return null;
               return (
                 <div className="mt-6">
-                  <div className="flex items-center justify-between mb-1.5"><span className="text-xs text-slate-400 font-medium">Onde está seu dinheiro</span></div>
-                  <div className="flex h-2.5 rounded-full overflow-hidden bg-white/10 gap-0.5">
+                  <span className="text-xs text-slate-400 font-medium">Onde está seu dinheiro</span>
+                  <div className="flex h-2.5 rounded-full overflow-hidden bg-white/10 gap-0.5 mt-1.5">
                     {pos.map((a, i) => <div key={a.id} className="transition-all" style={{ width: `${(a.current_balance / tot) * 100}%`, background: a.color || colorAt(i) }} title={a.name} />)}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5">
@@ -244,14 +242,15 @@ export default function Dashboard() {
               );
             })()}
 
-            <div className="grid grid-cols-3 gap-3 mt-5">
+            {/* fluxo do mês — entrou, saiu, sobrou */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-6">
               <HeroStat label={`${t('dash.inflow')} · ${monthLabel(mk).split(' ')[0]}`} value={val(cur.inc)} pct={pctChange(cur.inc, prev.inc)} good="up" tone="#34d399" />
               <HeroStat label={t('dash.outflow')} value={val(cur.exp)} pct={pctChange(cur.exp, prev.exp)} good="down" tone="#fb7185" />
               <HeroStat label={t('dash.balance')} value={val(cur.bal)} pct={pctChange(cur.bal, prev.bal)} good="up" tone="#818cf8" />
             </div>
           </div>
 
-          <div className="relative -mx-6 sm:-mx-7 -mb-6 sm:-mb-7 mt-5 h-16">
+          <div className="relative h-16 sm:h-20">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={balanceTrail} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <defs><linearGradient id="heroA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" stopOpacity={0.4} /><stop offset="100%" stopColor="#34d399" stopOpacity={0} /></linearGradient></defs>
