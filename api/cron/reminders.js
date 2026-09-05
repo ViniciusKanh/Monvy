@@ -157,7 +157,8 @@ export default async function handler(req, res) {
   try {
     await ensureSchema();
     const cfg = await getMailConfig();
-    if (!cfg.enabled) return sendJson(res, 200, { skipped: 'e-mail não configurado' });
+    const envSmtp = !!(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
+    if (!cfg.enabled && !envSmtp) return sendJson(res, 200, { skipped: 'e-mail não configurado' });
     const aiKey = await geminiKey();
 
     const today = new Date();

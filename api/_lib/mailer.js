@@ -1,27 +1,50 @@
 import nodemailer from 'nodemailer';
 import { getMailConfig } from './settings.js';
 
+const E = process.env;
+// Provedor SMTP por variáveis de ambiente (Brevo, Resend, SendGrid, SES, etc.).
+// Tem prioridade sobre o Gmail salvo no banco — resolve o limite diário do Gmail.
+function envSmtp() {
+  if (!E.EMAIL_HOST || !E.EMAIL_USER || !E.EMAIL_PASS) return null;
+  const port = Number(E.EMAIL_PORT || 587);
+  return {
+    host: E.EMAIL_HOST, port, secure: port === 465,
+    user: E.EMAIL_USER, pass: E.EMAIL_PASS,
+    fromAddr: E.EMAIL_FROM || E.EMAIL_USER,
+    fromName: E.EMAIL_FROM_NAME || 'Monvy',
+  };
+}
+
 let _tx = null, _key = '';
-function transporter(cfg) {
-  const key = `${cfg.from}:${cfg.password}`;
+function transporter(opts) {
+  const key = `${opts.host}:${opts.port}:${opts.user}`;
   if (_tx && _key === key) return _tx;
-  _tx = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: cfg.from, pass: cfg.password } });
+  _tx = nodemailer.createTransport({ host: opts.host, port: opts.port, secure: opts.secure, auth: { user: opts.user, pass: opts.pass } });
   _key = key; return _tx;
 }
 
 // Envia e-mail se configurado/habilitado. Nunca lanca (não quebra o fluxo principal).
 export async function sendMail({ to, subject, html, replyTo }) {
   try {
-    const cfg = await getMailConfig();
-    if (!cfg.enabled || !cfg.from || !cfg.password) return { skipped: true };
+    const env = envSmtp();
+    let opts, fromAddr, fromName;
+    if (env) {
+      opts = { host: env.host, port: env.port, secure: env.secure, user: env.user, pass: env.pass };
+      fromAddr = env.fromAddr; fromName = env.fromName;
+    } else {
+      const cfg = await getMailConfig();
+      if (!cfg.enabled || !cfg.from || !cfg.password) return { skipped: true };
+      opts = { host: 'smtp.gmail.com', port: 465, secure: true, user: cfg.from, pass: cfg.password };
+      fromAddr = cfg.from; fromName = 'Monvy';
+    }
     // versao em texto puro (melhora a entregabilidade e evita marcacao de spam)
     const text = String(html || '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000);
     const msg = {
-      from: `Monvy <${cfg.from}>`, to, subject, html, text,
-      headers: { 'List-Unsubscribe': `<mailto:${cfg.from}?subject=descadastrar>`, 'Auto-Submitted': 'auto-generated' },
+      from: `${fromName} <${fromAddr}>`, to, subject, html, text,
+      headers: { 'List-Unsubscribe': `<mailto:${fromAddr}?subject=descadastrar>`, 'Auto-Submitted': 'auto-generated' },
     };
     if (replyTo) msg.replyTo = replyTo;
-    await transporter(cfg).sendMail(msg);
+    await transporter(opts).sendMail(msg);
     return { sent: true };
   } catch (e) { return { error: e.message }; }
 }
