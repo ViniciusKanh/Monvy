@@ -106,7 +106,7 @@ export function AiWordCloud({ cardTxs = [], transactions = [], apiKey }) {
       {words.length === 0 ? (
         <p className="text-sm text-muted py-6 text-center">Sem gastos de cartão suficientes para montar a nuvem. Importe uma fatura ou lance compras no cartão.</p>
       ) : (
-        <div ref={boxRef} className="relative w-full h-64 sm:h-80 rounded-2xl overflow-hidden select-none"
+        <div ref={boxRef} className="relative w-full h-44 sm:h-52 rounded-2xl overflow-hidden select-none"
           style={{ background: 'radial-gradient(120% 120% at 50% 45%, hsl(var(--muted)/0.08), transparent 72%)' }}>
           {placed.map((x, i) => (
             <span key={i} title={`peso ${x.p}`}

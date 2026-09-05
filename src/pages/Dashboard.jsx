@@ -10,7 +10,7 @@ import { RobotsSummaryCard } from '../components/RobotsSummaryCard.jsx';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, inMonth, monthRange } from '../lib/utils.js';
 import { PALETTE, colorAt, lastMonths, monthlySeries, monthTotals, categoryBreakdown, forecastNextMonth, detectAnomalies, combineExpenses, weekdaySpending, detectSubscriptions, detectPriceHikes } from '../lib/analytics.js';
-import { ComposedChart, Bar, Line, Area, AreaChart, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ComposedChart, Bar, Line, Area, AreaChart, PieChart, Pie, Cell, Treemap, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, Target, CreditCard as CardIcon, PiggyBank, Eye, EyeOff,
   ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, Plus, Sparkles, AlertTriangle,
@@ -94,6 +94,20 @@ export default function Dashboard() {
     if (hikes.length) out.push({ icon: AlertTriangle, color: '#f59e0b', title: 'Subiram de preço', value: `${hikes.length} cobrança(s)`, sub: `ex.: ${hikes[0].name}`, to: '/recorrencias' });
     return out;
   }, [tx6, series6, totalBalance, byCategory]);
+
+  // treemap "para onde vai" (compacto) + calendário de calor (7 semanas)
+  const treemap = useMemo(() => byCategory.slice(0, 10).map((c, i) => ({ name: c.name, size: Math.max(1, Math.round(c.value)), color: c.color || colorAt(i) })), [byCategory]);
+  const heat = useMemo(() => {
+    const byDay = {};
+    for (const t of tx6) { if (t.type !== 'expense') continue; const d = String(t.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + Number(t.amount || 0); }
+    const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00');
+    const start = new Date(today); start.setDate(start.getDate() - 48);
+    while (start.getDay() !== 0) start.setDate(start.getDate() + 1);
+    const cells = []; let max = 0;
+    for (let i = 0; i < 49; i++) { const d = new Date(start); d.setDate(start.getDate() + i); if (d > today) { cells.push(null); continue; } const key = d.toISOString().slice(0, 10); const v = byDay[key] || 0; if (v > max) max = v; cells.push({ key, v, d }); }
+    return { cells, max };
+  }, [tx6]);
+  const heatColor = (v) => { if (!v) return 'hsl(var(--muted)/0.12)'; const r = heat.max ? v / heat.max : 0; if (r < 0.2) return 'rgba(16,185,129,0.4)'; if (r < 0.45) return 'rgba(234,179,8,0.55)'; if (r < 0.7) return 'rgba(249,115,22,0.7)'; return 'rgba(244,63,94,0.85)'; };
   const forecast = useMemo(() => forecastNextMonth(transactions, lastMonths(6, mk)), [transactions, mk]);
   const anomalies = useMemo(() => detectAnomalies(transactions, catMap), [transactions, catMap]);
   const prevByCat = useMemo(() => categoryBreakdown(transactions, prevMk, catMap), [transactions, prevMk, catMap]);
@@ -529,6 +543,52 @@ export default function Dashboard() {
               <Area dataKey="rate" stroke="#10b981" strokeWidth={2.5} fill="url(#savR)" />
             </AreaChart>
           </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Visuais dos módulos de Inteligência (unificados no painel) */}
+      <div style={{ order: 97 }} className="grid md:grid-cols-2 gap-5">
+        <Card className="hover-lift">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-semibold">Para onde vai o dinheiro</h3>
+            <button onClick={() => navigate('/para-onde-vai')} className="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1">Abrir <ArrowRight className="w-3.5 h-3.5" /></button>
+          </div>
+          <p className="text-xs text-muted mb-3">Suas categorias do mês — quanto maior o bloco, maior o gasto</p>
+          {treemap.length === 0 ? <p className="text-sm text-muted py-10 text-center">Sem despesas categorizadas neste mês.</p>
+            : <ResponsiveContainer width="100%" height={240}>
+              <Treemap data={treemap} dataKey="size" isAnimationActive content={(p) => {
+                const { x, y, width, height, name, index } = p;
+                if (width < 2 || height < 2) return null;
+                const c = treemap[index]?.color || colorAt(index);
+                const show = width > 46 && height > 24;
+                return (<g><rect x={x} y={y} width={width} height={height} rx={6} style={{ fill: c, stroke: 'hsl(var(--card))', strokeWidth: 2 }} />{show && <text x={x + 7} y={y + 18} fill="#fff" fontSize={12} fontWeight={600}>{name}</text>}</g>);
+              }}>
+                <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--text))' }} />
+              </Treemap>
+            </ResponsiveContainer>}
+        </Card>
+
+        <Card className="hover-lift">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-semibold">Calendário de gastos</h3>
+            <button onClick={() => navigate('/mapa-de-calor')} className="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1">Abrir <ArrowRight className="w-3.5 h-3.5" /></button>
+          </div>
+          <p className="text-xs text-muted mb-3">Últimas 7 semanas — dias mais quentes gastam mais</p>
+          <div className="flex gap-1.5">
+            <div className="grid grid-rows-7 gap-1 pr-1 text-[9px] text-muted items-center">{['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <span key={i} className="h-4 flex items-center">{d}</span>)}</div>
+            <div className="grid grid-flow-col grid-rows-7 gap-1 flex-1">
+              {heat.cells.map((c, i) => c === null ? <span key={i} /> : (
+                <span key={i} title={`${c.d.toLocaleDateString('pt-BR')}: ${money(c.v)}`} className="h-4 rounded-[3px]" style={{ background: heatColor(c.v) }} />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted justify-end mt-3">menos
+            <span className="w-3 h-3 rounded-[3px]" style={{ background: 'hsl(var(--muted)/0.12)' }} />
+            <span className="w-3 h-3 rounded-[3px]" style={{ background: 'rgba(16,185,129,0.4)' }} />
+            <span className="w-3 h-3 rounded-[3px]" style={{ background: 'rgba(234,179,8,0.55)' }} />
+            <span className="w-3 h-3 rounded-[3px]" style={{ background: 'rgba(249,115,22,0.7)' }} />
+            <span className="w-3 h-3 rounded-[3px]" style={{ background: 'rgba(244,63,94,0.85)' }} /> mais
+          </div>
         </Card>
       </div>
     </div>
