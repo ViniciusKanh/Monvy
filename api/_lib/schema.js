@@ -326,6 +326,19 @@ export const SCHEMA_STATEMENTS = [
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS BankConnection (
+    id TEXT PRIMARY KEY,
+    provider TEXT DEFAULT 'pluggy',
+    item_id TEXT NOT NULL,
+    connector_id TEXT,
+    institution TEXT,
+    image_url TEXT,
+    status TEXT DEFAULT 'UPDATED',
+    last_synced_at TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_bankconn_owner ON BankConnection(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_bankrate_owner ON BankRate(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notif_owner ON Notification(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_catrule_owner ON CategoryRule(created_by_id)`,
@@ -370,6 +383,14 @@ export const MIGRATIONS = [
   { id: '014_trigger_lastfired', statements: [`ALTER TABLE Trigger ADD COLUMN last_fired TEXT`] },
   { id: '016_notification_ref', statements: [`ALTER TABLE Notification ADD COLUMN ref TEXT`] },
   { id: '017_users_cpf', statements: [`ALTER TABLE users ADD COLUMN cpf TEXT`] },
+  { id: '018_bank_connection', statements: [
+    `CREATE TABLE IF NOT EXISTS BankConnection (
+      id TEXT PRIMARY KEY, provider TEXT DEFAULT 'pluggy', item_id TEXT NOT NULL, connector_id TEXT,
+      institution TEXT, image_url TEXT, status TEXT DEFAULT 'UPDATED', last_synced_at TEXT,
+      is_deleted INTEGER DEFAULT 0, created_date TEXT, updated_date TEXT, created_by_id TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_bankconn_owner ON BankConnection(created_by_id)`,
+  ] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
     `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,

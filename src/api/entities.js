@@ -78,6 +78,15 @@ export const Cards = {
 };
 export const Reports = { email: (payload) => api.post('/api/reports/email', payload) };
 
+// Integracoes bancarias (Pluggy / Open Finance)
+export const Integrations = {
+  status: () => api.get('/api/integrations/status'),
+  connectToken: (itemId) => api.post('/api/integrations/connect-token', itemId ? { itemId } : {}),
+  saveItem: (itemId) => api.post('/api/integrations/save-item', { itemId }),
+  transactions: (from, to) => api.post('/api/integrations/transactions', { from, to }),
+  disconnect: (id) => api.post('/api/integrations/disconnect', { id }),
+};
+
 export const Ai = {
   parseInvoice: (pdfBase64, apiKey, categories) =>
     api.post('/api/ai/parse-invoice', { pdfBase64, apiKey, categories }),

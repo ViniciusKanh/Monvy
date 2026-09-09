@@ -66,21 +66,49 @@ Cabeçalho (mês, renda bruta, CPF mascarado) · card principal só quando há d
 | IOF | Só se houver lançamento identificado | confirmado |
 | IPVA / IPTU | Entrada manual, mensalizada ÷ 12 | manual |
 
-## 7. Integrações — reais vs. simuladas
+## 7. Integrações
 
-- **Open Finance Brasil** — interface `MockOpenFinanceProvider` (não conecta a banco com usuário/senha). Um provider real deve implementar `isConnected/connect/disconnect/fetchTaxRelevantData`, entrar em uso só após consentimento explícito e permitir revogação. **Requer**: participação regulada, certificado, fluxo de consentimento — não implementado.
-- **Receita Federal / SERPRO** (Integra Contador, Compartilha RFB) — **requer contrato, certificado digital e custo**. Documentado como fonte, não conectado.
-- **IBPT** — `DefaultTaxEstimateProvider` usa médias de referência em `taxRates.js`; substituir pela tabela oficial (CSV/JSON por NCM/estado) quando disponível.
+### Open Finance via Pluggy (REAL)
 
-Nenhuma integração faz scraping de portal protegido, quebra de CAPTCHA ou uso de API não autorizada.
+Conexão bancária real usando o **Pluggy** (agregador Open Finance Brasil). Vários bancos com um cadastro só: Nubank, Itaú, BB, Bradesco, Santander, Caixa, Inter, C6, **Mercado Pago** etc.
+
+Arquitetura (segredos só no backend):
+
+1. Backend autentica no Pluggy com `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` → `apiKey` (cacheada ~1h50).
+2. Frontend pede um **connect token** (`POST /api/integrations/connect-token`).
+3. O widget **Pluggy Connect** abre; o usuário escolhe o banco e autoriza **no ambiente do banco** — o Monvy nunca vê a senha.
+4. Widget devolve o `itemId`; frontend chama `POST /api/integrations/save-item`, que guarda a conexão em `BankConnection`.
+5. A tela puxa transações reais (`POST /api/integrations/transactions`) do mês selecionado e as mescla no cálculo de consumo (com dedup simples contra os lançamentos do Monvy).
+6. Revogar (`POST /api/integrations/disconnect`) chama `DELETE /items/{id}` no Pluggy e marca a conexão como removida.
+
+Arquivos: `api/_lib/pluggy.js` (cliente REST), `api/_handlers/pluggy.js` (handlers), `api/integrations/[action].js` (dispatcher — 12ª função serverless, dentro do limite do plano), `src/components/BankConnections.jsx` (UI multi-banco), `src/api/entities.js` (`Integrations`), tabela `BankConnection` (migração `018`).
+
+Enquanto `PLUGGY_CLIENT_ID` não estiver definido, os endpoints respondem "não configurado" e a UI mostra o passo a passo de cadastro — nada quebra.
+
+### Outras fontes
+
+- **Receita Federal / SERPRO** (Integra Contador, Compartilha RFB) — requer contrato, certificado digital e custo. Documentado como fonte, não conectado.
+- **Folha de pagamento** — o usuário informa INSS/IRRF do holerite em "Meus dados" (marca como confirmado).
+- **IBPT** — `DefaultTaxEstimateProvider` usa médias em `taxRates.js`; substituir pela tabela oficial (CSV/JSON por NCM/estado) quando disponível.
+
+Nenhuma integração faz scraping de portal protegido, quebra de CAPTCHA ou uso de API não autorizada. A autorização bancária acontece 100% no widget do Pluggy.
 
 ## 8. Segurança / LGPD
 
 CPF armazenado só em dígitos, exibido apenas mascarado (`***.***.***-42`), nunca logado, nunca pré-preenchido na UI. Cálculo no dispositivo (nenhum dado tributário sai do navegador). Consentimento explícito e revogável para qualquer fonte externa. Sem armazenamento de credenciais bancárias ou senha do gov.br.
 
-## 9. Configuração (.env)
+## 9. Configuração (.env / Vercel)
 
-Nenhuma variável nova é necessária para a versão atual (tudo client-side + Turso já configurado). Integrações futuras exigiriam, por exemplo: `SERPRO_CLIENT_ID/SECRET`, caminho do certificado, e credenciais de participante Open Finance — **fora do frontend**, apenas no backend.
+Para a conexão bancária real (Pluggy), defina no backend (Vercel → Settings → Environment Variables, **nunca no código**):
+
+```
+PLUGGY_CLIENT_ID=<seu client id do dashboard.pluggy.ai>
+PLUGGY_CLIENT_SECRET=<seu client secret>
+# opcional, se a versão do widget mudar:
+# PLUGGY_CONNECT_URL=https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js
+```
+
+Passo a passo: (1) criar conta grátis em https://dashboard.pluggy.ai; (2) copiar Client ID e Client Secret; (3) adicionar as duas variáveis na Vercel; (4) redeploy. Em produção, conectar bancos reais pode exigir plano pago do Pluggy; o **sandbox** (bancos de teste, credenciais `user-ok`/`password-ok`) é gratuito e já funciona com `includeSandbox`. O restante da tela (INSS/IRRF/consumo/IPVA/IPTU) roda sem nenhuma variável nova.
 
 ## 10. Como rodar / validar
 
