@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Landmark, ShieldCheck, Calculator, Info, HelpCircle, Plug, PlusCircle,
   Receipt, Car, Home, TrendingDown, CheckCircle2, CircleDashed, PencilLine, Wallet,
+  ChevronLeft, ChevronRight, CalendarDays, ShieldQuestion, Check, Loader2,
 } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '../components/ui';
@@ -11,13 +12,17 @@ import { formatCurrency, monthKey, monthLabel } from '../lib/utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Transaction, CreditCardTransaction } from '../api/entities.js';
 import { combineExpenses } from '../lib/analytics.js';
-import { buildTaxRecords, aggregate, explain } from '../lib/taxBurden.js';
+import { buildTaxRecords, aggregate, explain, MockOpenFinanceProvider } from '../lib/taxBurden.js';
 import { STATUS } from '../lib/taxRates.js';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 
 const LS_KEY = 'monvy:taxBurden:v1';
+const OF_KEY = 'monvy:openfinance:v1';
+const ofProvider = new MockOpenFinanceProvider();
+// Bancos de exemplo para o fluxo de consentimento (apenas ilustrativo)
+const OF_BANKS = ['Nubank', 'Itaú', 'Bradesco', 'Banco do Brasil', 'Santander', 'Inter', 'Caixa', 'C6 Bank'];
 // Seed de desenvolvimento (spec): apenas salario/INSS/IRRF de exemplo; demais zerados.
 const DEFAULTS = { salarioBruto: '4200', dependentes: '0', deducoes: '', inssConfirmado: '392.60', irrfConfirmado: '0', ipvaAnual: '', iptuAnual: '' };
 
@@ -49,13 +54,26 @@ export default function TaxBurden() {
   const [explainRec, setExplainRec] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [ofConnected, setOfConnected] = useState(false);
+  const [ofState, setOfState] = useState(() => { try { return JSON.parse(localStorage.getItem(OF_KEY) || 'null'); } catch { return null; } });
+  const [ofWizard, setOfWizard] = useState(false);
 
-  const nowMk = monthKey(new Date());
+  const currentMk = monthKey(new Date());
+  const [selMk, setSelMk] = useState(currentMk);
+  const nowMk = selMk;
   const ano = Number(nowMk.slice(0, 4));
   const mes = Number(nowMk.slice(5, 7));
+  const stepMonth = (delta) => { const [y, m] = selMk.split('-').map(Number); const d = new Date(y, m - 1 + delta, 1); const mk = monthKey(d); if (mk <= currentMk) setSelMk(mk); };
+  const isCurrent = selMk === currentMk;
 
   const save = (next) => { setCfg(next); try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* */ } };
+
+  const connectOF = async ({ bank, months }) => {
+    const r = await ofProvider.connect();
+    const exp = new Date(); exp.setMonth(exp.getMonth() + 12);
+    const st = { connected: true, bank, months, consentId: r.consentId, mock: true, connectedAt: new Date().toISOString(), expiresAt: exp.toISOString() };
+    setOfState(st); try { localStorage.setItem(OF_KEY, JSON.stringify(st)); } catch { /* */ }
+  };
+  const disconnectOF = async () => { await ofProvider.disconnect(); setOfState(null); try { localStorage.removeItem(OF_KEY); } catch { /* */ } };
 
   const txQ = useQuery({ queryKey: ['tax-tx'], queryFn: () => Transaction.list() });
   const ccQ = useQuery({ queryKey: ['tax-cc'], queryFn: () => CreditCardTransaction.list() });
@@ -124,7 +142,15 @@ export default function TaxBurden() {
       {/* Cabeçalho: mês, renda, CPF mascarado */}
       <Card className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4 text-sm">
-          <div><span className="text-muted">Mês</span><div className="font-semibold">{monthLabel(nowMk)}</div></div>
+          <div>
+            <span className="text-muted flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> Mês</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <button onClick={() => stepMonth(-1)} className="w-6 h-6 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" title="Mês anterior"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="font-semibold min-w-[130px] text-center">{monthLabel(nowMk)}</span>
+              <button onClick={() => stepMonth(1)} disabled={isCurrent} className="w-6 h-6 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center disabled:opacity-30" title="Próximo mês"><ChevronRight className="w-4 h-4" /></button>
+              {!isCurrent && <button onClick={() => setSelMk(currentMk)} className="text-xs text-emerald-600 hover:underline ml-1">hoje</button>}
+            </div>
+          </div>
           <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
           <div><span className="text-muted">Renda bruta</span><div className="font-semibold">{formatCurrency(rendaBruta)}</div></div>
           <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
@@ -293,17 +319,119 @@ export default function TaxBurden() {
       </Modal>
 
       {/* Modal: Fontes conectadas */}
-      <Modal open={sourcesOpen} onClose={() => setSourcesOpen(false)} title="Fontes conectadas">
+      <Modal open={sourcesOpen} onClose={() => setSourcesOpen(false)} title="Fontes conectadas" maxWidth="max-w-lg">
         <div className="space-y-3 text-sm">
           <p className="text-xs text-muted">O Monvy nunca pede senha de banco ou do gov.br e não acessa portais protegidos. Integrações reais exigem consentimento explícito e podem ser revogadas a qualquer momento.</p>
-          <SourceRow icon={Plug} name="Open Finance" desc="Consentimento para leitura de transações (padrão regulado)."
-            connected={ofConnected} onToggle={() => setOfConnected((v) => !v)} mock />
+
+          {/* Open Finance — bloco com estado e ação de conectar */}
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 flex items-center justify-center"><Plug className="w-4 h-4" /></span>
+                <div>
+                  <p className="font-semibold flex items-center gap-2">Open Finance <Badge color="amber">simulado</Badge></p>
+                  <p className="text-xs text-muted">Leitura consentida das suas transações — melhora a estimativa de consumo e identifica IOF/tarifas.</p>
+                </div>
+              </div>
+              {ofState?.connected
+                ? <Button size="sm" variant="ghost" onClick={disconnectOF}>Revogar</Button>
+                : <Button size="sm" onClick={() => setOfWizard(true)}>Conectar</Button>}
+            </div>
+            {ofState?.connected && (
+              <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+                <p className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Conectado a <b>{ofState.bank}</b> · {ofState.months} meses de histórico</p>
+                <p className="opacity-80 mt-0.5">Consentimento válido até {new Date(ofState.expiresAt).toLocaleDateString('pt-BR')} · você pode revogar quando quiser.</p>
+              </div>
+            )}
+          </div>
+
           <SourceRow icon={Landmark} name="Receita Federal / SERPRO" desc="Integra Contador / Compartilha RFB — requer contrato e certificado." connected={false} disabled />
           <SourceRow icon={Wallet} name="Folha de pagamento" desc="Você informa os valores do holerite em 'Meus dados'." connected={n(cfg.inssConfirmado) > 0} manual />
           <SourceRow icon={Receipt} name="IBPT (consumo)" desc="Médias de referência para tributos embutidos em compras." connected manual />
         </div>
       </Modal>
+
+      <OpenFinanceWizard open={ofWizard} onClose={() => setOfWizard(false)} onConnect={connectOF} />
     </div>
+  );
+}
+
+// Wizard de consentimento Open Finance (simulado, honesto quanto a isso).
+function OpenFinanceWizard({ open, onClose, onConnect }) {
+  const [step, setStep] = useState(1);
+  const [bank, setBank] = useState('');
+  const [months, setMonths] = useState(12);
+  const [busy, setBusy] = useState(false);
+  const reset = () => { setStep(1); setBank(''); setMonths(12); setBusy(false); };
+  const finish = async () => { setBusy(true); await onConnect({ bank, months }); setBusy(false); setStep(4); };
+  const close = () => { onClose(); setTimeout(reset, 300); };
+  return (
+    <Modal open={open} onClose={close} title="Conectar via Open Finance" maxWidth="max-w-lg"
+      footer={step === 4
+        ? <Button className="w-full" onClick={close}>Concluir</Button>
+        : <div className="flex gap-2 w-full">
+            {step > 1 && <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>Voltar</Button>}
+            {step < 3 && <Button className="flex-1" disabled={step === 1 && !bank} onClick={() => setStep((s) => s + 1)}>Continuar</Button>}
+            {step === 3 && <Button className="flex-1" disabled={busy} onClick={finish}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Autorizar e conectar'}</Button>}
+          </div>}>
+      <div className="space-y-4 text-sm">
+        <div className="flex items-center gap-2">
+          {[1, 2, 3].map((s) => <div key={s} className={`h-1.5 flex-1 rounded-full ${step >= s ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`} />)}
+        </div>
+
+        {step === 1 && (<>
+          <p className="text-muted">O Open Finance é o padrão regulado pelo Banco Central para você <b>autorizar</b> o compartilhamento dos seus dados entre instituições — sem entregar senha. Escolha a instituição onde ficam suas transações:</p>
+          <div className="grid grid-cols-2 gap-2">
+            {OF_BANKS.map((b) => (
+              <button key={b} onClick={() => setBank(b)} className={`rounded-xl border p-2.5 text-left font-medium ${bank === b ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-700'}`}>{b}</button>
+            ))}
+          </div>
+        </>)}
+
+        {step === 2 && (<>
+          <p className="text-muted">O que o Monvy vai <b>ler</b> (somente leitura), e por quê:</p>
+          <ul className="space-y-2">
+            <ConsentItem ok text="Transações e lançamentos" why="estimar melhor os tributos embutidos no consumo" />
+            <ConsentItem ok text="Tarifas e IOF cobrados" why="marcar IOF como confirmado em vez de estimado" />
+            <ConsentItem ok text="Dados de conta (agência/saldo)" why="conciliar renda e despesas" />
+            <ConsentItem no text="Senha do banco ou do gov.br" why="nunca é solicitada nem armazenada" />
+          </ul>
+          <Field label="Período de histórico">
+            <select className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent p-2" value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+              <option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option><option value={24}>24 meses</option>
+            </select>
+          </Field>
+        </>)}
+
+        {step === 3 && (<>
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3 space-y-1">
+            <div className="flex justify-between"><span className="text-muted">Instituição</span><b>{bank}</b></div>
+            <div className="flex justify-between"><span className="text-muted">Histórico</span><b>{months} meses</b></div>
+            <div className="flex justify-between"><span className="text-muted">Acesso</span><b>somente leitura</b></div>
+            <div className="flex justify-between"><span className="text-muted">Validade do consentimento</span><b>12 meses</b></div>
+          </div>
+          <p className="text-xs text-amber-600 flex items-start gap-1.5"><ShieldQuestion className="w-4 h-4 shrink-0 mt-0.5" /> Esta é uma <b>simulação</b> do fluxo Open Finance. A conexão real exige que o Monvy seja participante habilitado no Banco Central (certificado + diretório). Nada é enviado a bancos aqui.</p>
+        </>)}
+
+        {step === 4 && (
+          <div className="text-center py-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 flex items-center justify-center mx-auto"><Check className="w-7 h-7" /></div>
+            <p className="font-semibold mt-3">Conectado a {bank}</p>
+            <p className="text-sm text-muted mt-1">A partir de agora as estimativas de consumo e IOF ficam mais precisas. Você pode revogar o consentimento a qualquer momento em "Fontes".</p>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function ConsentItem({ ok, no, text, why }) {
+  return (
+    <li className="flex items-start gap-2">
+      {ok && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
+      {no && <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />}
+      <span><b>{text}</b> <span className="text-muted">— {why}</span></span>
+    </li>
   );
 }
 

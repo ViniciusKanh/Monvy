@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Button, Select, Badge, Spinner } from '../components/ui';
 import { formatCurrency, monthKey, monthLabel, monthRange, MONTHS_PT } from '../lib/utils.js';
 import { combineExpenses, categoryTrends } from '../lib/analytics.js';
+import { buildTaxRecords, aggregate } from '../lib/taxBurden.js';
+import { Landmark } from 'lucide-react';
 import { BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { FileText, Download, Printer, TrendingUp, TrendingDown, Lightbulb, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
@@ -41,6 +43,28 @@ export default function Reports() {
   }, [periodTx]);
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
+
+  // Carga tributária por mês do período (usa config salva + despesas reais)
+  const taxByMonth = useMemo(() => {
+    let cfg = { salarioBruto: 4200, dependentes: 0, deducoes: 0, inssConfirmado: 392.60, irrfConfirmado: 0, ipvaAnual: 0, iptuAnual: 0 };
+    try { const raw = localStorage.getItem('monvy:taxBurden:v1'); if (raw) { const s = JSON.parse(raw); const nm = (v) => { const x = Number(String(v).replace(',', '.')); return isNaN(x) ? 0 : x; }; cfg = { salarioBruto: nm(s.salarioBruto), dependentes: nm(s.dependentes), deducoes: nm(s.deducoes), inssConfirmado: s.inssConfirmado === '' ? undefined : nm(s.inssConfirmado), irrfConfirmado: s.irrfConfirmado === '' ? undefined : nm(s.irrfConfirmado), ipvaAnual: nm(s.ipvaAnual), iptuAnual: nm(s.iptuAnual) }; } } catch { /* usa default */ }
+    return months.map((k) => {
+      const gastos = tx.filter((t) => t.type === 'expense' && Number(t.amount) > 0 && String(t.date).slice(0, 7) === k).map((t) => ({ valor: Number(t.amount), descricao: t.description, categoria: t.category_id }));
+      const recs = buildTaxRecords({ ano: Number(k.slice(0, 4)), mes: Number(k.slice(5, 7)), ...cfg, gastos });
+      const ag = aggregate(recs, cfg.salarioBruto);
+      const [y, m] = k.split('-').map(Number);
+      return { mk: k, name: `${MONTHS_PT[m - 1].slice(0, 3)}/${String(y).slice(2)}`, confirmado: ag.totalConfirmado, estimado: ag.totalEstimado, total: ag.totalCarga, pct: ag.percentualCarga, recs };
+    });
+  }, [tx, months]);
+  const taxTotals = useMemo(() => {
+    const t = taxByMonth.reduce((a, r) => ({ conf: a.conf + r.confirmado, est: a.est + r.estimado, tot: a.tot + r.total }), { conf: 0, est: 0, tot: 0 });
+    const avgPct = taxByMonth.length ? taxByMonth.reduce((s, r) => s + r.pct, 0) / taxByMonth.length : 0;
+    // distribuição por categoria (soma no período)
+    const byCat = {};
+    for (const r of taxByMonth) for (const rec of r.recs) if (rec.available) { byCat[rec.name] = (byCat[rec.name] || 0) + rec.amount; }
+    const dist = Object.entries(byCat).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    return { ...t, avgPct, dist };
+  }, [taxByMonth]);
 
   const monthly = useMemo(() => months.map((k) => {
     let inc = 0, exp = 0;
@@ -230,6 +254,42 @@ export default function Reports() {
 
       {/* Nuvem de palavras dos gastos */}
       <AiWordCloud cardTxs={cardTxs} transactions={transactions} apiKey={geminiKey} />
+
+      {/* Carga tributária no período */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2"><Landmark className="w-4 h-4 text-emerald-500" /> Carga tributária ({period} {period > 1 ? 'meses' : 'mês'})</h3>
+          <Badge color="emerald">média {taxTotals.avgPct.toFixed(1)}% da renda</Badge>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3 mb-4">
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3"><p className="text-xs text-muted">Total no período</p><p className="font-display text-xl font-bold">{formatCurrency(taxTotals.tot)}</p></div>
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3"><p className="text-xs text-emerald-700 dark:text-emerald-300">Confirmado</p><p className="font-display text-xl font-bold text-emerald-600">{formatCurrency(taxTotals.conf)}</p></div>
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3"><p className="text-xs text-amber-700 dark:text-amber-300">Estimado</p><p className="font-display text-xl font-bold text-amber-600">{formatCurrency(taxTotals.est)}</p></div>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-muted mb-1">Evolução mensal</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={taxByMonth}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis dataKey="name" fontSize={11} /><YAxis fontSize={10} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v) => formatCurrency(v)} />
+                <Bar dataKey="confirmado" stackId="a" fill="#059669" name="Confirmado" />
+                <Bar dataKey="estimado" stackId="a" fill="#f59e0b" name="Estimado" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs text-muted mb-1">Distribuição por tributo</p>
+            <div className="overflow-x-auto"><table className="w-full text-sm">
+              <thead><tr className="text-left text-muted border-b border-[hsl(var(--border))]"><th className="py-1.5 font-medium">Tributo</th><th className="py-1.5 font-medium text-right">Valor</th><th className="py-1.5 font-medium text-right">%</th></tr></thead>
+              <tbody>{taxTotals.dist.map((d, i) => (<tr key={i} className="border-b border-[hsl(var(--border))] last:border-0"><td className="py-1.5">{d.name}</td><td className="py-1.5 text-right font-medium">{formatCurrency(d.value)}</td><td className="py-1.5 text-right text-muted">{taxTotals.tot > 0 ? ((d.value / taxTotals.tot) * 100).toFixed(1) : '0'}%</td></tr>))}</tbody>
+              <tfoot><tr className="font-bold"><td className="py-1.5">Total</td><td className="py-1.5 text-right">{formatCurrency(taxTotals.tot)}</td><td className="py-1.5 text-right">100%</td></tr></tfoot>
+            </table></div>
+          </div>
+        </div>
+        <p className="text-xs text-muted mt-3">Projeção anualizada ≈ {formatCurrency((taxTotals.tot / (period || 1)) * 12)}. Valores <b>confirmados</b> vêm do holerite/lançamentos; <b>estimados</b> usam médias de consumo (padrão IBPT) e não representam tributo efetivamente recolhido. Ajuste seus dados em <b>Minha Carga Tributária</b>.</p>
+      </Card>
 
       {/* Extrato detalhado (para PDF) */}
       <Card>

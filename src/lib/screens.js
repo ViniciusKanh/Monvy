@@ -16,6 +16,7 @@ export const NAV_GROUPS = [
       { key: 'accounts', label: 'Contas', path: '/contas', icon: Wallet },
       { key: 'cards', label: 'Cartões', path: '/cartoes', icon: CreditCard },
       { key: 'transactions', label: 'Lançamentos', path: '/lancamentos', icon: ArrowLeftRight },
+      { key: 'taxburden', label: 'Minha Carga Tributária', path: '/carga-tributaria', icon: Landmark },
     ],
   },
   {
@@ -50,7 +51,6 @@ export const NAV_GROUPS = [
       { key: 'heatmap', label: 'Calendário de Calor', path: '/mapa-de-calor', icon: CalendarDays },
       { key: 'antspend', label: 'Gastos-Formiga', path: '/gastos-formiga', icon: Bug },
       { key: 'creditscore', label: 'Score de Crédito', path: '/score', icon: Gauge },
-      { key: 'taxburden', label: 'Minha Carga Tributária', path: '/carga-tributaria', icon: Landmark },
     ],
   },
   {
