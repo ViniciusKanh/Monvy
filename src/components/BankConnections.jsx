@@ -1,30 +1,20 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PluggyConnect } from 'react-pluggy-connect';
 import { Plug, Plus, RefreshCw, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Building2, ExternalLink } from 'lucide-react';
 import { Button, Badge, Spinner } from './ui';
 import { Integrations } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
 
-// Carrega o script do Pluggy Connect uma unica vez.
-let _pluggyPromise = null;
-function loadPluggyScript(url) {
-  if (window.PluggyConnect) return Promise.resolve(window.PluggyConnect);
-  if (_pluggyPromise) return _pluggyPromise;
-  _pluggyPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = url; s.async = true;
-    s.onload = () => resolve(window.PluggyConnect);
-    s.onerror = () => { _pluggyPromise = null; reject(new Error('script')); };
-    document.head.appendChild(s);
-  });
-  return _pluggyPromise;
-}
-
 // Gerenciador de bancos conectados via Pluggy (Open Finance).
+// Usa o SDK oficial react-pluggy-connect: o widget cuida da selecao de banco,
+// autenticacao e consentimento — o Monvy nunca ve a senha do usuario.
 // Reutilizavel: usado na tela de Carga Tributaria e pode ir para Configuracoes.
 export function BankConnections() {
   const qc = useQueryClient();
-  const [connecting, setConnecting] = useState(false);
+  const [connectToken, setConnectToken] = useState('');
+  const [updateItemId, setUpdateItemId] = useState(null);
+  const [loadingToken, setLoadingToken] = useState(false);
   const { data, isLoading } = useQuery({ queryKey: ['integrations-status'], queryFn: () => Integrations.status() });
   const refresh = () => qc.invalidateQueries({ queryKey: ['integrations-status'] });
 
@@ -34,35 +24,25 @@ export function BankConnections() {
     onError: (e) => toast.error(e.message || 'Falha ao desconectar'),
   });
 
+  // Busca o connect token no backend e abre o widget (itemId = reconectar/atualizar)
   const openWidget = async (itemId) => {
-    setConnecting(true);
+    setLoadingToken(true);
     try {
-      const PluggyConnect = await loadPluggyScript(data.connectUrl).catch(() => null);
-      if (!PluggyConnect) {
-        toast.error('Não consegui carregar o widget do Pluggy. Confirme a URL em PLUGGY_CONNECT_URL.');
-        setConnecting(false); return;
-      }
       const { accessToken } = await Integrations.connectToken(itemId);
-      const pluggy = new PluggyConnect({
-        connectToken: accessToken,
-        includeSandbox: true, // permite conectar bancos de teste (sandbox) gratuitos
-        onSuccess: async (itemData) => {
-          try {
-            const id = itemData?.item?.id || itemData?.itemId;
-            await Integrations.saveItem(id);
-            toast.success('Banco conectado!');
-            refresh();
-          } catch (e) { toast.error(e.message || 'Falha ao salvar conexão'); }
-          setConnecting(false);
-        },
-        onError: () => { setConnecting(false); },
-        onClose: () => { setConnecting(false); },
-      });
-      pluggy.init();
-    } catch (e) {
-      toast.error(e.message || 'Falha ao iniciar conexão');
-      setConnecting(false);
-    }
+      setUpdateItemId(itemId || null);
+      setConnectToken(accessToken);
+    } catch (e) { toast.error(e.message || 'Falha ao iniciar conexão'); }
+    setLoadingToken(false);
+  };
+  const closeWidget = () => { setConnectToken(''); setUpdateItemId(null); };
+  const onWidgetSuccess = async (itemData) => {
+    try {
+      const id = itemData?.item?.id || itemData?.itemId;
+      await Integrations.saveItem(id);
+      toast.success('Banco conectado!');
+      refresh();
+    } catch (e) { toast.error(e.message || 'Falha ao salvar conexão'); }
+    closeWidget();
   };
 
   if (isLoading) return <div className="flex justify-center py-4"><Spinner className="w-5 h-5" /></div>;
@@ -87,7 +67,7 @@ export function BankConnections() {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Você autoriza no ambiente seguro do banco. O Monvy nunca vê sua senha.</p>
-        <Button size="sm" onClick={() => openWidget()} disabled={connecting}>{connecting ? <Spinner className="w-4 h-4" /> : <><Plus className="w-4 h-4" /> Conectar banco</>}</Button>
+        <Button size="sm" onClick={() => openWidget()} disabled={loadingToken}>{loadingToken ? <Spinner className="w-4 h-4" /> : <><Plus className="w-4 h-4" /> Conectar banco</>}</Button>
       </div>
 
       {conns.length === 0 ? (
@@ -115,6 +95,18 @@ export function BankConnections() {
           </div>
         </div>
       ))}
+
+      {/* Widget oficial do Pluggy — renderizado só quando há um connect token */}
+      {connectToken && (
+        <PluggyConnect
+          connectToken={connectToken}
+          includeSandbox={true}
+          updateItem={updateItemId || undefined}
+          onSuccess={onWidgetSuccess}
+          onError={() => { toast.error('Falha na conexão com o banco.'); closeWidget(); }}
+          onClose={closeWidget}
+        />
+      )}
     </div>
   );
 }
