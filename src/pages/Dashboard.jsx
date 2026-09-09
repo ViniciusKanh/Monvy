@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useLang } from '../context/LangContext.jsx';
 import { Card, Spinner } from '../components/ui';
 import { RobotsSummaryCard } from '../components/RobotsSummaryCard.jsx';
+import { TaxBurdenCard } from '../components/TaxBurdenCard.jsx';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel, inMonth, monthRange } from '../lib/utils.js';
 import { PALETTE, colorAt, lastMonths, monthlySeries, monthTotals, categoryBreakdown, forecastNextMonth, detectAnomalies, combineExpenses, weekdaySpending, detectSubscriptions, detectPriceHikes } from '../lib/analytics.js';
@@ -317,6 +318,8 @@ export default function Dashboard() {
       </div>
 
       <RobotsSummaryCard />
+
+      <TaxBurdenCard />
 
       <div style={{ order: ordOf('charts') }} className={vis('charts') ? '' : 'hidden'}>
       {/* Charts */}

@@ -36,12 +36,13 @@ export default function Settings() {
   const settings = list[0];
   const fileRef = useRef(null);
 
-  const [profile, setProfile] = useState({ full_name: '', phone: '', profession: '', photo_url: '', cep: '', address: '' });
+  const [profile, setProfile] = useState({ full_name: '', phone: '', profession: '', photo_url: '', cep: '', address: '', cpf: '' });
   const [cepBusy, setCepBusy] = useState(false);
   const [form, setForm] = useState({ currency: 'BRL', default_view_mode: 'cash', notifications_enabled: true, auto_categorize: true, gemini_api_key: '' });
   const [showKey, setShowKey] = useState(false);
 
-  useEffect(() => { if (user) setProfile({ full_name: user.full_name || '', phone: user.phone || '', profession: user.profession || '', photo_url: user.photo_url || '', cep: user.cep || '', address: user.address || '' }); }, [user]);
+  // CPF nunca e pre-preenchido com o valor real — so o mascarado aparece como dica.
+  useEffect(() => { if (user) setProfile({ full_name: user.full_name || '', phone: user.phone || '', profession: user.profession || '', photo_url: user.photo_url || '', cep: user.cep || '', address: user.address || '', cpf: '' }); }, [user]);
 
   const onCep = async (val) => {
     setProfile((p) => ({ ...p, cep: val }));
@@ -175,7 +176,10 @@ export default function Settings() {
               <Field label="CEP" hint={cepBusy ? 'buscando...' : 'preenche o endereço'}><Input value={profile.cep} onChange={(e) => onCep(e.target.value)} placeholder="00000-000" inputMode="numeric" /></Field>
               <div className="col-span-2"><Field label="Endereço"><Input value={profile.address} onChange={(e) => setP('address', e.target.value)} placeholder="Rua, bairro, cidade/UF" /></Field></div>
             </div>
-            <Button onClick={() => saveProfile.mutate(profile)} disabled={saveProfile.isPending} className="w-full">{saveProfile.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar perfil'}</Button>
+            <Field label="CPF" hint={user?.cpf_set ? `cadastrado: ${user.cpf_masked}` : 'usado só como identificador — nunca exibido por inteiro'}>
+              <Input value={profile.cpf} onChange={(e) => setP('cpf', e.target.value.replace(/[^\d.\-\s]/g, ''))} placeholder={user?.cpf_set ? user.cpf_masked : '000.000.000-00'} inputMode="numeric" />
+            </Field>
+            <Button onClick={() => { const p = { ...profile }; if (!String(p.cpf || '').replace(/\D/g, '')) delete p.cpf; saveProfile.mutate(p); }} disabled={saveProfile.isPending} className="w-full">{saveProfile.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar perfil'}</Button>
           </div>
         </Card>
 

@@ -12,6 +12,7 @@ export const SCHEMA_STATEMENTS = [
     profession TEXT,
     phone TEXT,
     photo_url TEXT,
+    cpf TEXT,
     role TEXT NOT NULL DEFAULT 'user',
     allowed_screens TEXT DEFAULT '[]',
     is_active INTEGER NOT NULL DEFAULT 1,
@@ -368,6 +369,7 @@ export const MIGRATIONS = [
   { id: '013_category_ir_deductible', statements: [`ALTER TABLE Category ADD COLUMN ir_deductible TEXT DEFAULT ''`] },
   { id: '014_trigger_lastfired', statements: [`ALTER TABLE Trigger ADD COLUMN last_fired TEXT`] },
   { id: '016_notification_ref', statements: [`ALTER TABLE Notification ADD COLUMN ref TEXT`] },
+  { id: '017_users_cpf', statements: [`ALTER TABLE users ADD COLUMN cpf TEXT`] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
     `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,
