@@ -61,6 +61,29 @@ export default async function handler(req, res) {
          </table>`
       : '';
 
+    // Bloco de carga tributária (quando enviado pelo cliente)
+    const tx = summary.tax;
+    let taxBlock = '';
+    if (tx && Number(tx.total) > 0) {
+      const maxB = Math.max(1, ...((tx.topBuckets || []).map((b) => b.tributo)));
+      const bBars = (tx.topBuckets || []).slice(0, 3).map((b, i) => bar(b.label, b.tributo, maxB, ['#f59e0b', '#fb923c', '#f97316'][i % 3])).join('');
+      taxBlock = `
+        <div style="margin-top:20px;padding:16px;border-radius:14px;border:1px solid #d1fae5;background:linear-gradient(135deg,#ecfdf5,#f0fdfa)">
+          <div style="color:#065f46;font-weight:800;font-size:14px;margin-bottom:8px">🏛️ Minha Carga Tributária</div>
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:8px;background:#ffffff;border-radius:10px;border:1px solid #e2e8f0"><div style="font-size:11px;color:#64748b">Imposto total</div><div style="font-weight:800;color:#065f46">${brl(tx.total)}</div><div style="font-size:10px;color:#94a3b8">${Number(tx.avgPct || 0).toFixed(1)}% da renda</div></td>
+              <td style="width:6px"></td>
+              <td style="padding:8px;background:#ffffff;border-radius:10px;border:1px solid #e2e8f0"><div style="font-size:11px;color:#64748b">Sobre o salário</div><div style="font-weight:800;color:#2563eb">${brl(tx.salario)}</div><div style="font-size:10px;color:#94a3b8">INSS + IRRF</div></td>
+              <td style="width:6px"></td>
+              <td style="padding:8px;background:#ffffff;border-radius:10px;border:1px solid #e2e8f0"><div style="font-size:11px;color:#64748b">No consumo</div><div style="font-weight:800;color:#d97706">${brl(tx.consumo)}</div><div style="font-size:10px;color:#94a3b8">tributo embutido</div></td>
+            </tr>
+          </table>
+          ${tx.narrativa ? `<div style="margin-top:10px;color:#334155;font-size:13px;line-height:1.6">${String(tx.narrativa).replace(/</g, '&lt;')}</div>` : ''}
+          ${bBars ? `<div style="margin-top:10px"><div style="font-size:12px;color:#64748b;margin-bottom:4px">Onde o imposto embutido mais pesa</div>${bBars}</div>` : ''}
+        </div>`;
+    }
+
     const html = tpl(`Seu relatório financeiro — ${summary.periodLabel || ''}`,
       `Olá${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas finanças (contas + cartão).<br/>
        <div style="margin-top:6px;color:#0b1330;font-weight:700">Patrimônio total: ${brl(summary.totalBalance)}</div>
@@ -70,7 +93,8 @@ export default async function handler(req, res) {
        <div style="font-weight:700;color:#0b1330;margin:18px 0 6px">Despesas por categoria</div>
        ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no período.</div>'}
        ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:18px 0 4px">Maiores despesas</div>${itemsTable([topEx])}` : ''}
-       <div style="margin-top:18px;color:#64748b;font-size:12px">Quer a planilha completa? Abra o Monvy → Relatórios → Excel para baixar entradas e saídas detalhadas.</div>`);
+       ${taxBlock}
+       <div style="margin-top:18px;color:#64748b;font-size:12px">Quer a planilha completa? Abra o Monvy → Relatórios → Excel para baixar entradas, saídas e a aba de Carga Tributária.</div>`);
 
     const r = await sendMail({ to: dest, subject: `Monvy — Relatório ${summary.periodLabel || ''}`, html });
     if (r.sent) return sendJson(res, 200, { ok: true, to: dest });

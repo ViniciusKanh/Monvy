@@ -43,6 +43,7 @@ export default function Reports() {
   }, [periodTx]);
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
+  const periodLabel = period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`;
 
   // Carga tributária por mês do período (usa config salva + despesas reais)
   const taxByMonth = useMemo(() => {
@@ -59,12 +60,33 @@ export default function Reports() {
   const taxTotals = useMemo(() => {
     const t = taxByMonth.reduce((a, r) => ({ conf: a.conf + r.confirmado, est: a.est + r.estimado, tot: a.tot + r.total }), { conf: 0, est: 0, tot: 0 });
     const avgPct = taxByMonth.length ? taxByMonth.reduce((s, r) => s + r.pct, 0) / taxByMonth.length : 0;
-    // distribuição por categoria (soma no período)
+    // distribuição por categoria (soma no período) + separação salário/consumo/outros
     const byCat = {};
-    for (const r of taxByMonth) for (const rec of r.recs) if (rec.available) { byCat[rec.name] = (byCat[rec.name] || 0) + rec.amount; }
+    let salario = 0, consumo = 0, outros = 0;
+    for (const r of taxByMonth) for (const rec of r.recs) if (rec.available) {
+      byCat[rec.name] = (byCat[rec.name] || 0) + rec.amount;
+      if (rec.key === 'inss' || rec.key === 'irrf') salario += rec.amount;
+      else if (rec.key === 'consumo') consumo += rec.amount;
+      else outros += rec.amount;
+    }
     const dist = Object.entries(byCat).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-    return { ...t, avgPct, dist };
+    // top buckets de consumo (onde o imposto embutido mais pesa)
+    const buckets = {};
+    for (const r of taxByMonth) { const c = r.recs.find((x) => x.key === 'consumo' && x.available); for (const it of (c?.meta?.itens || [])) buckets[it.label] = (buckets[it.label] || 0) + it.tributo; }
+    const topBuckets = Object.entries(buckets).map(([label, tributo]) => ({ label, tributo })).sort((a, b) => b.tributo - a.tributo).slice(0, 3);
+    return { ...t, avgPct, dist, salario, consumo, outros, topBuckets };
   }, [taxByMonth]);
+
+  // Narrativa do período (reutilizada na tela, no e-mail e nos exports)
+  const taxNarrativa = useMemo(() => {
+    const gasto = totals.exp;
+    if (taxTotals.tot <= 0) return '';
+    const f = formatCurrency;
+    const pctConsumo = gasto > 0 ? Math.round((taxTotals.consumo / gasto) * 100) : 0;
+    const comp = [taxTotals.salario > 0 ? `${f(taxTotals.salario)} sobre o salário (INSS+IRRF)` : '', taxTotals.consumo > 0 ? `${f(taxTotals.consumo)} embutidos no consumo` : '', taxTotals.outros > 0 ? `${f(taxTotals.outros)} de IPVA/IPTU/IOF` : ''].filter(Boolean).join(', ');
+    const top = taxTotals.topBuckets.length ? ` Onde o imposto embutido mais pesa: ${taxTotals.topBuckets.map((b) => `${b.label} (${f(b.tributo)})`).join(', ')}.` : '';
+    return `No período (${periodLabel}), você gastou ${f(gasto)} e destinou cerca de ${f(taxTotals.tot)} a impostos — ${taxTotals.avgPct.toFixed(1)}% da renda${comp ? `, sendo ${comp}` : ''}. Consumo representa ~${pctConsumo}% dos seus gastos em tributo embutido.${top}`;
+  }, [taxTotals, totals.exp, periodLabel]);
 
   const monthly = useMemo(() => months.map((k) => {
     let inc = 0, exp = 0;
@@ -111,7 +133,12 @@ export default function Reports() {
     const a = document.createElement('a'); a.href = url; a.download = `monvy-relatório-${period}m.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
-  const periodLabel = period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`;
+  const taxPayload = () => ({
+    narrativa: taxNarrativa, total: taxTotals.tot, confirmado: taxTotals.conf, estimado: taxTotals.est,
+    salario: taxTotals.salario, consumo: taxTotals.consumo, outros: taxTotals.outros, avgPct: taxTotals.avgPct,
+    byMonth: taxByMonth.map((m) => ({ name: m.name, confirmado: m.confirmado, estimado: m.estimado, total: m.total, pct: m.pct })),
+    dist: taxTotals.dist, topBuckets: taxTotals.topBuckets,
+  });
 
   const exportExcel = () => {
     exportReportXlsx({
@@ -119,6 +146,7 @@ export default function Reports() {
       monthly: monthly.map((m) => ({ name: m.name, Receita: m.Receita, Despesa: m.Despesa, net: m.net })),
       byCategory: byCategory.map((c) => ({ name: c.name, value: c.value })),
       statement: statement.map((t) => ({ date: t.date, type: t.type, description: t.description || catMap[t.category_id]?.name || '', category: catMap[t.category_id]?.name || '', amount: Number(t.amount), status: t.status || 'pending' })),
+      tax: taxPayload(),
     }, `monvy-relatorio-${period}m`);
     toast.success('Planilha Excel gerada.');
   };
@@ -135,6 +163,7 @@ export default function Reports() {
         monthly: monthly.map((m) => ({ name: m.name, inc: m.Receita, exp: m.Despesa, net: m.net })),
         insights: insights.map((i) => i.m),
         insight: rising ? `${rising.name} cresceu ${rising.change.toFixed(0)}% no período — vale acompanhar.` : (totals.rate >= 20 ? `Ótima taxa de poupança: ${totals.rate.toFixed(0)}%.` : null),
+        tax: taxPayload(),
       } });
       toast.success('Relatório enviado para o seu e-mail!');
     } catch (e) { toast.error(e.message || 'Falha ao enviar. Verifique a config de e-mail.'); }
@@ -155,8 +184,22 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Capa só para impressão (PDF limpo, sem o hero pesado) */}
+      <div className="hidden print:block" style={{ borderBottom: '3px solid #065f46', paddingBottom: 10, marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#065f46' }}>Monvy · Relatório Financeiro</div>
+            <div style={{ fontSize: 12, color: '#475569' }}>{periodLabel} · gerado em {new Date().toLocaleDateString('pt-BR')}</div>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: 12, color: '#475569' }}>
+            <div style={{ fontWeight: 700, color: '#0b1330' }}>{user?.full_name || user?.email || ''}</div>
+            <div>Patrimônio: {formatCurrency(totalBalance)}</div>
+          </div>
+        </div>
+      </div>
+
       {/* header perfil */}
-      <div className="relative overflow-hidden rounded-2xl p-6 text-white shadow-soft flex flex-wrap items-center justify-between gap-4 animate-gradient" style={{ background: 'linear-gradient(120deg,#4f46e5,#7c3aed 40%,#ec4899 80%,#4f46e5)' }}>
+      <div className="print:hidden relative overflow-hidden rounded-2xl p-6 text-white shadow-soft flex flex-wrap items-center justify-between gap-4 animate-gradient" style={{ background: 'linear-gradient(120deg,#4f46e5,#7c3aed 40%,#ec4899 80%,#4f46e5)' }}>
         <div className="sheen" />
         <div className="flex items-center gap-4">
           {user?.photo_url ? <img src={user.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30" />
@@ -256,15 +299,17 @@ export default function Reports() {
       <AiWordCloud cardTxs={cardTxs} transactions={transactions} apiKey={geminiKey} />
 
       {/* Carga tributária no período */}
-      <Card>
+      <Card className="print-break">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold flex items-center gap-2"><Landmark className="w-4 h-4 text-emerald-500" /> Carga tributária ({period} {period > 1 ? 'meses' : 'mês'})</h3>
           <Badge color="emerald">média {taxTotals.avgPct.toFixed(1)}% da renda</Badge>
         </div>
-        <div className="grid sm:grid-cols-3 gap-3 mb-4">
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3"><p className="text-xs text-muted">Total no período</p><p className="font-display text-xl font-bold">{formatCurrency(taxTotals.tot)}</p></div>
-          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3"><p className="text-xs text-emerald-700 dark:text-emerald-300">Confirmado</p><p className="font-display text-xl font-bold text-emerald-600">{formatCurrency(taxTotals.conf)}</p></div>
-          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3"><p className="text-xs text-amber-700 dark:text-amber-300">Estimado</p><p className="font-display text-xl font-bold text-amber-600">{formatCurrency(taxTotals.est)}</p></div>
+        {taxNarrativa && <p className="text-sm leading-relaxed mb-3">{taxNarrativa}</p>}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3"><p className="text-xs text-muted">Imposto total</p><p className="font-display text-lg font-bold">{formatCurrency(taxTotals.tot)}</p></div>
+          <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3"><p className="text-xs text-blue-700 dark:text-blue-300">Sobre o salário</p><p className="font-display text-lg font-bold text-blue-600">{formatCurrency(taxTotals.salario)}</p></div>
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3"><p className="text-xs text-amber-700 dark:text-amber-300">No consumo</p><p className="font-display text-lg font-bold text-amber-600">{formatCurrency(taxTotals.consumo)}</p></div>
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3"><p className="text-xs text-emerald-700 dark:text-emerald-300">Confirmado</p><p className="font-display text-lg font-bold text-emerald-600">{formatCurrency(taxTotals.conf)}</p></div>
         </div>
         <div className="grid lg:grid-cols-2 gap-4">
           <div>
@@ -292,7 +337,7 @@ export default function Reports() {
       </Card>
 
       {/* Extrato detalhado (para PDF) */}
-      <Card>
+      <Card className="print-break">
         <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Extrato detalhado</h3><span className="text-xs text-muted">{statement.length} lançamento(s)</span></div>
         {statement.length === 0 ? <p className="text-sm text-muted py-4 text-center">Sem lançamentos no período.</p>
           : <div className="overflow-x-auto max-h-96 overflow-y-auto print:max-h-none print:overflow-visible">

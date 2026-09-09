@@ -7,7 +7,8 @@ import { Reveal } from './Animated.jsx';
 import { formatCurrency, monthKey } from '../lib/utils.js';
 import { Transaction, CreditCardTransaction } from '../api/entities.js';
 import { combineExpenses } from '../lib/analytics.js';
-import { buildTaxRecords, aggregate } from '../lib/taxBurden.js';
+import { buildTaxRecords, aggregate, buildTaxAnalysis } from '../lib/taxBurden.js';
+import { monthLabel } from '../lib/utils.js';
 
 const LS_KEY = 'monvy:taxBurden:v1';
 const DEFAULTS = { salarioBruto: '4200', dependentes: '0', deducoes: '', inssConfirmado: '392.60', irrfConfirmado: '0', ipvaAnual: '', iptuAnual: '' };
@@ -22,7 +23,7 @@ export function TaxBurdenCard() {
   const { data: txs = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
 
-  const resumo = useMemo(() => {
+  const { resumo, narrativa } = useMemo(() => {
     const gastos = combineExpenses(txs, cardTxs)
       .filter((t) => t.type === 'expense' && Number(t.amount) > 0 && String(t.date).slice(0, 7) === nowMk)
       .map((t) => ({ valor: Number(t.amount), descricao: t.description, categoria: t.category_id }));
@@ -33,7 +34,11 @@ export function TaxBurdenCard() {
       irrfConfirmado: cfg.irrfConfirmado === '' ? undefined : nnum(cfg.irrfConfirmado),
       gastos, ipvaAnual: nnum(cfg.ipvaAnual), iptuAnual: nnum(cfg.iptuAnual),
     });
-    return aggregate(recs, nnum(cfg.salarioBruto));
+    const rb = nnum(cfg.salarioBruto);
+    const ag = aggregate(recs, rb);
+    const gastoTotal = gastos.reduce((s, g) => s + Number(g.valor), 0);
+    const an = buildTaxAnalysis({ mesLabel: monthLabel(nowMk), rendaBruta: rb, gastoTotal, records: recs, resumo: ag });
+    return { resumo: ag, narrativa: an.narrativa };
   }, [txs, cardTxs, nowMk]);
 
   if (!resumo.temDadoSuficiente) return null;
@@ -54,6 +59,7 @@ export function TaxBurdenCard() {
           </div>
           <ChevronRight className="w-5 h-5 text-muted" />
         </div>
+        {narrativa && <p className="text-xs text-muted mt-2 leading-relaxed line-clamp-2">{narrativa}</p>}
         <div className="flex gap-4 mt-3 text-xs">
           <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Confirmado {formatCurrency(resumo.totalConfirmado)}</span>
           <span className="inline-flex items-center gap-1 text-amber-600"><CircleDashed className="w-3.5 h-3.5" /> Estimado {formatCurrency(resumo.totalEstimado)}</span>
