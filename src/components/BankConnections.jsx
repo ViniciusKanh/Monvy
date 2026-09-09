@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { PluggyConnect } from 'react-pluggy-connect';
-import { Plug, Plus, RefreshCw, Trash2, ShieldCheck, AlertCircle, CheckCircle2, Building2, ExternalLink } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, ShieldCheck, CheckCircle2, Building2, ExternalLink, Upload } from 'lucide-react';
 import { Button, Badge, Spinner } from './ui';
 import { Integrations } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
@@ -12,6 +13,7 @@ import { toast } from '../lib/toast.js';
 // Reutilizavel: usado na tela de Carga Tributaria e pode ir para Configuracoes.
 export function BankConnections() {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [connectToken, setConnectToken] = useState('');
   const [updateItemId, setUpdateItemId] = useState(null);
   const [loadingToken, setLoadingToken] = useState(false);
@@ -47,17 +49,29 @@ export function BankConnections() {
 
   if (isLoading) return <div className="flex justify-center py-4"><Spinner className="w-5 h-5" /></div>;
 
-  // Servidor sem credenciais Pluggy -> instrucoes de configuracao
+  // Sem Pluggy configurado -> caminho GRATUITO (o cálculo não depende dele)
   if (!data?.configured) {
     return (
-      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm">
-        <p className="font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-300"><AlertCircle className="w-4 h-4" /> Conexão bancária ainda não configurada</p>
-        <p className="text-xs text-muted mt-1">Para conectar bancos de verdade (Nubank, Itaú, Mercado Pago, Caixa e outros) via Open Finance, o servidor precisa das chaves do Pluggy:</p>
-        <ol className="text-xs text-muted mt-2 space-y-1 list-decimal ml-4">
-          <li>Crie uma conta grátis em <a className="text-emerald-600 underline" href="https://dashboard.pluggy.ai" target="_blank" rel="noreferrer">dashboard.pluggy.ai <ExternalLink className="inline w-3 h-3" /></a></li>
-          <li>Copie seu <b>Client ID</b> e <b>Client Secret</b></li>
-          <li>Na Vercel do Monvy, adicione as variáveis <code>PLUGGY_CLIENT_ID</code> e <code>PLUGGY_CLIENT_SECRET</code> e faça redeploy</li>
-        </ol>
+      <div className="space-y-2">
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm">
+          <p className="font-semibold flex items-center gap-2 text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="w-4 h-4" /> Funciona sem conexão automática</p>
+          <p className="text-xs text-muted mt-1">Sua carga tributária já é calculada de graça com: os seus <b>lançamentos do Monvy</b>, a <b>importação de extrato</b> (OFX/CSV) e o que você informa em <b>Meus dados</b>. A conexão automática de banco é só um atalho opcional.</p>
+          <div className="flex flex-wrap gap-2 mt-2">
+            <Button size="sm" variant="outline" onClick={() => nav('/importar')}><Upload className="w-4 h-4" /> Importar extrato</Button>
+            <Button size="sm" variant="outline" onClick={() => nav('/lancamentos')}><Plus className="w-4 h-4" /> Adicionar lançamento</Button>
+          </div>
+        </div>
+        <details className="text-xs text-muted">
+          <summary className="cursor-pointer select-none">Ativar conexão automática de bancos (opcional)</summary>
+          <div className="mt-2 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+            <p>A conexão automática usa o <b>Pluggy</b> (Open Finance). Ele tem período de teste gratuito; conexões reais em produção podem exigir plano. Para ativar:</p>
+            <ol className="mt-2 space-y-1 list-decimal ml-4">
+              <li>Crie conta em <a className="text-emerald-600 underline" href="https://dashboard.pluggy.ai" target="_blank" rel="noreferrer">dashboard.pluggy.ai <ExternalLink className="inline w-3 h-3" /></a></li>
+              <li>Adicione <code>PLUGGY_CLIENT_ID</code> e <code>PLUGGY_CLIENT_SECRET</code> na Vercel e faça redeploy</li>
+            </ol>
+            <p className="mt-2">Sem plano ativo, você pode testar de graça pelo <b>sandbox</b> do Pluggy (login <code>user-ok</code> / <code>password-ok</code>).</p>
+          </div>
+        </details>
       </div>
     );
   }
