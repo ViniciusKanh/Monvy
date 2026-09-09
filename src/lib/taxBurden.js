@@ -14,6 +14,7 @@ import { DEFAULT_TAX, calcMensal } from './tax.js';
 import {
   getInssTabela, CONSUMO_BUCKETS, IOF_INFO, STATUS, SOURCE, IRRF_INFO,
 } from './taxRates.js';
+import { formatCurrency } from './utils.js';
 
 const n = (v) => { const x = Number(v); return isNaN(x) ? 0 : x; };
 const round2 = (v) => Math.round(n(v) * 100) / 100;
@@ -249,6 +250,79 @@ export function explain(record) {
     atualizadoEm: record.lastUpdatedAt,
     detalhe: m,
     confirmado: record.status === STATUS.confirmed,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Analise inteligente do mes: cruza gasto total + tributos e escreve um texto
+// em linguagem natural ("em setembro voce gastou X, sendo Y de imposto...").
+// Funcao PURA (testavel). O componente pode ainda enviar esses numeros para a
+// IA (Gemini) elaborar mais, mas esta narrativa deterministica sempre funciona.
+//
+// entrada:
+//   mesLabel        rotulo do mes (ex.: "Setembro 2026")
+//   rendaBruta      salario bruto do mes
+//   gastoTotal      soma das despesas reais do mes (lancamentos + cartao)
+//   records         saida de buildTaxRecords
+//   resumo          saida de aggregate
+//   prevTotalCarga  carga total do mes anterior (para comparacao), opcional
+// ---------------------------------------------------------------------------
+export function buildTaxAnalysis({ mesLabel = 'o mês', rendaBruta = 0, gastoTotal = 0, records = [], resumo = null, prevTotalCarga = null } = {}) {
+  const get = (k) => records.find((r) => r.key === k && r.available);
+  const amt = (k) => { const r = get(k); return r ? n(r.amount) : 0; };
+  const impostoSalario = round2(amt('inss') + amt('irrf'));
+  const impostoConsumo = round2(amt('consumo'));
+  const impostoPatrimonio = round2(amt('ipva') + amt('iptu'));
+  const impostoFinanceiro = round2(amt('iof'));
+  const impostoOutros = round2(impostoPatrimonio + impostoFinanceiro);
+  const impostoTotal = resumo ? n(resumo.totalCarga) : round2(impostoSalario + impostoConsumo + impostoOutros);
+  const renda = n(rendaBruta);
+  const gasto = n(gastoTotal);
+
+  const pctConsumoDoGasto = gasto > 0 ? round2((impostoConsumo / gasto) * 100) : 0;
+  const pctRenda = resumo ? n(resumo.percentualCarga) : (renda > 0 ? round2((impostoTotal / renda) * 100) : 0);
+  const dias = resumo ? Math.round(n(resumo.diasEquivalentes)) : Math.round((365 * pctRenda) / 100);
+
+  // Onde o imposto de consumo mais pesa (top 3 buckets)
+  const consumoRec = get('consumo');
+  const top = ((consumoRec?.meta?.itens) || []).slice(0, 3).map((it) => ({ label: it.label, tributo: round2(it.tributo) }));
+
+  // Comparacao com o mes anterior
+  let comparacao = '';
+  if (prevTotalCarga != null && n(prevTotalCarga) > 0) {
+    const delta = round2(impostoTotal - n(prevTotalCarga));
+    const pct = round2((delta / n(prevTotalCarga)) * 100);
+    if (Math.abs(pct) >= 1) comparacao = ` Isso é ${delta > 0 ? 'mais' : 'menos'} que no mês anterior (${delta > 0 ? '+' : ''}${formatCurrency(delta)}, ${pct > 0 ? '+' : ''}${pct}%).`;
+    else comparacao = ' Ficou praticamente igual ao mês anterior.';
+  }
+
+  const f = formatCurrency;
+  const partes = [];
+  if (gasto > 0) partes.push(`Em ${mesLabel}, você gastou ${f(gasto)} em compras e contas`);
+  else partes.push(`Em ${mesLabel}`);
+  if (impostoConsumo > 0) partes.push(`, e cerca de ${f(impostoConsumo)} (${pctConsumoDoGasto}% do que gastou) já são tributos embutidos nesses gastos`);
+  const frase1 = partes.join('') + '.';
+
+  const somaSalario = impostoSalario > 0 ? `${f(impostoSalario)} de INSS e IRRF sobre o salário` : '';
+  const somaOutros = impostoOutros > 0 ? `${f(impostoOutros)} de IPVA/IPTU/IOF` : '';
+  const componentes = [somaSalario, impostoConsumo > 0 ? `${f(impostoConsumo)} de consumo` : '', somaOutros].filter(Boolean).join(', ');
+  const frase2 = impostoTotal > 0
+    ? `Somando tudo${componentes ? ` (${componentes})` : ''}, você destinou ${f(impostoTotal)} a impostos no mês — ${pctRenda}% da sua renda bruta, o equivalente a cerca de ${dias} dias de trabalho no ano.`
+    : 'Ainda não há dados suficientes para estimar sua carga do mês.';
+
+  const frase3 = top.length ? ` Onde o imposto mais pesa: ${top.map((t) => `${t.label} (${f(t.tributo)})`).join(', ')}.` : '';
+
+  return {
+    narrativa: `${frase1} ${frase2}${frase3}${comparacao}`.trim(),
+    gastoTotal: gasto,
+    impostoTotal,
+    impostoSalario,
+    impostoConsumo,
+    impostoOutros,
+    pctConsumoDoGasto,
+    pctRenda,
+    diasEquivalentes: dias,
+    top,
   };
 }
 

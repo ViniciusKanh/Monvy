@@ -3,18 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Landmark, ShieldCheck, Calculator, Info, HelpCircle, Plug, PlusCircle,
   Receipt, Car, Home, TrendingDown, CheckCircle2, CircleDashed, PencilLine, Wallet,
-  ChevronLeft, ChevronRight, CalendarDays, ShieldQuestion, Check, Loader2,
+  ChevronLeft, ChevronRight, CalendarDays, ShieldQuestion, Check, Loader2, Sparkles,
 } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel } from '../lib/utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Transaction, CreditCardTransaction } from '../api/entities.js';
+import { Transaction, CreditCardTransaction, Category } from '../api/entities.js';
 import { combineExpenses } from '../lib/analytics.js';
-import { buildTaxRecords, aggregate, explain } from '../lib/taxBurden.js';
+import { buildTaxRecords, aggregate, explain, buildTaxAnalysis } from '../lib/taxBurden.js';
 import { STATUS } from '../lib/taxRates.js';
 import { BankConnections } from '../components/BankConnections.jsx';
+import { AiInsight } from '../components/AiInsight.jsx';
 import { Integrations } from '../api/entities.js';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -72,19 +73,24 @@ export default function TaxBurden() {
 
   const txQ = useQuery({ queryKey: ['tax-tx'], queryFn: () => Transaction.list() });
   const ccQ = useQuery({ queryKey: ['tax-cc'], queryFn: () => CreditCardTransaction.list() });
+  const catQ = useQuery({ queryKey: ['tax-cat'], queryFn: () => Category.list() });
   const loading = txQ.isLoading || ccQ.isLoading;
   const erro = txQ.isError || ccQ.isError;
 
-  // Gastos reais do mês (despesas positivas) -> base do consumo estimado
+  // id -> nome da categoria (melhora a classificação por bucket de consumo)
+  const catName = useMemo(() => Object.fromEntries((catQ.data || []).map((c) => [c.id, c.name])), [catQ.data]);
+
+  // Gastos reais do mês (despesas positivas) -> base do consumo estimado.
+  // Combina lançamentos do Monvy + cartão de crédito; usa o NOME da categoria.
   const gastosPorMes = useMemo(() => {
     const all = combineExpenses(txQ.data || [], ccQ.data || []).filter((t) => t.type === 'expense' && Number(t.amount) > 0);
     const byMonth = {};
     for (const t of all) {
       const mk = String(t.date).slice(0, 7);
-      (byMonth[mk] = byMonth[mk] || []).push({ valor: Number(t.amount), descricao: t.description, categoria: t.category_id });
+      (byMonth[mk] = byMonth[mk] || []).push({ valor: Number(t.amount), descricao: t.description, categoria: catName[t.category_id] || t.description });
     }
     return byMonth;
-  }, [txQ.data, ccQ.data]);
+  }, [txQ.data, ccQ.data, catName]);
 
   // Gastos do mês selecionado = Monvy + banco conectado (Pluggy), com dedup simples
   const gastosSel = useMemo(() => {
@@ -135,6 +141,25 @@ export default function TaxBurden() {
   }, [cfg, gastosPorMes, ano, mes]);
 
   const pieData = resumo.componentes.filter((c) => c.amount > 0).map((c) => ({ name: c.name, value: c.amount }));
+
+  // Análise inteligente do mês (cruza gasto total + tributos)
+  const analise = useMemo(() => {
+    const gastoTotal = gastosSel.reduce((s, g) => s + n(g.valor), 0);
+    const idx = historico.findIndex((h) => h.mk === nowMk);
+    const prevTotalCarga = idx > 0 ? historico[idx - 1].total : null;
+    return buildTaxAnalysis({ mesLabel: monthLabel(nowMk), rendaBruta, gastoTotal, records, resumo, prevTotalCarga });
+  }, [gastosSel, historico, nowMk, rendaBruta, records, resumo]);
+
+  // Prompt para a IA elaborar em cima dos números já calculados
+  const aiPrompt = useMemo(() => (
+    `Escreva uma análise curta (3-4 frases), em português do Brasil, tom prático e claro, sobre a carga tributária de ${monthLabel(nowMk)} deste usuário. `
+    + `Use SOMENTE estes números já calculados (não invente): gasto total do mês ${formatCurrency(analise.gastoTotal)}; `
+    + `imposto total ${formatCurrency(analise.impostoTotal)} (${analise.pctRenda}% da renda bruta de ${formatCurrency(rendaBruta)}); `
+    + `sendo ${formatCurrency(analise.impostoSalario)} sobre o salário (INSS+IRRF) e ${formatCurrency(analise.impostoConsumo)} de tributos embutidos no consumo`
+    + `${analise.impostoOutros > 0 ? ` e ${formatCurrency(analise.impostoOutros)} de IPVA/IPTU/IOF` : ''}. `
+    + `${analise.top.length ? `Onde o imposto de consumo mais pesa: ${analise.top.map((t) => `${t.label} ${formatCurrency(t.tributo)}`).join(', ')}. ` : ''}`
+    + `Explique de forma simples onde o dinheiro está indo em imposto e dê 1 dica prática. Não repita todos os números crus como lista; escreva em texto corrido.`
+  ), [analise, nowMk, rendaBruta]);
 
   if (loading) return <div className="flex items-center justify-center py-24"><Spinner className="w-8 h-8" /></div>;
 
@@ -191,6 +216,33 @@ export default function TaxBurden() {
           <p className="text-sm text-muted mt-1">Ainda existem categorias sem dados. Adicione seu salário para começar a medir INSS e IRRF.</p>
           <Button className="mt-4" onClick={() => setEditOpen(true)}><Wallet className="w-4 h-4" /> Adicionar salário</Button>
         </Card>
+      )}
+
+      {/* Análise do mês — narrativa + composição gasto vs imposto */}
+      {resumo.temDadoSuficiente && (
+        <Card>
+          <h3 className="font-semibold text-sm flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-emerald-500" /> Análise do mês</h3>
+          <p className="text-sm leading-relaxed">{analise.narrativa}</p>
+          <div className="grid sm:grid-cols-4 gap-2 mt-4">
+            <MiniStat label="Gastou no mês" value={formatCurrency(analise.gastoTotal)} tone="slate" />
+            <MiniStat label="Só de imposto" value={formatCurrency(analise.impostoTotal)} tone="emerald" hint={`${analise.pctRenda}% da renda`} />
+            <MiniStat label="Sobre o salário" value={formatCurrency(analise.impostoSalario)} tone="blue" hint="INSS + IRRF" />
+            <MiniStat label="No consumo" value={formatCurrency(analise.impostoConsumo)} tone="amber" hint={`${analise.pctConsumoDoGasto}% dos gastos`} />
+          </div>
+          {analise.top.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-muted mb-1">Onde o imposto embutido mais pesa:</p>
+              <div className="flex flex-wrap gap-2">
+                {analise.top.map((t) => <Badge key={t.label} color="amber">{t.label} · {formatCurrency(t.tributo)}</Badge>)}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Aprofundar com IA (Gemini, com fallback no motor local) */}
+      {resumo.temDadoSuficiente && (
+        <AiInsight prompt={aiPrompt} storageKey={`taxburden_${nowMk}`} title="Análise inteligente (IA)" agentName="Consultor Tributário" agentFocus="impostos" />
       )}
 
       {/* Cards por categoria */}
@@ -343,6 +395,21 @@ export default function TaxBurden() {
   );
 }
 
+const MINISTAT_TONE = {
+  slate: 'bg-slate-50 dark:bg-slate-800/50',
+  emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300',
+  blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+  amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
+};
+function MiniStat({ label, value, tone = 'slate', hint }) {
+  return (
+    <div className={`rounded-xl p-3 ${MINISTAT_TONE[tone]}`}>
+      <p className="text-[11px] opacity-80">{label}</p>
+      <p className="font-display text-lg font-bold leading-tight">{value}</p>
+      {hint && <p className="text-[11px] opacity-70">{hint}</p>}
+    </div>
+  );
+}
 function Section({ title, children }) {
   return <div><p className="text-xs font-semibold uppercase tracking-wide text-muted mb-1.5">{title}</p><div className="space-y-1">{children}</div></div>;
 }

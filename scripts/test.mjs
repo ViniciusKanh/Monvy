@@ -1,7 +1,7 @@
 // Testes unitarios do motor de analise (rodam sem DB/DOM)
 import { evaluateModel, healthScore, detectSubscriptions, computeAlerts, lastMonths, monthlySeries } from '../src/lib/analytics.js';
 import { buildCategoryIndex, predictCategory } from '../src/lib/categoryPredictor.js';
-import { calcInss, calcIrrf, estimateConsumo, mensalizar, buildTaxRecords, aggregate } from '../src/lib/taxBurden.js';
+import { calcInss, calcIrrf, estimateConsumo, mensalizar, buildTaxRecords, aggregate, buildTaxAnalysis } from '../src/lib/taxBurden.js';
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; } else { fail++; console.error('  FAIL:', m); } };
@@ -100,6 +100,23 @@ ok(ipvaRec.status === 'manual' && approx(ipvaRec.amount, 100), 'IPVA manual mens
 const recsVazio = buildTaxRecords({ ano: 2025, mes: 6, salarioBruto: 0, gastos: [] });
 ok(recsVazio.find((r) => r.key === 'inss').available === false, 'sem salario: INSS indisponivel');
 ok(aggregate(recsVazio, 0).totalCarga === 0, 'sem dados: carga total = 0 (nao inventa)');
+
+// 6.11 Analise inteligente do mes
+const recsA = buildTaxRecords({
+  ano: 2025, mes: 9, salarioBruto: 4200, inssConfirmado: 392.60, irrfConfirmado: 0,
+  gastos: [{ valor: 900, descricao: 'Supermercado' }, { valor: 300, descricao: 'Posto gasolina' }],
+});
+const agA = aggregate(recsA, 4200);
+const gastoTotalA = 900 + 300;
+const an = buildTaxAnalysis({ mesLabel: 'Setembro 2025', rendaBruta: 4200, gastoTotal: gastoTotalA, records: recsA, resumo: agA, prevTotalCarga: agA.totalCarga * 0.8 });
+ok(typeof an.narrativa === 'string' && an.narrativa.includes('Setembro 2025'), 'analise: narrativa cita o mes');
+ok(approx(an.impostoTotal, agA.totalCarga), 'analise: imposto total = carga agregada');
+ok(an.impostoSalario > 0 && an.impostoConsumo > 0, 'analise: separa salario e consumo');
+ok(an.narrativa.includes('mais que no mês anterior'), 'analise: compara com mes anterior (subiu)');
+ok(an.top.length > 0, 'analise: lista onde o imposto mais pesa');
+// sem dados -> nao inventa
+const anVazio = buildTaxAnalysis({ mesLabel: 'X', rendaBruta: 0, gastoTotal: 0, records: buildTaxRecords({ ano: 2025, mes: 9, salarioBruto: 0, gastos: [] }), resumo: aggregate(buildTaxRecords({ ano: 2025, mes: 9, salarioBruto: 0, gastos: [] }), 0) });
+ok(anVazio.impostoTotal === 0, 'analise: sem dados = imposto 0');
 
 console.log(`\n${pass} passaram, ${fail} falharam`);
 process.exit(fail ? 1 : 0);
