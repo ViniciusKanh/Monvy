@@ -339,6 +339,21 @@ export const SCHEMA_STATEMENTS = [
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_bankconn_owner ON BankConnection(created_by_id)`,
+  `CREATE TABLE IF NOT EXISTS TaxLedger (
+    id TEXT PRIMARY KEY,
+    kind TEXT DEFAULT 'IOF',
+    amount REAL DEFAULT 0,
+    reference_month TEXT,
+    year INTEGER,
+    source TEXT DEFAULT 'manual',
+    origin_kind TEXT,
+    origin_id TEXT,
+    origin_label TEXT,
+    meta TEXT DEFAULT '{}',
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_taxledger_owner ON TaxLedger(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_bankrate_owner ON BankRate(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notif_owner ON Notification(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_catrule_owner ON CategoryRule(created_by_id)`,
@@ -391,6 +406,14 @@ export const MIGRATIONS = [
     )`,
     `CREATE INDEX IF NOT EXISTS idx_bankconn_owner ON BankConnection(created_by_id)`,
   ] },
+  { id: '019_tax_ledger', statements: [
+    `CREATE TABLE IF NOT EXISTS TaxLedger (
+      id TEXT PRIMARY KEY, kind TEXT DEFAULT 'IOF', amount REAL DEFAULT 0, reference_month TEXT, year INTEGER,
+      source TEXT DEFAULT 'manual', origin_kind TEXT, origin_id TEXT, origin_label TEXT, meta TEXT DEFAULT '{}',
+      is_deleted INTEGER DEFAULT 0, created_date TEXT, updated_date TEXT, created_by_id TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_taxledger_owner ON TaxLedger(created_by_id)`,
+  ] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
     `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,
@@ -423,6 +446,7 @@ export const ENTITIES = {
   CategoryRule: 'CategoryRule',
   Notification: 'Notification',
   BankRate: 'BankRate',
+  TaxLedger: 'TaxLedger',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)
@@ -430,6 +454,7 @@ export const JSON_FIELDS = {
   Transaction: ['tags'],
   Forecast: ['features_importance'],
   Trigger: ['config'],
+  TaxLedger: ['meta'],
 };
 
 // Colunas boolean (armazenadas como 0/1)

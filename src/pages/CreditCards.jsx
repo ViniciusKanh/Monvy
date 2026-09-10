@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, CreditCardTransaction, CreditCardInvoice, Account, Category, AppSettings, Ai, Cards } from '../api/entities.js';
+import { CreditCard, CreditCardTransaction, CreditCardInvoice, Account, Category, AppSettings, Ai, Cards, TaxLedger } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button, Card, Input, Select, Field, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
@@ -150,6 +150,14 @@ export default function CreditCards() {
         rows.push({ card_id: selected.id, description: it.description, amount: it.amount, date: it.date, category_id: catId || null, installments_total: it.installments_total || 1, installment_current: it.installment_current || 1, competence_month: mk, imported_from_pdf: true });
       }
       if (rows.length) await CreditCardTransaction.bulkCreate(rows);
+      // Captura o IOF da fatura (tributo confirmado) para a Carga Tributária.
+      // Guarda 1 registro por cartão+mês (regrava se reimportar).
+      const iofTotal = chosen.filter((it) => /iof/i.test(it.description || '')).reduce((s, it) => s + Math.abs(Number(it.amount) || 0), 0);
+      try {
+        const existentes = await TaxLedger.list({ source: 'invoice', origin_id: selected.id, reference_month: mk });
+        for (const e of (existentes || [])) await TaxLedger.remove(e.id);
+        if (iofTotal > 0) await TaxLedger.create({ kind: 'IOF', amount: Number(iofTotal.toFixed(2)), reference_month: mk, year: Number(mk.slice(0, 4)), source: 'invoice', origin_kind: 'card', origin_id: selected.id, origin_label: selected.name || 'Cartão', meta: { via: review?.source || 'import' } });
+      } catch { /* ledger é complementar; não bloqueia a importação */ }
       await Cards.generateInvoices();
       return rows.length;
     },

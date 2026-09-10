@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Landmark, ShieldCheck, Calculator, Info, HelpCircle, Plug, PlusCircle,
   Receipt, Car, Home, TrendingDown, CheckCircle2, CircleDashed, PencilLine, Wallet,
-  ChevronLeft, ChevronRight, CalendarDays, ShieldQuestion, Check, Loader2, Sparkles,
+  ChevronLeft, ChevronRight, CalendarDays, ShieldQuestion, Check, Loader2, Sparkles, Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel } from '../lib/utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Transaction, CreditCardTransaction, Category } from '../api/entities.js';
+import { Transaction, CreditCardTransaction, Category, TaxLedger } from '../api/entities.js';
+import { toast } from '../lib/toast.js';
 import { combineExpenses } from '../lib/analytics.js';
 import { buildTaxRecords, aggregate, explain, buildTaxAnalysis } from '../lib/taxBurden.js';
 import { STATUS } from '../lib/taxRates.js';
@@ -53,6 +54,8 @@ export default function TaxBurden() {
   const [explainRec, setExplainRec] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [informe, setInforme] = useState({ origin_label: '', ir: '', iof: '', outros: '' });
 
   const currentMk = monthKey(new Date());
   const [selMk, setSelMk] = useState(currentMk);
@@ -61,8 +64,23 @@ export default function TaxBurden() {
   const mes = Number(nowMk.slice(5, 7));
   const stepMonth = (delta) => { const [y, m] = selMk.split('-').map(Number); const d = new Date(y, m - 1 + delta, 1); const mk = monthKey(d); if (mk <= currentMk) setSelMk(mk); };
   const isCurrent = selMk === currentMk;
+  const qc = useQueryClient();
+  const isAdmin = user?.role === 'admin';
 
   const save = (next) => { setCfg(next); try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch { /* */ } };
+
+  const refreshLedger = () => { qc.invalidateQueries({ queryKey: ['tax-ledger-year', ano] }); qc.invalidateQueries({ queryKey: ['tax-ledger', selMk] }); };
+  const saveInforme = useMutation({
+    mutationFn: async () => {
+      const ir = n(informe.ir), iof = n(informe.iof), outros = n(informe.outros);
+      const total = Math.round((ir + iof + outros) * 100) / 100;
+      if (!informe.origin_label.trim() || total <= 0) throw new Error('Informe a conta/banco e ao menos um valor.');
+      return TaxLedger.create({ kind: 'INFORME', amount: total, year: ano, source: 'informe', origin_kind: 'account', origin_label: informe.origin_label.trim(), meta: { ir, iof, outros } });
+    },
+    onSuccess: () => { toast.success('Informe de rendimento salvo.'); setInforme({ origin_label: '', ir: '', iof: '', outros: '' }); refreshLedger(); },
+    onError: (e) => toast.error(e.message || 'Falha ao salvar.'),
+  });
+  const removeLedger = useMutation({ mutationFn: (id) => TaxLedger.remove(id), onSuccess: () => { toast.success('Removido.'); refreshLedger(); } });
 
   // Transacoes reais dos bancos conectados (Pluggy) no mes selecionado -> refinam o consumo
   const ofTxQ = useQuery({
@@ -77,13 +95,21 @@ export default function TaxBurden() {
   const loading = txQ.isLoading || ccQ.isLoading;
   const erro = txQ.isError || ccQ.isError;
 
+  // Tributos importados/informados (IOF das faturas, informe de rendimento)
+  const ledgerMonthQ = useQuery({ queryKey: ['tax-ledger', selMk], queryFn: () => TaxLedger.list({ reference_month: selMk }) });
+  const ledgerYearQ = useQuery({ queryKey: ['tax-ledger-year', ano], queryFn: () => TaxLedger.list({ year: ano }) });
+  const iofConfirmado = useMemo(() => (ledgerMonthQ.data || []).filter((r) => r.kind === 'IOF').reduce((s, r) => s + Number(r.amount || 0), 0), [ledgerMonthQ.data]);
+  const informeEntries = useMemo(() => (ledgerYearQ.data || []).filter((r) => r.source === 'informe'), [ledgerYearQ.data]);
+
   // id -> nome da categoria (melhora a classificação por bucket de consumo)
   const catName = useMemo(() => Object.fromEntries((catQ.data || []).map((c) => [c.id, c.name])), [catQ.data]);
 
   // Gastos reais do mês (despesas positivas) -> base do consumo estimado.
   // Combina lançamentos do Monvy + cartão de crédito; usa o NOME da categoria.
   const gastosPorMes = useMemo(() => {
-    const all = combineExpenses(txQ.data || [], ccQ.data || []).filter((t) => t.type === 'expense' && Number(t.amount) > 0);
+    const all = combineExpenses(txQ.data || [], ccQ.data || [])
+      .filter((t) => t.type === 'expense' && Number(t.amount) > 0)
+      .filter((t) => !/\biof\b/i.test(t.description || '')); // IOF é tributo, não consumo (evita dupla contagem)
     const byMonth = {};
     for (const t of all) {
       const mk = String(t.date).slice(0, 7);
@@ -115,11 +141,12 @@ export default function TaxBurden() {
       gastos: gastosSel,
       ipvaAnual: n(cfg.ipvaAnual),
       iptuAnual: n(cfg.iptuAnual),
+      iofLancado: iofConfirmado, // IOF confirmado, somado das faturas importadas
     };
     const recs = buildTaxRecords(entrada);
     const rb = n(cfg.salarioBruto);
     return { records: recs, resumo: aggregate(recs, rb), rendaBruta: rb };
-  }, [cfg, gastosSel, ano, mes]);
+  }, [cfg, gastosSel, ano, mes, iofConfirmado]);
 
   // Histórico de 6 meses (carga total por mês) — usa consumo real de cada mês
   const historico = useMemo(() => {
@@ -189,6 +216,7 @@ export default function TaxBurden() {
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => setSourcesOpen(true)}><Plug className="w-4 h-4" /> Fontes{usandoBanco && <span className="w-2 h-2 rounded-full bg-emerald-500 ml-1" title="Banco conectado alimentando a análise" />}</Button>
+          {isAdmin && <Button variant="ghost" size="sm" onClick={() => setAdminOpen(true)}><ShieldCheck className="w-4 h-4" /> Tributos importados</Button>}
           <Button size="sm" onClick={() => setEditOpen(true)}><PencilLine className="w-4 h-4" /> Meus dados</Button>
         </div>
       </Card>
@@ -389,6 +417,52 @@ export default function TaxBurden() {
           <SourceRow icon={Landmark} name="Receita Federal / SERPRO" desc="Integra Contador / Compartilha RFB — requer contrato e certificado." connected={false} disabled />
           <SourceRow icon={Wallet} name="Folha de pagamento" desc="Você informa os valores do holerite em 'Meus dados'." connected={n(cfg.inssConfirmado) > 0} manual />
           <SourceRow icon={Receipt} name="IBPT (consumo)" desc="Médias de referência para tributos embutidos em compras." connected manual />
+        </div>
+      </Modal>
+
+      {/* Modal Admin: Tributos importados (IOF das faturas + informe de rendimento) */}
+      <Modal open={adminOpen} onClose={() => setAdminOpen(false)} title="Tributos importados (Admin)" maxWidth="max-w-xl">
+        <div className="space-y-4 text-sm">
+          <p className="text-xs text-muted">Recurso administrativo. Consolida tributos vindos de outras telas para análise aqui: o <b>IOF</b> capturado a cada fatura de cartão importada e o <b>informe de rendimento</b> das suas contas (IR na fonte, IOF, outros). Dados sensíveis — mantenha restrito.</p>
+
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">IOF das faturas · {ano}</p>
+            {(ledgerYearQ.data || []).filter((r) => r.source === 'invoice' && r.kind === 'IOF').length === 0
+              ? <p className="text-xs text-muted">Nenhum IOF capturado ainda. Importe uma fatura em Cartões que contenha IOF.</p>
+              : (ledgerYearQ.data || []).filter((r) => r.source === 'invoice' && r.kind === 'IOF').map((r) => (
+                <div key={r.id} className="flex items-center justify-between py-1">
+                  <span>{r.origin_label} · {r.reference_month}</span>
+                  <span className="flex items-center gap-2"><b>{formatCurrency(r.amount)}</b><button className="text-rose-500" onClick={() => removeLedger.mutate(r.id)}><Trash2 className="w-3.5 h-3.5" /></button></span>
+                </div>
+              ))}
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Informe de rendimento por conta · {ano}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2"><Field label="Conta / Banco"><Input value={informe.origin_label} onChange={(e) => setInforme({ ...informe, origin_label: e.target.value })} placeholder="Ex: Nubank NuConta" /></Field></div>
+              <Field label="IR na fonte (R$)"><Input inputMode="decimal" value={informe.ir} onChange={(e) => setInforme({ ...informe, ir: e.target.value })} /></Field>
+              <Field label="IOF (R$)"><Input inputMode="decimal" value={informe.iof} onChange={(e) => setInforme({ ...informe, iof: e.target.value })} /></Field>
+              <div className="col-span-2"><Field label="Outros tributos (R$)"><Input inputMode="decimal" value={informe.outros} onChange={(e) => setInforme({ ...informe, outros: e.target.value })} /></Field></div>
+            </div>
+            <Button className="w-full mt-2" disabled={saveInforme.isPending} onClick={() => saveInforme.mutate()}>{saveInforme.isPending ? <Spinner className="w-4 h-4" /> : <><PlusCircle className="w-4 h-4" /> Adicionar informe</>}</Button>
+          </div>
+
+          {informeEntries.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-1">Informes cadastrados</p>
+              {informeEntries.map((r) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 mb-1">
+                  <div>
+                    <p className="font-medium">{r.origin_label}</p>
+                    <p className="text-xs text-muted">IR {formatCurrency(r.meta?.ir || 0)} · IOF {formatCurrency(r.meta?.iof || 0)} · Outros {formatCurrency(r.meta?.outros || 0)}</p>
+                  </div>
+                  <span className="flex items-center gap-2"><b>{formatCurrency(r.amount)}</b><button className="text-rose-500" onClick={() => removeLedger.mutate(r.id)}><Trash2 className="w-4 h-4" /></button></span>
+                </div>
+              ))}
+              <div className="flex justify-between border-t pt-2 mt-1 font-semibold"><span>Total tributos das contas ({ano})</span><span>{formatCurrency(informeEntries.reduce((s, r) => s + Number(r.amount || 0), 0))}</span></div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
