@@ -9,7 +9,7 @@ import { formatCurrency, MONTHS_PT } from '../lib/utils.js';
 import { TaxLedger, FiscalNote } from '../api/entities.js';
 import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
-const NF_TAX = { iss: 'ISS', icms: 'ICMS', ipi: 'IPI', ii: 'II', pis: 'PIS', cofins: 'COFINS', irrf: 'IRRF', csll: 'CSLL', inss: 'INSS', issqn: 'ISS', fcp: 'FCP' };
+const NF_TAX = { iss: 'ISS', icms: 'ICMS', ipi: 'IPI', ii: 'II', pis: 'PIS', cofins: 'COFINS', irrf: 'IRRF', csll: 'CSLL', inss: 'INSS', ibs: 'IBS', cbs: 'CBS', issqn: 'ISS', fcp: 'FCP' };
 const SOURCE_COLORS = { Fatura: '#6d28d9', 'Nota fiscal': '#059669', Informe: '#2563eb' };
 const PIE = ['#059669', '#0d9488', '#f59e0b', '#8b5cf6', '#3b82f6', '#ef4444', '#ec4899', '#64748b'];
 

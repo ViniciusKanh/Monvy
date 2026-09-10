@@ -10,9 +10,9 @@ import { parseNfeXml } from '../lib/nfeXml.js';
 import { toast } from '../lib/toast.js';
 
 const n = (v) => { const x = Number(String(v ?? '').replace(',', '.')); return isNaN(x) ? 0 : x; };
-const TAX_LABELS = { iss: 'ISS', icms: 'ICMS', ipi: 'IPI', ii: 'II', pis: 'PIS', cofins: 'COFINS', irrf: 'IRRF', csll: 'CSLL', inss: 'INSS', fcp: 'FCP', issqn: 'ISS', aproximado: 'Aprox. (IBPT)' };
+const TAX_LABELS = { iss: 'ISS', icms: 'ICMS', ipi: 'IPI', ii: 'II', pis: 'PIS', cofins: 'COFINS', irrf: 'IRRF', csll: 'CSLL', inss: 'INSS', ibs: 'IBS', cbs: 'CBS', fcp: 'FCP', issqn: 'ISS', aproximado: 'Aprox. (IBPT)' };
 // campos editáveis no review (issqn/fcp ficam de fora do form; ISS cobre serviço)
-const TAX_FIELDS = ['iss', 'icms', 'ipi', 'pis', 'cofins', 'irrf', 'csll', 'inss', 'ii', 'aproximado'];
+const TAX_FIELDS = ['iss', 'icms', 'ipi', 'pis', 'cofins', 'ibs', 'cbs', 'irrf', 'csll', 'inss', 'ii', 'aproximado'];
 const MAX_FILE_B64 = 1_800_000; // ~1.3MB de arquivo; acima disso guarda só os dados
 
 export default function NotasFiscais() {
@@ -66,7 +66,7 @@ export default function NotasFiscais() {
   const reviewTotalTax = useMemo(() => {
     if (!review) return 0;
     const t = review.taxes || {};
-    const soma = n(t.iss) + n(t.icms) + n(t.ipi) + n(t.ii) + n(t.pis) + n(t.cofins) + n(t.irrf) + n(t.csll) + n(t.inss) + n(t.issqn);
+    const soma = n(t.iss) + n(t.icms) + n(t.ipi) + n(t.ii) + n(t.pis) + n(t.cofins) + n(t.irrf) + n(t.csll) + n(t.inss) + n(t.ibs) + n(t.cbs) + n(t.issqn);
     return soma > 0 ? soma : n(t.aproximado);
   }, [review]);
 

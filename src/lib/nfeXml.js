@@ -29,10 +29,12 @@ export function parseNfeXml(xmlString) {
     irrf: elNum(retTrib, 'vIRRF'),
     csll: elNum(retTrib, 'vRetCSLL'),
     inss: elNum(retTrib, 'vRetPrev'),
+    ibs: elNum(tot, 'vIBS'), // reforma tributaria (IBS)
+    cbs: elNum(tot, 'vCBS'), // reforma tributaria (CBS)
     fcp: elNum(tot, 'vFCP'),
   };
   const aproximado = elNum(tot, 'vTotTrib'); // valor aprox. dos tributos (IBPT)
-  const somaExplicita = taxes.icms + taxes.ipi + taxes.ii + taxes.iss + taxes.pis + taxes.cofins + taxes.irrf + taxes.csll + taxes.inss;
+  const somaExplicita = taxes.icms + taxes.ipi + taxes.ii + taxes.iss + taxes.pis + taxes.cofins + taxes.irrf + taxes.csll + taxes.inss + taxes.ibs + taxes.cbs;
   // total_tax: prioriza o valor explicito dos tributos incidentes; usa o aproximado
   // como piso quando os campos vem zerados (comum em NFC-e de varejo).
   const total_tax = Math.round((somaExplicita > 0 ? somaExplicita : aproximado) * 100) / 100;

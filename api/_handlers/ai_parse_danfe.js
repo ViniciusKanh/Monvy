@@ -52,10 +52,12 @@ Identifique o tipo e extraia:
 - irrf: IRRF retido (R$)
 - csll: CSLL / Contribuicoes Sociais Retidas (R$)
 - inss: Contribuicao Previdenciaria Retida / INSS (R$)
+- ibs: IBS - Imposto sobre Bens e Servicos (reforma tributaria), "IBS informado" (R$)
+- cbs: CBS - Contribuicao sobre Bens e Servicos (reforma tributaria), "CBS informada" (R$)
 - aproximado: "Valor Aproximado dos Tributos" (Lei 12.741) se constar (R$)
 
 Regras: valores em reais com ponto decimal; se um campo nao existir na nota, use 0. NAO invente valores. Para nota de servico com aliquota de ISS, o "Valor do ISS" e o imposto principal.
-Responda SO JSON: {"note_type":"produto","emitter":"","emitter_cnpj":"","number":"","issued_date":"","total_value":0,"icms":0,"ipi":0,"ii":0,"iss":0,"pis":0,"cofins":0,"irrf":0,"csll":0,"inss":0,"aproximado":0}`;
+Responda SO JSON: {"note_type":"produto","emitter":"","emitter_cnpj":"","number":"","issued_date":"","total_value":0,"icms":0,"ipi":0,"ii":0,"iss":0,"pis":0,"cofins":0,"irrf":0,"csll":0,"inss":0,"ibs":0,"cbs":0,"aproximado":0}`;
 
     const payload = {
       contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }] }],
@@ -80,9 +82,9 @@ Responda SO JSON: {"note_type":"produto","emitter":"","emitter_cnpj":"","number"
       const taxes = {
         icms: num(p.icms), ipi: num(p.ipi), ii: num(p.ii), iss: num(p.iss),
         pis: num(p.pis), cofins: num(p.cofins), irrf: num(p.irrf), csll: num(p.csll), inss: num(p.inss),
-        aproximado: num(p.aproximado),
+        ibs: num(p.ibs), cbs: num(p.cbs), aproximado: num(p.aproximado),
       };
-      const soma = taxes.icms + taxes.ipi + taxes.ii + taxes.iss + taxes.pis + taxes.cofins + taxes.irrf + taxes.csll + taxes.inss;
+      const soma = taxes.icms + taxes.ipi + taxes.ii + taxes.iss + taxes.pis + taxes.cofins + taxes.irrf + taxes.csll + taxes.inss + taxes.ibs + taxes.cbs;
       const total_tax = Math.round((soma > 0 ? soma : taxes.aproximado) * 100) / 100;
       const dt = String(p.issued_date || '').slice(0, 10);
       return sendJson(res, 200, {
