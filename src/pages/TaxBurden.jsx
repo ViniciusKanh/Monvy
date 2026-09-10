@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Landmark, ShieldCheck, Calculator, Info, HelpCircle, Plug, PlusCircle,
@@ -10,7 +10,7 @@ import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '.
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel } from '../lib/utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Transaction, CreditCardTransaction, Category, TaxLedger } from '../api/entities.js';
+import { Transaction, CreditCardTransaction, Category, TaxLedger, Ai, AppSettings } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
 import { combineExpenses } from '../lib/analytics.js';
 import { buildTaxRecords, aggregate, explain, buildTaxAnalysis } from '../lib/taxBurden.js';
@@ -56,6 +56,9 @@ export default function TaxBurden() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [informe, setInforme] = useState({ origin_label: '', ir: '', iof: '', outros: '' });
+  const [informeReview, setInformeReview] = useState(null); // linhas extraidas do PDF
+  const [importingInforme, setImportingInforme] = useState(false);
+  const fileRef = useRef(null);
 
   const currentMk = monthKey(new Date());
   const [selMk, setSelMk] = useState(currentMk);
@@ -81,6 +84,37 @@ export default function TaxBurden() {
     onError: (e) => toast.error(e.message || 'Falha ao salvar.'),
   });
   const removeLedger = useMutation({ mutationFn: (id) => TaxLedger.remove(id), onSuccess: () => { toast.success('Removido.'); refreshLedger(); } });
+
+  // Importar informe de rendimentos (PDF) com IA — adapta a varios tipos de conta
+  const settingsQ = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
+  const geminiKey = settingsQ.data?.[0]?.gemini_api_key;
+  const onInformeFile = async (e) => {
+    const file = e.target.files?.[0]; if (e.target) e.target.value = '';
+    if (!file) return;
+    if (!geminiKey) { toast.error('Configure a chave do Gemini em Configurações para ler o PDF.'); return; }
+    setImportingInforme(true);
+    try {
+      const base64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
+      const { accounts = [] } = await Ai.parseInforme(base64, geminiKey, ano);
+      if (!accounts.length) { toast.error('Não encontrei tributos no informe. Você pode lançar manualmente.'); return; }
+      setInformeReview(accounts.map((a, i) => ({ _k: i, origin_label: a.institution, account_type: a.account_type, ir: String(a.ir_fonte || ''), iof: String(a.iof || ''), outros: String(a.outros || ''), rendimentos: a.rendimentos || 0 })));
+      toast.success(`${accounts.length} conta(s) lida(s). Revise e salve.`);
+    } catch (err) { toast.error(err.message || 'Falha ao ler o informe.'); }
+    finally { setImportingInforme(false); }
+  };
+  const saveInformeBatch = useMutation({
+    mutationFn: async () => {
+      const rows = (informeReview || []).map((a) => {
+        const ir = n(a.ir), iof = n(a.iof), outros = n(a.outros);
+        return { kind: 'INFORME', amount: Math.round((ir + iof + outros) * 100) / 100, year: ano, source: 'informe', origin_kind: 'account', origin_label: (a.origin_label || 'Conta').trim(), meta: { ir, iof, outros, account_type: a.account_type, rendimentos: a.rendimentos } };
+      }).filter((r) => r.amount > 0);
+      if (!rows.length) throw new Error('Nenhum valor de tributo para salvar.');
+      for (const r of rows) await TaxLedger.create(r);
+      return rows.length;
+    },
+    onSuccess: (n2) => { toast.success(`${n2} conta(s) salva(s) do informe.`); setInformeReview(null); refreshLedger(); },
+    onError: (e) => toast.error(e.message || 'Falha ao salvar.'),
+  });
 
   // Transacoes reais dos bancos conectados (Pluggy) no mes selecionado -> refinam o consumo
   const ofTxQ = useQuery({
@@ -438,7 +472,39 @@ export default function TaxBurden() {
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Informe de rendimento por conta · {ano}</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Informe de rendimento por conta · {ano}</p>
+              <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={onInformeFile} />
+              <Button size="sm" variant="outline" disabled={importingInforme} onClick={() => fileRef.current?.click()}>{importingInforme ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4" /> Importar PDF (IA)</>}</Button>
+            </div>
+
+            {/* Revisão do que a IA leu do PDF (multi-conta, editável) */}
+            {informeReview && (
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-3 mb-3">
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold mb-2">Lido do informe — revise antes de salvar</p>
+                <div className="space-y-2">
+                  {informeReview.map((a, i) => (
+                    <div key={a._k} className="rounded-lg bg-white dark:bg-slate-800 p-2">
+                      <div className="flex items-center gap-2">
+                        <Input className="flex-1" value={a.origin_label} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, origin_label: e.target.value } : x))} placeholder="Instituição" />
+                        <span className="text-xs text-muted whitespace-nowrap">{a.account_type}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        <Field label="IR fonte"><Input inputMode="decimal" value={a.ir} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, ir: e.target.value } : x))} /></Field>
+                        <Field label="IOF"><Input inputMode="decimal" value={a.iof} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, iof: e.target.value } : x))} /></Field>
+                        <Field label="Outros"><Input inputMode="decimal" value={a.outros} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, outros: e.target.value } : x))} /></Field>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button variant="ghost" size="sm" onClick={() => setInformeReview(null)}>Cancelar</Button>
+                  <Button size="sm" className="flex-1" disabled={saveInformeBatch.isPending} onClick={() => saveInformeBatch.mutate()}>{saveInformeBatch.isPending ? <Spinner className="w-4 h-4" /> : `Salvar ${informeReview.length} conta(s)`}</Button>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-muted mb-2">Ou lance manualmente:</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="col-span-2"><Field label="Conta / Banco"><Input value={informe.origin_label} onChange={(e) => setInforme({ ...informe, origin_label: e.target.value })} placeholder="Ex: Nubank NuConta" /></Field></div>
               <Field label="IR na fonte (R$)"><Input inputMode="decimal" value={informe.ir} onChange={(e) => setInforme({ ...informe, ir: e.target.value })} /></Field>

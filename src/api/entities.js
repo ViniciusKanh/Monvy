@@ -92,6 +92,7 @@ export const Ai = {
   parseInvoice: (pdfBase64, apiKey, categories) =>
     api.post('/api/ai/parse-invoice', { pdfBase64, apiKey, categories }),
   ask: (question, context, apiKey, history, persona) => api.post('/api/ai/assistant', { question, context, apiKey, history, persona }),
+  parseInforme: (pdfBase64, apiKey, year) => api.post('/api/ai/parse-informe', { pdfBase64, apiKey, year }),
 };
 
 export const Admin = {

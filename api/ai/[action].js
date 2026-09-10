@@ -1,8 +1,9 @@
 import parseInvoice from '../_handlers/ai_parse_invoice.js';
+import parseInforme from '../_handlers/ai_parse_informe.js';
 import assistant from '../_handlers/ai_assistant.js';
 import { sendJson } from '../_lib/auth.js';
 
-const map = { 'parse-invoice': parseInvoice, assistant };
+const map = { 'parse-invoice': parseInvoice, 'parse-informe': parseInforme, assistant };
 export default function handler(req, res) {
   const parts = (req.url || '').split('?')[0].split('/').filter(Boolean);
   const i = parts.indexOf('ai');
