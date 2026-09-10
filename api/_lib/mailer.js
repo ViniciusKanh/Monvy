@@ -76,9 +76,11 @@ export function tpl(title, bodyHtml, opts = {}) {
     ? `<a href="${opts.ctaUrl}" style="display:inline-block;margin-top:8px;background:linear-gradient(135deg,#059669,#34d399);color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:12px;font-size:14px">${opts.ctaText}</a>`
     : '';
   const logo = `<span style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px">Mon<span style="color:#34d399">vy</span></span>`;
+  const maxW = opts.wide ? 660 : 560;
+  const subtitle = opts.subtitle ? `<div style="color:#93c5b5;font-size:12px;margin-top:4px">${opts.subtitle}</div>` : '';
   return `<div style="margin:0;padding:24px;background:#eef2f7">
-    <div style="font-family:Inter,Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(8,13,31,.15)">
-      <div style="padding:26px 28px;background:linear-gradient(135deg,#080d1f 0%,#0b1330 55%,#111b3f 100%)">${logo}
+    <div style="font-family:Inter,Segoe UI,Arial,sans-serif;max-width:${maxW}px;margin:auto;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(8,13,31,.15)">
+      <div style="padding:26px 28px;background:linear-gradient(135deg,#080d1f 0%,#0b1330 55%,#111b3f 100%)">${logo}${subtitle}
         <div style="height:3px;width:54px;margin-top:12px;border-radius:3px;background:linear-gradient(90deg,#059669,#34d399)"></div>
       </div>
       <div style="padding:28px;background:#ffffff">

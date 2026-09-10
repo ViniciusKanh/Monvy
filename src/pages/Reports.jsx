@@ -93,6 +93,21 @@ export default function Reports() {
     return `No período (${periodLabel}), você gastou ${f(gasto)} e destinou cerca de ${f(taxTotals.tot)} a impostos — ${taxTotals.avgPct.toFixed(1)}% da renda${comp ? `, sendo ${comp}` : ''}. Consumo representa ~${pctConsumo}% dos seus gastos em tributo embutido.${top}`;
   }, [taxTotals, totals.exp, periodLabel]);
 
+  // Resumo de notas fiscais no período
+  const NF_LABELS = { iss: 'ISS', icms: 'ICMS', ipi: 'IPI', ii: 'II', pis: 'PIS', cofins: 'COFINS', irrf: 'IRRF', csll: 'CSLL', inss: 'INSS', ibs: 'IBS', cbs: 'CBS', issqn: 'ISS' };
+  const nfSummary = useMemo(() => {
+    const inP = fiscalNotes.filter((r) => months.includes(String(r.reference_month || '')));
+    const totalValue = inP.reduce((s, r) => s + Number(r.total_value || 0), 0);
+    const totalTax = inP.reduce((s, r) => s + Number(r.total_tax || 0), 0);
+    const byType = {};
+    for (const nt of inP) for (const [k, v] of Object.entries(nt.taxes || {})) { if (k === 'aproximado' || k === 'fcp') continue; if (Number(v) > 0) byType[NF_LABELS[k] || k] = (byType[NF_LABELS[k] || k] || 0) + Number(v); }
+    const types = Object.entries(byType).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    const byEmit = {};
+    for (const nt of inP) byEmit[nt.emitter || 'Emitente'] = (byEmit[nt.emitter || 'Emitente'] || 0) + Number(nt.total_tax || 0);
+    const top = Object.entries(byEmit).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+    return { count: inP.length, totalValue, totalTax, types, top };
+  }, [fiscalNotes, months]);
+
   const monthly = useMemo(() => months.map((k) => {
     let inc = 0, exp = 0;
     for (const t of tx) { if (String(t.date).slice(0, 7) !== k) continue; if (t.type === 'income') inc += +t.amount; if (t.type === 'expense') exp += +t.amount; }
@@ -169,6 +184,7 @@ export default function Reports() {
         insights: insights.map((i) => i.m),
         insight: rising ? `${rising.name} cresceu ${rising.change.toFixed(0)}% no período — vale acompanhar.` : (totals.rate >= 20 ? `Ótima taxa de poupança: ${totals.rate.toFixed(0)}%.` : null),
         tax: taxPayload(),
+        nf: nfSummary.count > 0 ? { count: nfSummary.count, totalTax: nfSummary.totalTax, totalValue: nfSummary.totalValue, types: nfSummary.types, top: nfSummary.top } : null,
       } });
       toast.success('Relatório enviado para o seu e-mail!');
     } catch (e) { toast.error(e.message || 'Falha ao enviar. Verifique a config de e-mail.'); }
@@ -340,6 +356,32 @@ export default function Reports() {
         </div>
         <p className="text-xs text-muted mt-3">Projeção anualizada ≈ {formatCurrency((taxTotals.tot / (period || 1)) * 12)}. Valores <b>confirmados</b> vêm do holerite/lançamentos; <b>estimados</b> usam médias de consumo (padrão IBPT) e não representam tributo efetivamente recolhido. Ajuste seus dados em <b>Minha Carga Tributária</b>.</p>
       </Card>
+
+      {/* Notas fiscais no período */}
+      {nfSummary.count > 0 && (
+        <Card className="print-break">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold flex items-center gap-2"><FileText className="w-4 h-4 text-emerald-500" /> Notas fiscais ({nfSummary.count})</h3>
+            <Badge color="emerald">{formatCurrency(nfSummary.totalTax)} em tributos</Badge>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted mb-1">Tributos por tipo</p>
+              <table className="w-full text-sm">
+                <tbody>{nfSummary.types.map((t) => (<tr key={t.name} className="border-b border-[hsl(var(--border))] last:border-0"><td className="py-1.5">{t.name}</td><td className="py-1.5 text-right font-medium">{formatCurrency(t.value)}</td></tr>))}</tbody>
+                <tfoot><tr className="font-bold"><td className="py-1.5">Total</td><td className="py-1.5 text-right">{formatCurrency(nfSummary.totalTax)}</td></tr></tfoot>
+              </table>
+            </div>
+            <div>
+              <p className="text-xs text-muted mb-1">Onde mais paguei imposto</p>
+              <table className="w-full text-sm">
+                <tbody>{nfSummary.top.map((e) => (<tr key={e.name} className="border-b border-[hsl(var(--border))] last:border-0"><td className="py-1.5 truncate">{e.name}</td><td className="py-1.5 text-right font-medium">{formatCurrency(e.value)}</td></tr>))}</tbody>
+              </table>
+            </div>
+          </div>
+          <p className="text-xs text-muted mt-3">Somam {formatCurrency(nfSummary.totalValue)} em compras/serviços. Estes tributos entram como <b>confirmados</b> na sua carga tributária.</p>
+        </Card>
+      )}
 
       {/* Extrato detalhado (para PDF) */}
       <Card className="print-break">

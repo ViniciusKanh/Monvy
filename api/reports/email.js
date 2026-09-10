@@ -84,9 +84,42 @@ export default async function handler(req, res) {
         </div>`;
     }
 
-    const html = tpl(`Seu relatório financeiro — ${summary.periodLabel || ''}`,
-      `Olá${summary.name ? ' ' + summary.name : ''}, aqui esta o resumo das suas finanças (contas + cartão).<br/>
-       <div style="margin-top:6px;color:#0b1330;font-weight:700">Patrimônio total: ${brl(summary.totalBalance)}</div>
+    // Bloco de notas fiscais (quando enviado pelo cliente)
+    const nf = summary.nf;
+    let nfBlock = '';
+    if (nf && Number(nf.totalTax) > 0) {
+      const typeRows = (nf.types || []).slice(0, 8).map((t) => `<tr><td style="padding:6px 0;border-bottom:1px solid #eef2f7;color:#0b1330;font-size:13px">${t.name}</td><td style="padding:6px 0;border-bottom:1px solid #eef2f7;text-align:right;font-weight:600;font-size:13px">${brl(t.value)}</td></tr>`).join('');
+      const topRows = (nf.top || []).slice(0, 5).map((e) => `<tr><td style="padding:6px 0;border-bottom:1px solid #eef2f7;color:#0b1330;font-size:13px">${String(e.name).replace(/</g, '&lt;')}</td><td style="padding:6px 0;border-bottom:1px solid #eef2f7;text-align:right;font-weight:600;font-size:13px">${brl(e.value)}</td></tr>`).join('');
+      nfBlock = `
+        <div style="margin-top:18px;padding:16px;border-radius:14px;border:1px solid #e2e8f0;background:#ffffff">
+          <div style="color:#0b1330;font-weight:800;font-size:14px;margin-bottom:8px">🧾 Notas fiscais (${nf.count}) — ${brl(nf.totalTax)} em tributos</div>
+          <table style="width:100%;border-collapse:collapse">
+            <tr><td style="width:50%;vertical-align:top;padding-right:10px">
+              <div style="font-size:12px;color:#64748b;margin-bottom:2px">Por tipo de tributo</div>
+              <table style="width:100%;border-collapse:collapse">${typeRows}</table>
+            </td><td style="width:50%;vertical-align:top;padding-left:10px">
+              <div style="font-size:12px;color:#64748b;margin-bottom:2px">Onde mais paguei</div>
+              <table style="width:100%;border-collapse:collapse">${topRows}</table>
+            </td></tr>
+          </table>
+        </div>`;
+    }
+
+    // Faixa de destaque (hero) do relatório
+    const hero = `<table style="width:100%;border-collapse:separate;border-spacing:0;margin:2px 0 14px;border-radius:16px;overflow:hidden">
+      <tr><td style="padding:18px 20px;background:linear-gradient(135deg,#065f46,#0d9488)">
+        <div style="color:#d1fae5;font-size:12px">Patrimônio total</div>
+        <div style="color:#ffffff;font-size:30px;font-weight:800;letter-spacing:-.5px">${brl(summary.totalBalance)}</div>
+        <div style="margin-top:8px">
+          <span style="display:inline-block;background:rgba(255,255,255,.16);color:#fff;font-size:12px;padding:4px 10px;border-radius:8px;margin-right:6px">Saldo do período: ${brl(summary.bal)}</span>
+          <span style="display:inline-block;background:rgba(255,255,255,.16);color:#fff;font-size:12px;padding:4px 10px;border-radius:8px">Poupança: ${Number(summary.rate || 0).toFixed(0)}%</span>
+        </div>
+      </td></tr>
+    </table>`;
+
+    const html = tpl(`Seu relatório financeiro`,
+      `Olá${summary.name ? ' ' + summary.name : ''}, aqui está o resumo das suas finanças no período <b>${summary.periodLabel || ''}</b> (contas + cartão).
+       ${hero}
        ${kpis}
        ${insightsBlock}
        ${monthlyBlock}
@@ -94,7 +127,9 @@ export default async function handler(req, res) {
        ${catBars || '<div style="color:#94a3b8;font-size:13px">Sem despesas no período.</div>'}
        ${topEx ? `<div style="font-weight:700;color:#0b1330;margin:18px 0 4px">Maiores despesas</div>${itemsTable([topEx])}` : ''}
        ${taxBlock}
-       <div style="margin-top:18px;color:#64748b;font-size:12px">Quer a planilha completa? Abra o Monvy → Relatórios → Excel para baixar entradas, saídas e a aba de Carga Tributária.</div>`);
+       ${nfBlock}
+       <div style="margin-top:18px;color:#64748b;font-size:12px">Quer a planilha completa? Abra o Monvy → Relatórios → Excel para baixar entradas, saídas e a aba de Carga Tributária. Para o PDF completo, use Relatórios → Exportar PDF.</div>`,
+      { wide: true, subtitle: `Relatório financeiro · ${summary.periodLabel || ''}` });
 
     const r = await sendMail({ to: dest, subject: `Monvy — Relatório ${summary.periodLabel || ''}`, html });
     if (r.sent) return sendJson(res, 200, { ok: true, to: dest });
