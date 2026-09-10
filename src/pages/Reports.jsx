@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { exportReportToPdf } from '../lib/exportPdf.js';
 import { Transaction, Account, Category, CreditCardTransaction, AppSettings, TaxLedger, FiscalNote } from '../api/entities.js';
 import { AiWordCloud } from '../components/AiWordCloud.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -171,6 +172,18 @@ export default function Reports() {
     toast.success('Planilha Excel gerada.');
   };
 
+  const printRef = useRef(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const exportPDF = async () => {
+    if (!printRef.current) return;
+    setPdfBusy(true);
+    try {
+      await exportReportToPdf(printRef.current, { filename: `monvy-relatorio-${period}m.pdf`, title: 'Monvy · Relatório Financeiro', subtitle: `${periodLabel}${user?.full_name ? ' · ' + user.full_name : ''}` });
+      toast.success('PDF gerado.');
+    } catch (e) { toast.error('Não consegui gerar o PDF: ' + (e.message || '')); }
+    finally { setPdfBusy(false); }
+  };
+
   const [emailing, setEmailing] = useState(false);
   const sendByEmail = async () => {
     setEmailing(true);
@@ -192,7 +205,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-4 animate-fadeIn print:space-y-2">
+    <div ref={printRef} className="space-y-4 animate-fadeIn print:space-y-2">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div><h1 className="font-display text-2xl font-bold gradient-text">Relatório Financeiro</h1><p className="text-muted text-sm">Análise completa das suas financas</p></div>
         <div className="flex items-center gap-2 print:hidden flex-wrap">
@@ -201,7 +214,7 @@ export default function Reports() {
           <Button variant="outline" onClick={exportExcel}><FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Excel</Button>
           <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4" /> CSV</Button>
           <Button variant="outline" onClick={sendByEmail} disabled={emailing}>{emailing ? <Spinner className="w-4 h-4" /> : <><Mail className="w-4 h-4" /> Enviar por e-mail</>}</Button>
-          <Button onClick={() => window.print()}><Printer className="w-4 h-4" /> Exportar PDF</Button>
+          <Button onClick={exportPDF} disabled={pdfBusy}>{pdfBusy ? <Spinner className="w-4 h-4" /> : <><Printer className="w-4 h-4" /> Exportar PDF</>}</Button>
         </div>
       </div>
 

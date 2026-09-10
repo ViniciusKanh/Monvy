@@ -24,6 +24,8 @@
     "recharts": "^2.12.7",
     "react-pluggy-connect": "^2.12.0",
     "pluggy-js": "^0.19.3",
+    "jspdf": "^2.5.2",
+    "html2canvas": "^1.4.1",
     "nodemailer": "^6.9.14",
     "pdfjs-dist": "^4.7.76",
     "tesseract.js": "^5.1.1",
