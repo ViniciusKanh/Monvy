@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Transaction, Account, Category, CreditCardTransaction, AppSettings } from '../api/entities.js';
+import { Transaction, Account, Category, CreditCardTransaction, AppSettings, TaxLedger, FiscalNote } from '../api/entities.js';
 import { AiWordCloud } from '../components/AiWordCloud.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Button, Select, Badge, Spinner } from '../components/ui';
@@ -28,7 +28,12 @@ export default function Reports() {
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => Category.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
   const { data: settingsList = [] } = useQuery({ queryKey: ['appsettings'], queryFn: () => AppSettings.list() });
+  const { data: taxLedger = [] } = useQuery({ queryKey: ['tax-ledger-all'], queryFn: () => TaxLedger.list() });
+  const { data: fiscalNotes = [] } = useQuery({ queryKey: ['fiscal-notes'], queryFn: () => FiscalNote.list() });
   const geminiKey = settingsList[0]?.gemini_api_key;
+  // mapas por mês: IOF (faturas) e tributos de notas fiscais
+  const iofByMonth = useMemo(() => { const m = {}; for (const r of taxLedger) if (r.source === 'invoice' && r.kind === 'IOF') m[r.reference_month] = (m[r.reference_month] || 0) + Number(r.amount || 0); return m; }, [taxLedger]);
+  const nfeByMonth = useMemo(() => { const m = {}; for (const r of fiscalNotes) { const mk = String(r.reference_month || ''); if (mk) m[mk] = (m[mk] || 0) + Number(r.total_tax || 0); } return m; }, [fiscalNotes]);
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
   const tx = useMemo(() => combineExpenses(transactions, cardTxs), [transactions, cardTxs]);
@@ -50,13 +55,13 @@ export default function Reports() {
     let cfg = { salarioBruto: 4200, dependentes: 0, deducoes: 0, inssConfirmado: 392.60, irrfConfirmado: 0, ipvaAnual: 0, iptuAnual: 0 };
     try { const raw = localStorage.getItem('monvy:taxBurden:v1'); if (raw) { const s = JSON.parse(raw); const nm = (v) => { const x = Number(String(v).replace(',', '.')); return isNaN(x) ? 0 : x; }; cfg = { salarioBruto: nm(s.salarioBruto), dependentes: nm(s.dependentes), deducoes: nm(s.deducoes), inssConfirmado: s.inssConfirmado === '' ? undefined : nm(s.inssConfirmado), irrfConfirmado: s.irrfConfirmado === '' ? undefined : nm(s.irrfConfirmado), ipvaAnual: nm(s.ipvaAnual), iptuAnual: nm(s.iptuAnual) }; } } catch { /* usa default */ }
     return months.map((k) => {
-      const gastos = tx.filter((t) => t.type === 'expense' && Number(t.amount) > 0 && String(t.date).slice(0, 7) === k).map((t) => ({ valor: Number(t.amount), descricao: t.description, categoria: t.category_id }));
-      const recs = buildTaxRecords({ ano: Number(k.slice(0, 4)), mes: Number(k.slice(5, 7)), ...cfg, gastos });
+      const gastos = tx.filter((t) => t.type === 'expense' && Number(t.amount) > 0 && String(t.date).slice(0, 7) === k && !/\biof\b/i.test(t.description || '')).map((t) => ({ valor: Number(t.amount), descricao: t.description, categoria: t.category_id }));
+      const recs = buildTaxRecords({ ano: Number(k.slice(0, 4)), mes: Number(k.slice(5, 7)), ...cfg, gastos, iofLancado: iofByMonth[k] || 0, nfeConfirmado: nfeByMonth[k] || 0 });
       const ag = aggregate(recs, cfg.salarioBruto);
       const [y, m] = k.split('-').map(Number);
       return { mk: k, name: `${MONTHS_PT[m - 1].slice(0, 3)}/${String(y).slice(2)}`, confirmado: ag.totalConfirmado, estimado: ag.totalEstimado, total: ag.totalCarga, pct: ag.percentualCarga, recs };
     });
-  }, [tx, months]);
+  }, [tx, months, iofByMonth, nfeByMonth]);
   const taxTotals = useMemo(() => {
     const t = taxByMonth.reduce((a, r) => ({ conf: a.conf + r.confirmado, est: a.est + r.estimado, tot: a.tot + r.total }), { conf: 0, est: 0, tot: 0 });
     const avgPct = taxByMonth.length ? taxByMonth.reduce((s, r) => s + r.pct, 0) / taxByMonth.length : 0;

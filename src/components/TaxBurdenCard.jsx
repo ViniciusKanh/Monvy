@@ -5,7 +5,7 @@ import { Landmark, ChevronRight, CheckCircle2, CircleDashed } from 'lucide-react
 import { Card } from './ui';
 import { Reveal } from './Animated.jsx';
 import { formatCurrency, monthKey } from '../lib/utils.js';
-import { Transaction, CreditCardTransaction } from '../api/entities.js';
+import { Transaction, CreditCardTransaction, TaxLedger, FiscalNote } from '../api/entities.js';
 import { combineExpenses } from '../lib/analytics.js';
 import { buildTaxRecords, aggregate, buildTaxAnalysis } from '../lib/taxBurden.js';
 import { monthLabel } from '../lib/utils.js';
@@ -22,24 +22,30 @@ export function TaxBurdenCard() {
   const nowMk = monthKey(new Date());
   const { data: txs = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: ledger = [] } = useQuery({ queryKey: ['tax-ledger', nowMk], queryFn: () => TaxLedger.list({ reference_month: nowMk }) });
+  const { data: notes = [] } = useQuery({ queryKey: ['fiscal-notes'], queryFn: () => FiscalNote.list() });
 
   const { resumo, narrativa } = useMemo(() => {
     const gastos = combineExpenses(txs, cardTxs)
       .filter((t) => t.type === 'expense' && Number(t.amount) > 0 && String(t.date).slice(0, 7) === nowMk)
+      .filter((t) => !/\biof\b/i.test(t.description || ''))
       .map((t) => ({ valor: Number(t.amount), descricao: t.description, categoria: t.category_id }));
+    const iofConf = (ledger || []).filter((r) => r.kind === 'IOF').reduce((s, r) => s + Number(r.amount || 0), 0);
+    const nfeConf = (notes || []).filter((r) => String(r.reference_month || '') === nowMk).reduce((s, r) => s + Number(r.total_tax || 0), 0);
     const recs = buildTaxRecords({
       ano: Number(nowMk.slice(0, 4)), mes: Number(nowMk.slice(5, 7)),
       salarioBruto: nnum(cfg.salarioBruto), dependentes: nnum(cfg.dependentes), deducoes: nnum(cfg.deducoes),
       inssConfirmado: cfg.inssConfirmado === '' ? undefined : nnum(cfg.inssConfirmado),
       irrfConfirmado: cfg.irrfConfirmado === '' ? undefined : nnum(cfg.irrfConfirmado),
       gastos, ipvaAnual: nnum(cfg.ipvaAnual), iptuAnual: nnum(cfg.iptuAnual),
+      iofLancado: iofConf, nfeConfirmado: nfeConf,
     });
     const rb = nnum(cfg.salarioBruto);
     const ag = aggregate(recs, rb);
     const gastoTotal = gastos.reduce((s, g) => s + Number(g.valor), 0);
     const an = buildTaxAnalysis({ mesLabel: monthLabel(nowMk), rendaBruta: rb, gastoTotal, records: recs, resumo: ag });
     return { resumo: ag, narrativa: an.narrativa };
-  }, [txs, cardTxs, nowMk]);
+  }, [txs, cardTxs, nowMk, ledger, notes]);
 
   if (!resumo.temDadoSuficiente) return null;
 

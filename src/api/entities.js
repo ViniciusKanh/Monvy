@@ -39,6 +39,7 @@ export const CategoryRule = makeEntity('CategoryRule');
 export const Notification = makeEntity('Notification');
 export const BankRate = makeEntity('BankRate');
 export const TaxLedger = makeEntity('TaxLedger');
+export const FiscalNote = makeEntity('FiscalNote');
 
 export const Auth = {
   login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),
@@ -93,6 +94,7 @@ export const Ai = {
     api.post('/api/ai/parse-invoice', { pdfBase64, apiKey, categories }),
   ask: (question, context, apiKey, history, persona) => api.post('/api/ai/assistant', { question, context, apiKey, history, persona }),
   parseInforme: (pdfBase64, apiKey, year) => api.post('/api/ai/parse-informe', { pdfBase64, apiKey, year }),
+  parseDanfe: (pdfBase64, apiKey) => api.post('/api/ai/parse-danfe', { pdfBase64, apiKey }),
 };
 
 export const Admin = {

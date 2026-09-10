@@ -354,6 +354,23 @@ export const SCHEMA_STATEMENTS = [
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_taxledger_owner ON TaxLedger(created_by_id)`,
+  `CREATE TABLE IF NOT EXISTS FiscalNote (
+    id TEXT PRIMARY KEY,
+    access_key TEXT,
+    number TEXT,
+    emitter TEXT,
+    emitter_cnpj TEXT,
+    issued_date TEXT,
+    reference_month TEXT,
+    total_value REAL DEFAULT 0,
+    total_tax REAL DEFAULT 0,
+    taxes TEXT DEFAULT '{}',
+    source TEXT DEFAULT 'xml',
+    xml TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_fiscalnote_owner ON FiscalNote(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_bankrate_owner ON BankRate(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notif_owner ON Notification(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_catrule_owner ON CategoryRule(created_by_id)`,
@@ -414,6 +431,14 @@ export const MIGRATIONS = [
     )`,
     `CREATE INDEX IF NOT EXISTS idx_taxledger_owner ON TaxLedger(created_by_id)`,
   ] },
+  { id: '020_fiscal_note', statements: [
+    `CREATE TABLE IF NOT EXISTS FiscalNote (
+      id TEXT PRIMARY KEY, access_key TEXT, number TEXT, emitter TEXT, emitter_cnpj TEXT, issued_date TEXT,
+      reference_month TEXT, total_value REAL DEFAULT 0, total_tax REAL DEFAULT 0, taxes TEXT DEFAULT '{}',
+      source TEXT DEFAULT 'xml', xml TEXT, is_deleted INTEGER DEFAULT 0, created_date TEXT, updated_date TEXT, created_by_id TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_fiscalnote_owner ON FiscalNote(created_by_id)`,
+  ] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
     `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,
@@ -447,6 +472,7 @@ export const ENTITIES = {
   Notification: 'Notification',
   BankRate: 'BankRate',
   TaxLedger: 'TaxLedger',
+  FiscalNote: 'FiscalNote',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)
@@ -455,6 +481,7 @@ export const JSON_FIELDS = {
   Forecast: ['features_importance'],
   Trigger: ['config'],
   TaxLedger: ['meta'],
+  FiscalNote: ['taxes'],
 };
 
 // Colunas boolean (armazenadas como 0/1)

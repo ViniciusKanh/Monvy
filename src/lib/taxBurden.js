@@ -182,6 +182,12 @@ export function buildTaxRecords(entrada = {}) {
     records.push({ id: `consumo-${ref}`, key: 'consumo', name: 'Tributos sobre consumo', amount: 0, referenceMonth: ref, source: SOURCE.ibpt, status: STATUS.estimated, available: false, lastUpdatedAt: at, meta: { fonte: CONSUMO_BUCKETS.fonte } });
   }
 
+  // --- Notas fiscais (tributos medidos por documento) ---
+  const nfe = n(entrada.nfeConfirmado);
+  records.push(nfe > 0
+    ? { id: `nfe-${ref}`, key: 'nfe', name: 'Tributos em notas fiscais', amount: round2(nfe), referenceMonth: ref, source: SOURCE.calculated, status: STATUS.confirmed, available: true, lastUpdatedAt: at, meta: { fonte: 'Notas fiscais (XML/DANFE)' } }
+    : { id: `nfe-${ref}`, key: 'nfe', name: 'Tributos em notas fiscais', amount: 0, referenceMonth: ref, source: SOURCE.calculated, status: STATUS.confirmed, available: false, lastUpdatedAt: at, meta: { fonte: 'Notas fiscais (XML/DANFE)' } });
+
   // --- IOF (so se identificado) ---
   const iof = n(entrada.iofLancado);
   records.push(iof > 0

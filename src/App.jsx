@@ -42,6 +42,8 @@ import BanksLookup from './pages/BanksLookup.jsx';
 import DebtPayoff from './pages/DebtPayoff.jsx';
 import SalaryNet from './pages/SalaryNet.jsx';
 import TaxBurden from './pages/TaxBurden.jsx';
+import Impostos from './pages/Impostos.jsx';
+import NotasFiscais from './pages/NotasFiscais.jsx';
 import Fipe from './pages/Fipe.jsx';
 import GoalPlanner from './pages/GoalPlanner.jsx';
 import PriceSac from './pages/PriceSac.jsx';
@@ -115,6 +117,8 @@ export default function App() {
         <Route path="/fire" element={<Protected screenKey="fire"><Fire /></Protected>} />
         <Route path="/imposto-de-renda" element={<Protected screenKey="tax"><IncomeTax /></Protected>} />
         <Route path="/carga-tributaria" element={<Protected screenKey="taxburden"><TaxBurden /></Protected>} />
+        <Route path="/impostos" element={<Protected screenKey="taxes"><Impostos /></Protected>} />
+        <Route path="/notas-fiscais" element={<Protected screenKey="fiscalnotes"><NotasFiscais /></Protected>} />
         <Route path="/notificacoes" element={<Protected screenKey="notifications"><Notifications /></Protected>} />
         <Route path="/assinaturas" element={<Protected screenKey="subscriptions"><Subscriptions /></Protected>} />
         <Route path="/cofres" element={<Protected screenKey="safes"><VirtualSafes /></Protected>} />

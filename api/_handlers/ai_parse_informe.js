@@ -44,8 +44,7 @@ Para cada bloco, extraia:
 - institution: nome da instituicao/banco/corretora
 - account_type: tipo predominante (ex.: "Conta/Poupanca", "CDB", "Fundos", "Tesouro", "Acoes/FII", "Previdencia", ou "Diversos")
 - ir_fonte: total de Imposto de Renda Retido na Fonte (R$) daquela instituicao
-- iof: total de IOF retido (R$), se houver
-- outros: outros tributos retidos (R$), se houver
+- outros: outros tributos retidos (R$), se houver (NAO inclua IOF aqui — IOF nao entra no informe)
 - rendimentos: total de rendimentos/juros do periodo (R$), apenas para contexto
 
 Regras:
@@ -54,7 +53,7 @@ Regras:
 - NAO invente instituicoes nem valores que nao estejam no documento.
 - Se o ano do informe aparecer, informe em "year".
 
-Responda SO JSON: {"year":${year || 0},"accounts":[{"institution":"","account_type":"","ir_fonte":0,"iof":0,"outros":0,"rendimentos":0}]}`;
+Responda SO JSON: {"year":${year || 0},"accounts":[{"institution":"","account_type":"","ir_fonte":0,"outros":0,"rendimentos":0}]}`;
 
     const payload = {
       contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }] }],
@@ -80,9 +79,9 @@ Responda SO JSON: {"year":${year || 0},"accounts":[{"institution":"","account_ty
         .map((a) => ({
           institution: String(a.institution || '').trim() || 'Instituicao',
           account_type: String(a.account_type || '').trim() || 'Diversos',
-          ir_fonte: num(a.ir_fonte), iof: num(a.iof), outros: num(a.outros), rendimentos: num(a.rendimentos),
+          ir_fonte: num(a.ir_fonte), outros: num(a.outros), rendimentos: num(a.rendimentos),
         }))
-        .filter((a) => a.ir_fonte > 0 || a.iof > 0 || a.outros > 0 || a.rendimentos > 0);
+        .filter((a) => a.ir_fonte > 0 || a.outros > 0 || a.rendimentos > 0);
       return sendJson(res, 200, { year: Number(parsed.year) || Number(year) || null, accounts, model: m });
     }
     return sendJson(res, 502, { error: 'Nao consegui ler o informe com o Gemini. Verifique a chave/modelo. Detalhe: ' + (firstErr || 'sem modelos') });

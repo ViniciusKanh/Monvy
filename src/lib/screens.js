@@ -17,6 +17,8 @@ export const NAV_GROUPS = [
       { key: 'cards', label: 'Cartões', path: '/cartoes', icon: CreditCard },
       { key: 'transactions', label: 'Lançamentos', path: '/lancamentos', icon: ArrowLeftRight },
       { key: 'taxburden', label: 'Minha Carga Tributária', path: '/carga-tributaria', icon: Landmark },
+      { key: 'taxes', label: 'Impostos', path: '/impostos', icon: Landmark, adminOnly: true },
+      { key: 'fiscalnotes', label: 'Notas Fiscais', path: '/notas-fiscais', icon: FileText, adminOnly: true },
     ],
   },
   {

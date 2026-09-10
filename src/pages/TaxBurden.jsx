@@ -10,7 +10,7 @@ import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '.
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel } from '../lib/utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Transaction, CreditCardTransaction, Category, TaxLedger, Ai, AppSettings } from '../api/entities.js';
+import { Transaction, CreditCardTransaction, Category, TaxLedger, FiscalNote, Ai, AppSettings } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
 import { combineExpenses } from '../lib/analytics.js';
 import { buildTaxRecords, aggregate, explain, buildTaxAnalysis } from '../lib/taxBurden.js';
@@ -38,7 +38,7 @@ const STATUS_UI = {
   [STATUS.estimated]: { label: 'Estimado', color: 'amber', icon: CircleDashed, hint: 'Média/tabela de referência. Não representa valor efetivamente recolhido.' },
   [STATUS.manual]: { label: 'Informado', color: 'violet', icon: PencilLine, hint: 'Valor que você digitou (ex.: IPVA/IPTU anual mensalizado).' },
 };
-const CARD_ICON = { inss: ShieldCheck, irrf: Receipt, consumo: TrendingDown, iof: Calculator, ipva: Car, iptu: Home };
+const CARD_ICON = { inss: ShieldCheck, irrf: Receipt, consumo: TrendingDown, iof: Calculator, ipva: Car, iptu: Home, nfe: Receipt };
 // Classes estáticas (evita purge do Tailwind com strings dinâmicas)
 const ICON_BG = {
   emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30',
@@ -55,7 +55,7 @@ export default function TaxBurden() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [informe, setInforme] = useState({ origin_label: '', ir: '', iof: '', outros: '' });
+  const [informe, setInforme] = useState({ origin_label: '', ir: '', outros: '' });
   const [informeReview, setInformeReview] = useState(null); // linhas extraidas do PDF
   const [importingInforme, setImportingInforme] = useState(false);
   const fileRef = useRef(null);
@@ -75,12 +75,12 @@ export default function TaxBurden() {
   const refreshLedger = () => { qc.invalidateQueries({ queryKey: ['tax-ledger-year', ano] }); qc.invalidateQueries({ queryKey: ['tax-ledger', selMk] }); };
   const saveInforme = useMutation({
     mutationFn: async () => {
-      const ir = n(informe.ir), iof = n(informe.iof), outros = n(informe.outros);
-      const total = Math.round((ir + iof + outros) * 100) / 100;
+      const ir = n(informe.ir), outros = n(informe.outros);
+      const total = Math.round((ir + outros) * 100) / 100;
       if (!informe.origin_label.trim() || total <= 0) throw new Error('Informe a conta/banco e ao menos um valor.');
-      return TaxLedger.create({ kind: 'INFORME', amount: total, year: ano, source: 'informe', origin_kind: 'account', origin_label: informe.origin_label.trim(), meta: { ir, iof, outros } });
+      return TaxLedger.create({ kind: 'INFORME', amount: total, year: ano, source: 'informe', origin_kind: 'account', origin_label: informe.origin_label.trim(), meta: { ir, outros } });
     },
-    onSuccess: () => { toast.success('Informe de rendimento salvo.'); setInforme({ origin_label: '', ir: '', iof: '', outros: '' }); refreshLedger(); },
+    onSuccess: () => { toast.success('Informe de rendimento salvo.'); setInforme({ origin_label: '', ir: '', outros: '' }); refreshLedger(); },
     onError: (e) => toast.error(e.message || 'Falha ao salvar.'),
   });
   const removeLedger = useMutation({ mutationFn: (id) => TaxLedger.remove(id), onSuccess: () => { toast.success('Removido.'); refreshLedger(); } });
@@ -97,7 +97,7 @@ export default function TaxBurden() {
       const base64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
       const { accounts = [] } = await Ai.parseInforme(base64, geminiKey, ano);
       if (!accounts.length) { toast.error('Não encontrei tributos no informe. Você pode lançar manualmente.'); return; }
-      setInformeReview(accounts.map((a, i) => ({ _k: i, origin_label: a.institution, account_type: a.account_type, ir: String(a.ir_fonte || ''), iof: String(a.iof || ''), outros: String(a.outros || ''), rendimentos: a.rendimentos || 0 })));
+      setInformeReview(accounts.map((a, i) => ({ _k: i, origin_label: a.institution, account_type: a.account_type, ir: String(a.ir_fonte || ''), outros: String(a.outros || ''), rendimentos: a.rendimentos || 0 })));
       toast.success(`${accounts.length} conta(s) lida(s). Revise e salve.`);
     } catch (err) { toast.error(err.message || 'Falha ao ler o informe.'); }
     finally { setImportingInforme(false); }
@@ -105,8 +105,8 @@ export default function TaxBurden() {
   const saveInformeBatch = useMutation({
     mutationFn: async () => {
       const rows = (informeReview || []).map((a) => {
-        const ir = n(a.ir), iof = n(a.iof), outros = n(a.outros);
-        return { kind: 'INFORME', amount: Math.round((ir + iof + outros) * 100) / 100, year: ano, source: 'informe', origin_kind: 'account', origin_label: (a.origin_label || 'Conta').trim(), meta: { ir, iof, outros, account_type: a.account_type, rendimentos: a.rendimentos } };
+        const ir = n(a.ir), outros = n(a.outros);
+        return { kind: 'INFORME', amount: Math.round((ir + outros) * 100) / 100, year: ano, source: 'informe', origin_kind: 'account', origin_label: (a.origin_label || 'Conta').trim(), meta: { ir, outros, account_type: a.account_type, rendimentos: a.rendimentos } };
       }).filter((r) => r.amount > 0);
       if (!rows.length) throw new Error('Nenhum valor de tributo para salvar.');
       for (const r of rows) await TaxLedger.create(r);
@@ -134,6 +134,9 @@ export default function TaxBurden() {
   const ledgerYearQ = useQuery({ queryKey: ['tax-ledger-year', ano], queryFn: () => TaxLedger.list({ year: ano }) });
   const iofConfirmado = useMemo(() => (ledgerMonthQ.data || []).filter((r) => r.kind === 'IOF').reduce((s, r) => s + Number(r.amount || 0), 0), [ledgerMonthQ.data]);
   const informeEntries = useMemo(() => (ledgerYearQ.data || []).filter((r) => r.source === 'informe'), [ledgerYearQ.data]);
+  // Tributos das notas fiscais do mês (medidos por documento)
+  const notesQ = useQuery({ queryKey: ['fiscal-notes'], queryFn: () => FiscalNote.list() });
+  const nfeConfirmado = useMemo(() => (notesQ.data || []).filter((r) => String(r.reference_month || '') === selMk).reduce((s, r) => s + Number(r.total_tax || 0), 0), [notesQ.data, selMk]);
 
   // id -> nome da categoria (melhora a classificação por bucket de consumo)
   const catName = useMemo(() => Object.fromEntries((catQ.data || []).map((c) => [c.id, c.name])), [catQ.data]);
@@ -176,11 +179,12 @@ export default function TaxBurden() {
       ipvaAnual: n(cfg.ipvaAnual),
       iptuAnual: n(cfg.iptuAnual),
       iofLancado: iofConfirmado, // IOF confirmado, somado das faturas importadas
+      nfeConfirmado, // tributos das notas fiscais do mês
     };
     const recs = buildTaxRecords(entrada);
     const rb = n(cfg.salarioBruto);
     return { records: recs, resumo: aggregate(recs, rb), rendaBruta: rb };
-  }, [cfg, gastosSel, ano, mes, iofConfirmado]);
+  }, [cfg, gastosSel, ano, mes, iofConfirmado, nfeConfirmado]);
 
   // Histórico de 6 meses (carga total por mês) — usa consumo real de cada mês
   const historico = useMemo(() => {
@@ -489,9 +493,8 @@ export default function TaxBurden() {
                         <Input className="flex-1" value={a.origin_label} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, origin_label: e.target.value } : x))} placeholder="Instituição" />
                         <span className="text-xs text-muted whitespace-nowrap">{a.account_type}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mt-2">
+                      <div className="grid grid-cols-2 gap-2 mt-2">
                         <Field label="IR fonte"><Input inputMode="decimal" value={a.ir} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, ir: e.target.value } : x))} /></Field>
-                        <Field label="IOF"><Input inputMode="decimal" value={a.iof} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, iof: e.target.value } : x))} /></Field>
                         <Field label="Outros"><Input inputMode="decimal" value={a.outros} onChange={(e) => setInformeReview((rv) => rv.map((x, j) => j === i ? { ...x, outros: e.target.value } : x))} /></Field>
                       </div>
                     </div>
@@ -508,8 +511,7 @@ export default function TaxBurden() {
             <div className="grid grid-cols-2 gap-2">
               <div className="col-span-2"><Field label="Conta / Banco"><Input value={informe.origin_label} onChange={(e) => setInforme({ ...informe, origin_label: e.target.value })} placeholder="Ex: Nubank NuConta" /></Field></div>
               <Field label="IR na fonte (R$)"><Input inputMode="decimal" value={informe.ir} onChange={(e) => setInforme({ ...informe, ir: e.target.value })} /></Field>
-              <Field label="IOF (R$)"><Input inputMode="decimal" value={informe.iof} onChange={(e) => setInforme({ ...informe, iof: e.target.value })} /></Field>
-              <div className="col-span-2"><Field label="Outros tributos (R$)"><Input inputMode="decimal" value={informe.outros} onChange={(e) => setInforme({ ...informe, outros: e.target.value })} /></Field></div>
+              <Field label="Outros tributos (R$)"><Input inputMode="decimal" value={informe.outros} onChange={(e) => setInforme({ ...informe, outros: e.target.value })} /></Field>
             </div>
             <Button className="w-full mt-2" disabled={saveInforme.isPending} onClick={() => saveInforme.mutate()}>{saveInforme.isPending ? <Spinner className="w-4 h-4" /> : <><PlusCircle className="w-4 h-4" /> Adicionar informe</>}</Button>
           </div>
@@ -521,7 +523,7 @@ export default function TaxBurden() {
                 <div key={r.id} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 mb-1">
                   <div>
                     <p className="font-medium">{r.origin_label}</p>
-                    <p className="text-xs text-muted">IR {formatCurrency(r.meta?.ir || 0)} · IOF {formatCurrency(r.meta?.iof || 0)} · Outros {formatCurrency(r.meta?.outros || 0)}</p>
+                    <p className="text-xs text-muted">IR {formatCurrency(r.meta?.ir || 0)} · Outros {formatCurrency(r.meta?.outros || 0)}</p>
                   </div>
                   <span className="flex items-center gap-2"><b>{formatCurrency(r.amount)}</b><button className="text-rose-500" onClick={() => removeLedger.mutate(r.id)}><Trash2 className="w-4 h-4" /></button></span>
                 </div>
