@@ -35,18 +35,27 @@ export default async function handler(req, res) {
     if (!apiKey) return sendJson(res, 400, { error: 'Chave da API Gemini nao configurada. Adicione em Configuracoes.' });
     if (!pdfBase64) return sendJson(res, 400, { error: 'Envie o PDF da DANFE.' });
 
-    const prompt = `Voce le DANFE (Documento Auxiliar da Nota Fiscal Eletronica) em PDF e extrai os dados fiscais.
-Extraia:
-- emitter: razao social do emitente (a loja/empresa)
+    const prompt = `Voce le notas fiscais brasileiras em PDF e extrai os dados fiscais. Pode ser:
+(A) NF-e de PRODUTOS (DANFE) — tributos: ICMS, IPI, PIS, COFINS, II.
+(B) NFS-e de SERVICOS (nota de servico municipal) — tributo principal: ISS (Valor do ISS); e retencoes: IRRF, CSLL, COFINS, PIS/PASEP, INSS/Contribuicao Previdenciaria Retida.
+
+Identifique o tipo e extraia:
+- note_type: "produto" ou "servico"
+- emitter: razao social do PRESTADOR/emitente
 - emitter_cnpj: CNPJ do emitente (so numeros)
 - number: numero da nota
 - issued_date: data de emissao (YYYY-MM-DD)
-- total_value: valor total da nota (R$)
-- icms, ipi, pis, cofins, ii: valores dos tributos, se aparecerem (R$)
+- total_value: valor total (da nota ou do servico) em R$
+- icms, ipi, ii: tributos de produto, se houver (R$)
+- iss: Valor do ISS (R$) — so em nota de servico
+- pis, cofins: valores de PIS e COFINS (R$)
+- irrf: IRRF retido (R$)
+- csll: CSLL / Contribuicoes Sociais Retidas (R$)
+- inss: Contribuicao Previdenciaria Retida / INSS (R$)
 - aproximado: "Valor Aproximado dos Tributos" (Lei 12.741) se constar (R$)
 
-Regras: valores em reais com ponto decimal; se nao houver, use 0. NAO invente valores.
-Responda SO JSON: {"emitter":"","emitter_cnpj":"","number":"","issued_date":"","total_value":0,"icms":0,"ipi":0,"pis":0,"cofins":0,"ii":0,"aproximado":0}`;
+Regras: valores em reais com ponto decimal; se um campo nao existir na nota, use 0. NAO invente valores. Para nota de servico com aliquota de ISS, o "Valor do ISS" e o imposto principal.
+Responda SO JSON: {"note_type":"produto","emitter":"","emitter_cnpj":"","number":"","issued_date":"","total_value":0,"icms":0,"ipi":0,"ii":0,"iss":0,"pis":0,"cofins":0,"irrf":0,"csll":0,"inss":0,"aproximado":0}`;
 
     const payload = {
       contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }] }],
@@ -68,12 +77,17 @@ Responda SO JSON: {"emitter":"","emitter_cnpj":"","number":"","issued_date":"","
       let p;
       try { p = JSON.parse(text); } catch { try { p = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { p = null; } }
       if (!p) { if (!firstErr) firstErr = `${m}: resposta invalida`; continue; }
-      const taxes = { icms: num(p.icms), ipi: num(p.ipi), pis: num(p.pis), cofins: num(p.cofins), ii: num(p.ii), aproximado: num(p.aproximado) };
-      const soma = taxes.icms + taxes.ipi + taxes.pis + taxes.cofins + taxes.ii;
+      const taxes = {
+        icms: num(p.icms), ipi: num(p.ipi), ii: num(p.ii), iss: num(p.iss),
+        pis: num(p.pis), cofins: num(p.cofins), irrf: num(p.irrf), csll: num(p.csll), inss: num(p.inss),
+        aproximado: num(p.aproximado),
+      };
+      const soma = taxes.icms + taxes.ipi + taxes.ii + taxes.iss + taxes.pis + taxes.cofins + taxes.irrf + taxes.csll + taxes.inss;
       const total_tax = Math.round((soma > 0 ? soma : taxes.aproximado) * 100) / 100;
       const dt = String(p.issued_date || '').slice(0, 10);
       return sendJson(res, 200, {
         note: {
+          note_type: String(p.note_type || '').toLowerCase().includes('serv') ? 'servico' : 'produto',
           emitter: String(p.emitter || '').trim() || 'Emitente',
           emitter_cnpj: String(p.emitter_cnpj || '').replace(/\D/g, ''),
           number: String(p.number || '').trim(),

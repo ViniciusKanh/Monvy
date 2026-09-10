@@ -365,8 +365,12 @@ export const SCHEMA_STATEMENTS = [
     total_value REAL DEFAULT 0,
     total_tax REAL DEFAULT 0,
     taxes TEXT DEFAULT '{}',
+    note_type TEXT DEFAULT 'produto',
     source TEXT DEFAULT 'xml',
     xml TEXT,
+    file_data TEXT,
+    file_name TEXT,
+    file_type TEXT,
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
@@ -438,6 +442,12 @@ export const MIGRATIONS = [
       source TEXT DEFAULT 'xml', xml TEXT, is_deleted INTEGER DEFAULT 0, created_date TEXT, updated_date TEXT, created_by_id TEXT
     )`,
     `CREATE INDEX IF NOT EXISTS idx_fiscalnote_owner ON FiscalNote(created_by_id)`,
+  ] },
+  { id: '021_fiscal_note_files', statements: [
+    `ALTER TABLE FiscalNote ADD COLUMN note_type TEXT DEFAULT 'produto'`,
+    `ALTER TABLE FiscalNote ADD COLUMN file_data TEXT`,
+    `ALTER TABLE FiscalNote ADD COLUMN file_name TEXT`,
+    `ALTER TABLE FiscalNote ADD COLUMN file_type TEXT`,
   ] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,

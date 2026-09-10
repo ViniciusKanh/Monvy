@@ -17,17 +17,22 @@ export function parseNfeXml(xmlString) {
   const tot = doc.getElementsByTagName('ICMSTot')[0] || doc;
 
   const key = (infNFe.getAttribute('Id') || '').replace(/^NFe/i, '');
+  const retTrib = doc.getElementsByTagName('retTrib')[0]; // retencoes federais (quando houver)
+  const issqnTot = doc.getElementsByTagName('ISSQNtot')[0]; // bloco de servico dentro da NF-e
   const taxes = {
     icms: elNum(tot, 'vICMS'),
     ipi: elNum(tot, 'vIPI'),
+    ii: elNum(tot, 'vII'),
+    iss: elNum(issqnTot, 'vISS') || elNum(doc, 'vISS'),
     pis: elNum(tot, 'vPIS'),
     cofins: elNum(tot, 'vCOFINS'),
-    ii: elNum(tot, 'vII'),
-    issqn: elNum(doc, 'vISS'),
+    irrf: elNum(retTrib, 'vIRRF'),
+    csll: elNum(retTrib, 'vRetCSLL'),
+    inss: elNum(retTrib, 'vRetPrev'),
     fcp: elNum(tot, 'vFCP'),
   };
   const aproximado = elNum(tot, 'vTotTrib'); // valor aprox. dos tributos (IBPT)
-  const somaExplicita = taxes.icms + taxes.ipi + taxes.pis + taxes.cofins + taxes.ii + taxes.issqn;
+  const somaExplicita = taxes.icms + taxes.ipi + taxes.ii + taxes.iss + taxes.pis + taxes.cofins + taxes.irrf + taxes.csll + taxes.inss;
   // total_tax: prioriza o valor explicito dos tributos incidentes; usa o aproximado
   // como piso quando os campos vem zerados (comum em NFC-e de varejo).
   const total_tax = Math.round((somaExplicita > 0 ? somaExplicita : aproximado) * 100) / 100;
@@ -42,6 +47,7 @@ export function parseNfeXml(xmlString) {
     total_value: elNum(tot, 'vNF'),
     taxes: { ...taxes, aproximado },
     total_tax,
+    note_type: taxes.iss > 0 ? 'servico' : 'produto',
     source: 'xml',
   };
 }
