@@ -16,18 +16,11 @@ import { Menu, X, Sun, Moon, Search } from 'lucide-react';
 import { AlertsBell } from '../components/AlertsBell.jsx';
 import { RobotsStatus } from '../components/RobotsStatus.jsx';
 import { GlobalSearch, openGlobalSearch } from '../components/GlobalSearch.jsx';
+import { MobileBottomNav } from '../components/MobileBottomNav.jsx';
 import { OnboardingWizard } from '../components/OnboardingWizard.jsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { LayoutDashboard, Wallet, CreditCard, ArrowLeftRight, Tags } from 'lucide-react';
 import { cn } from '../lib/utils.js';
-
-const BOTTOM_NAV = [
-  { key: 'dashboard', label: 'Inicio', path: '/', icon: LayoutDashboard },
-  { key: 'accounts', label: 'Contas', path: '/contas', icon: Wallet },
-  { key: 'cards', label: 'Cartoes', path: '/cartoes', icon: CreditCard },
-  { key: 'transactions', label: 'Lancam.', path: '/lancamentos', icon: ArrowLeftRight },
-  { key: 'categories', label: 'Categ.', path: '/categorias', icon: Tags },
-];
 
 function currentIcon(pathname) {
   for (const g of NAV_GROUPS) { const it = g.items.find((i) => i.path === pathname); if (it) return it.icon; }
@@ -148,16 +141,8 @@ export function AppLayout() {
         </main>
         <OnboardingWizard />
 
-        {/* Bottom nav mobile */}
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-[hsl(var(--card))] border-t border-[hsl(var(--border))] flex">
-          {BOTTOM_NAV.filter((i) => canAccess(i.key)).map((it) => (
-            <NavLink key={it.key} to={it.path} end={it.path === '/'}
-              className={({ isActive }) => cn('flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium',
-                isActive ? 'text-emerald-500' : 'text-muted')}>
-              <it.icon className="w-5 h-5" /><span className="truncate max-w-full">{t('nav.' + it.key, it.label)}</span>
-            </NavLink>
-          ))}
-        </nav>
+        {/* Bottom nav mobile (indicador mágico) */}
+        <MobileBottomNav />
       </div>
     </div>
   );
