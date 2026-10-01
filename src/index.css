@@ -170,14 +170,14 @@ body {
 html, body { max-width: 100%; overflow-x: hidden; }
 
 /* ===== Nav inferior mobile (indicador magico) ===== */
-.mnav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; background: hsl(var(--card)); border-top: 1px solid hsl(var(--border)); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.mnav-list { position: relative; display: flex; height: 64px; margin: 0; padding: 0; list-style: none; }
+.mnav { position: fixed; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); z-index: 30; width: calc(100% - 24px); max-width: 460px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 22px; box-shadow: 0 12px 30px rgba(8,13,31,.20); }
+.mnav-list { position: relative; display: flex; height: 62px; margin: 0; padding: 0; list-style: none; }
 .mnav-item { position: relative; flex: 1; z-index: 1; }
 .mnav-item a { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 64px; text-decoration: none; -webkit-tap-highlight-color: transparent; }
 .mnav-icon { color: hsl(var(--muted)); transition: .45s; display: flex; align-items: center; justify-content: center; }
 .mnav-icon svg { width: 24px; height: 24px; }
 .mnav-item.active .mnav-icon { transform: translateY(-26px); color: #fff; }
-.mnav-text { position: absolute; bottom: 9px; font-size: .68rem; font-weight: 600; color: hsl(var(--text)); opacity: 0; transform: translateY(10px); transition: .45s; white-space: nowrap; }
+.mnav-text { position: absolute; bottom: 9px; left: 0; right: 0; text-align: center; font-size: .66rem; font-weight: 600; color: hsl(var(--text)); opacity: 0; transform: translateY(10px); transition: .45s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
 .mnav-item.active .mnav-text { opacity: 1; transform: translateY(0); }
 .mnav-ind { position: absolute; top: -26px; width: 54px; height: 54px; background: linear-gradient(135deg,#10b981,#059669); border-radius: 50%; border: 6px solid hsl(var(--bg)); transform: translateX(-50%); transition: left .45s cubic-bezier(.68,-0.55,.27,1.55); box-shadow: 0 8px 18px rgba(16,185,129,.45); pointer-events: none; }
 .mnav-ind::before { content: ""; position: absolute; top: 54%; left: -22px; width: 20px; height: 20px; background: transparent; border-top-right-radius: 20px; box-shadow: 1px -10px 0 0 hsl(var(--bg)); }

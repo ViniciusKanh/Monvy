@@ -20,7 +20,7 @@ export function QuickAdd() {
   return (
     <>
       <button onClick={() => setOpen(true)} title="Novo lançamento (rapido)" aria-label="Novo lançamento"
-        className="fixed z-40 bottom-5 right-5 w-14 h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center transition hover:scale-105 active:scale-95 print:hidden">
+        className="fixed z-40 right-5 bottom-[calc(96px+env(safe-area-inset-bottom,0px))] lg:bottom-5 w-14 h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center transition hover:scale-105 active:scale-95 print:hidden">
         <Plus className="w-7 h-7" />
       </button>
       <TransactionModal open={open} onClose={() => setOpen(false)} onSubmit={(p) => save.mutate(p)} saving={save.isPending} accounts={accounts} categories={categories} transactions={transactions} defaultType="expense" />
