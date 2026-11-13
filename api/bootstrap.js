@@ -2,6 +2,7 @@ import { ensureSchema } from './_lib/db.js';
 import { getAuth, sendJson } from './_lib/auth.js';
 import { listRows } from './_lib/entities.js';
 import { materializeRecurrences } from './_lib/hooks.js';
+import { getSetting } from './_lib/settings.js';
 
 function since(monthsBack) { const d = new Date(); d.setMonth(d.getMonth() - monthsBack); return d.toISOString().slice(0, 10); }
 
@@ -20,7 +21,10 @@ export default async function handler(req, res) {
         listRows('Goal', o, {}), listRows('Subscription', o, {}), listRows('Safe', o, {}),
         listRows('AppSettings', o, {}),
       ]);
-    return sendJson(res, 200, { accounts, categories, transactions, cards, cardTx, invoices, goals, subscriptions, safes, settings });
+    // Campanha de avaliação (global, definida pelo admin) — entregue a todos os usuários
+    let rateCampaign = null;
+    try { const raw = await getSetting('rate_campaign'); if (raw) { const c = JSON.parse(raw); if (c && c.active) rateCampaign = c; } } catch { /* sem campanha */ }
+    return sendJson(res, 200, { accounts, categories, transactions, cards, cardTx, invoices, goals, subscriptions, safes, settings, rateCampaign });
   } catch (e) {
     return sendJson(res, 500, { error: e.message });
   }

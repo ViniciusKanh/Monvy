@@ -375,6 +375,15 @@ export const SCHEMA_STATEMENTS = [
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_fiscalnote_owner ON FiscalNote(created_by_id)`,
+  `CREATE TABLE IF NOT EXISTS UsageEvent (
+    id TEXT PRIMARY KEY,
+    screen_key TEXT,
+    day TEXT,
+    is_deleted INTEGER DEFAULT 0,
+    created_date TEXT, updated_date TEXT, created_by_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_usage_owner ON UsageEvent(created_by_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_usage_screen ON UsageEvent(screen_key)`,
   `CREATE INDEX IF NOT EXISTS idx_bankrate_owner ON BankRate(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_notif_owner ON Notification(created_by_id)`,
   `CREATE INDEX IF NOT EXISTS idx_catrule_owner ON CategoryRule(created_by_id)`,
@@ -449,6 +458,14 @@ export const MIGRATIONS = [
     `ALTER TABLE FiscalNote ADD COLUMN file_name TEXT`,
     `ALTER TABLE FiscalNote ADD COLUMN file_type TEXT`,
   ] },
+  { id: '022_usage_event', statements: [
+    `CREATE TABLE IF NOT EXISTS UsageEvent (
+      id TEXT PRIMARY KEY, screen_key TEXT, day TEXT, is_deleted INTEGER DEFAULT 0,
+      created_date TEXT, updated_date TEXT, created_by_id TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_usage_owner ON UsageEvent(created_by_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_usage_screen ON UsageEvent(screen_key)`,
+  ] },
   { id: '015_bankrate_rich', statements: [
     `ALTER TABLE BankRate ADD COLUMN base_rate REAL`,
     `ALTER TABLE BankRate ADD COLUMN periodicity TEXT DEFAULT 'mensal'`,
@@ -483,6 +500,7 @@ export const ENTITIES = {
   BankRate: 'BankRate',
   TaxLedger: 'TaxLedger',
   FiscalNote: 'FiscalNote',
+  UsageEvent: 'UsageEvent',
 };
 
 // Colunas do tipo JSON (serializadas/desserializadas automaticamente)

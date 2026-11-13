@@ -17,6 +17,8 @@ import { AlertsBell } from '../components/AlertsBell.jsx';
 import { RobotsStatus } from '../components/RobotsStatus.jsx';
 import { GlobalSearch, openGlobalSearch } from '../components/GlobalSearch.jsx';
 import { MobileBottomNav } from '../components/MobileBottomNav.jsx';
+import { RateReminder } from '../components/RateReminder.jsx';
+import { UsageEvent } from '../api/entities.js';
 import { OnboardingWizard } from '../components/OnboardingWizard.jsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { LayoutDashboard, Wallet, CreditCard, ArrowLeftRight, Tags } from 'lucide-react';
@@ -45,6 +47,7 @@ export function AppLayout() {
   const pageTitle = navItem ? t('nav.' + navItem.key, navItem.label) : 'Monvy';
   const qc = useQueryClient();
   const [onboarded, setOnboarded] = useState(() => { try { return localStorage.getItem('monvy_onboarded') === '1'; } catch { return false; } });
+  const [rateCampaign, setRateCampaign] = useState(null);
   const { data: accs, isSuccess: accsReady } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list(), enabled: !!user });
   const showOnboarding = !!user && accsReady && Array.isArray(accs) && accs.length === 0 && !onboarded;
 
@@ -64,9 +67,21 @@ export function AppLayout() {
       qc.setQueryData(['subscriptions'], b.subscriptions);
       qc.setQueryData(['safes'], b.safes);
       qc.setQueryData(['appsettings'], b.settings);
+      setRateCampaign(b.rateCampaign || null);
     }).catch(() => {});
     return () => { active = false; };
   }, [user, qc]);
+
+  // Log de uso (analytics do admin): 1 evento por tela por dia, por usuário
+  useEffect(() => {
+    if (!user) return;
+    const item = currentNavKey(location.pathname);
+    const key = item?.key; if (!key) return;
+    const day = new Date().toISOString().slice(0, 10);
+    const flag = `monvy_usage_${key}_${day}`;
+    try { if (localStorage.getItem(flag)) return; localStorage.setItem(flag, '1'); } catch { return; }
+    UsageEvent.create({ screen_key: key, day }).catch(() => {});
+  }, [location.pathname, user]);
   const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
@@ -75,6 +90,7 @@ export function AppLayout() {
       {showOnboarding && <Onboarding name={user?.full_name} onDone={() => setOnboarded(true)} />}
       {!!user && !showOnboarding && <WhatsNew />}
       {!!user && !showOnboarding && <QuickAdd />}
+      {!!user && !showOnboarding && <RateReminder campaign={rateCampaign} />}
       {!!user && <GlobalSearch />}
       {/* Sidebar desktop */}
       <aside className="hidden lg:block fixed inset-y-0 left-0 z-30"><Sidebar /></aside>

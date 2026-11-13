@@ -40,6 +40,7 @@ export const Notification = makeEntity('Notification');
 export const BankRate = makeEntity('BankRate');
 export const TaxLedger = makeEntity('TaxLedger');
 export const FiscalNote = makeEntity('FiscalNote');
+export const UsageEvent = makeEntity('UsageEvent');
 
 export const Auth = {
   login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),
@@ -106,4 +107,7 @@ export const Admin = {
   testMail: (to) => api.post('/api/admin/mail', { to }),
   getDefaultScreens: () => api.get('/api/admin/defaults'),
   saveDefaultScreens: (screens) => api.post('/api/admin/defaults', { screens }),
+  usage: (days = 30) => api.get(`/api/admin/usage?days=${days}`),
+  getCampaign: () => api.get('/api/admin/campaign'),
+  saveCampaign: (data) => api.put('/api/admin/campaign', data),
 };

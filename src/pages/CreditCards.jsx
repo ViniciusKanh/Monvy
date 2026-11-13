@@ -125,13 +125,13 @@ export default function CreditCards() {
     });
   }
   // abre o modal de revisão com as compras lidas (o usuário confere/desmarca antes de salvar)
-  function openReview(items, source, declaredTotal) {
+  function openReview(items, source, declaredTotal, iofHint) {
     const clean = cleanInvoiceItems(items);
     if (!clean.length) { toast.error('Não encontrei compras válidas na fatura.'); return; }
     const mapped = clean
       .sort((a, b) => b.amount - a.amount) // compras primeiro, estornos no fim
       .map((it, i) => { const est = it.amount < 0; return { ...it, _k: i, _estorno: est, include: !est, category: est ? 'Estorno de Cartão de Crédito' : it.category }; });
-    setReview({ source, declaredTotal: declaredTotal || null, items: mapped });
+    setReview({ source, declaredTotal: declaredTotal || null, iofHint: Number(iofHint) || 0, items: mapped });
   }
 
   const commitReview = useMutation({
@@ -152,7 +152,8 @@ export default function CreditCards() {
       if (rows.length) await CreditCardTransaction.bulkCreate(rows);
       // Captura o IOF da fatura (tributo confirmado) para a Carga Tributária.
       // Guarda 1 registro por cartão+mês (regrava se reimportar).
-      const iofTotal = chosen.filter((it) => /iof/i.test(it.description || '')).reduce((s, it) => s + Math.abs(Number(it.amount) || 0), 0);
+      const iofFromItems = chosen.filter((it) => /\biof\b|imposto sobre opera/i.test(it.description || '')).reduce((s, it) => s + Math.abs(Number(it.amount) || 0), 0);
+      const iofTotal = (Number(review?.iofHint) > 0 ? Number(review.iofHint) : iofFromItems);
       try {
         const existentes = await TaxLedger.list({ source: 'invoice', origin_id: selected.id, reference_month: mk });
         for (const e of (existentes || [])) await TaxLedger.remove(e.id);
@@ -174,8 +175,8 @@ export default function CreditCards() {
         toast.info('Lendo a fatura com IA...');
         try {
           const base64 = await fileToBase64(file);
-          const { items = [], declaredTotal } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
-          if (items.length) { openReview(items, 'IA', declaredTotal); setImporting(false); return; }
+          const { items = [], declaredTotal, iof_total } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
+          if (items.length) { openReview(items, 'IA', declaredTotal, iof_total); setImporting(false); return; }
           toast.info('A IA não encontrou lançamentos — tentando leitura local...');
         } catch (aiErr) {
           toast.info('IA indisponível (' + (aiErr.message || 'erro') + ') — tentando leitura local...');

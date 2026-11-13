@@ -94,7 +94,11 @@ Responda SO JSON: {"invoice_total":0,"items":[{"date":"YYYY-MM-DD","description"
         .filter((it) => { const key = `${it.date}|${norm(it.description)}|${it.amount}|${it.installment_current}/${it.installments_total}`; if (seenItems.has(key)) return false; seenItems.add(key); return true; });
       const total = items.reduce((s, it) => s + it.amount, 0);
       const declaredTotal = Number(parsed.invoice_total) || null;
-      return sendJson(res, 200, { items, total, declaredTotal, model: m });
+      // IOF da fatura: soma todas as linhas de IOF (compra internacional etc.),
+      // reconhecendo variacoes de nome. Alimenta a Carga Tributaria (confirmado).
+      const iofRe = /\biof\b|imposto sobre opera/i;
+      const iof_total = Math.round(items.filter((it) => iofRe.test(it.description)).reduce((s, it) => s + Math.abs(it.amount), 0) * 100) / 100;
+      return sendJson(res, 200, { items, total, declaredTotal, iof_total, model: m });
     }
     return sendJson(res, 502, { error: 'Nao consegui usar o Gemini. Verifique se a chave e valida e tem acesso a um modelo Flash. Detalhe: ' + (firstErr || 'sem modelos disponiveis') });
   } catch (e) {

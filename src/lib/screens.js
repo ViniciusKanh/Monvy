@@ -96,6 +96,7 @@ export const NAV_GROUPS = [
       { key: 'help', label: 'Ajuda & Suporte', path: '/ajuda', icon: LifeBuoy },
       { key: 'tickets', label: 'Central de Tickets', path: '/chamados', icon: Ticket },
       { key: 'settings', label: 'Configurações', path: '/configuracoes', icon: Settings },
+      { key: 'adminanalytics', label: 'Analytics de Uso', path: '/analytics', icon: BarChart3, adminOnly: true },
       { key: 'users', label: 'Usuários & Acessos', path: '/usuarios', icon: Users, adminOnly: true },
       { key: 'newusers', label: 'Onboarding (novos usuários)', path: '/config-novos-usuarios', icon: UserPlus, adminOnly: true },
     ],
