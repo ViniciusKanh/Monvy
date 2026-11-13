@@ -13,31 +13,77 @@ async function requireAdmin(req, res) {
 
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 
-// GET /api/admin/usage?days=30 -> uso agregado de TODOS os usuarios (admin)
+// GET /api/admin/usage?days=30&churn=14 -> uso agregado + por usuario (admin)
 export async function usage(req, res) {
   const auth = await requireAdmin(req, res); if (!auth) return;
   try {
     const days = Math.min(365, Math.max(1, Number(req.query?.days) || 30));
+    const churnDays = Math.min(180, Math.max(1, Number(req.query?.churn) || 14));
     const since = daysAgo(days);
+    const churnCut = daysAgo(churnDays);
+    const today = new Date().toISOString().slice(0, 10);
     const c = db();
-    const byScreen = (await c.execute({
-      sql: `SELECT screen_key, COUNT(*) AS views, COUNT(DISTINCT created_by_id) AS users, MAX(day) AS last
+
+    // user x screen na janela (base para byScreen e por-usuario, em 1 consulta)
+    const rows = (await c.execute({
+      sql: `SELECT created_by_id AS uid, screen_key, COUNT(*) AS views, COUNT(DISTINCT day) AS days, MAX(day) AS last
             FROM UsageEvent WHERE (is_deleted IS NULL OR is_deleted=0) AND day >= ?
-            GROUP BY screen_key ORDER BY views DESC`, args: [since],
+            GROUP BY created_by_id, screen_key`, args: [since],
     })).rows;
+    // ultimo acesso de sempre (para detectar quem sumiu, mesmo fora da janela)
+    const lastEverRows = (await c.execute({ sql: `SELECT created_by_id AS uid, MAX(day) AS last_ever, COUNT(*) AS total FROM UsageEvent GROUP BY created_by_id`, args: [] })).rows;
+    const lastEver = {}; const totalEver = {};
+    for (const r of lastEverRows) { lastEver[r.uid] = r.last_ever; totalEver[r.uid] = Number(r.total || 0); }
+    // usuarios cadastrados
+    const users = (await c.execute({ sql: `SELECT id, full_name, email, role, created_date FROM users WHERE (is_active IS NULL OR is_active=1)`, args: [] })).rows;
+
+    // agrega por tela
+    const scr = {};
+    for (const r of rows) {
+      const k = r.screen_key; (scr[k] = scr[k] || { screen_key: k, views: 0, users: new Set(), last: '' });
+      scr[k].views += Number(r.views); scr[k].users.add(r.uid); if (r.last > scr[k].last) scr[k].last = r.last;
+    }
+    const byScreen = Object.values(scr).map((s) => ({ screen_key: s.screen_key, views: s.views, users: s.users.size, last: s.last })).sort((a, b) => b.views - a.views);
+
+    // agrega por usuario
+    const uMap = {};
+    for (const r of rows) {
+      const u = (uMap[r.uid] = uMap[r.uid] || { uid: r.uid, events: 0, days: new Set(), top: null, topViews: 0, last: '' });
+      u.events += Number(r.views);
+      u.days.add(r.last); // aproxima dias ativos via telas (refinado abaixo nao e critico)
+      if (Number(r.views) > u.topViews) { u.topViews = Number(r.views); u.top = r.screen_key; }
+      if (r.last > u.last) u.last = r.last;
+    }
+    const perUser = users.map((u) => {
+      const a = uMap[u.id];
+      const lastSeen = lastEver[u.id] || null;
+      let status = 'nunca'; // nunca usou
+      if (lastSeen) status = (lastSeen >= since) ? 'ativo' : (lastSeen < churnCut ? 'sumiu' : 'ativo');
+      return {
+        id: u.id, name: u.full_name || u.email, email: u.email, role: u.role,
+        events: a ? a.events : 0, topScreen: a ? a.top : null, lastSeen, totalEver: totalEver[u.id] || 0, status,
+      };
+    }).sort((x, y) => y.events - x.events);
+
     const daily = (await c.execute({
       sql: `SELECT day, COUNT(*) AS views, COUNT(DISTINCT created_by_id) AS users
             FROM UsageEvent WHERE (is_deleted IS NULL OR is_deleted=0) AND day >= ?
             GROUP BY day ORDER BY day ASC`, args: [since],
     })).rows;
-    const totalUsers = (await c.execute({ sql: `SELECT COUNT(*) AS n FROM users WHERE (is_active IS NULL OR is_active=1)`, args: [] })).rows[0]?.n || 0;
-    const activeUsers = (await c.execute({ sql: `SELECT COUNT(DISTINCT created_by_id) AS n FROM UsageEvent WHERE day >= ?`, args: [since] })).rows[0]?.n || 0;
-    const totalViews = byScreen.reduce((s, r) => s + Number(r.views || 0), 0);
+
+    const activeUsers = perUser.filter((u) => u.status === 'ativo').length;
+    const churned = perUser.filter((u) => u.status === 'sumiu').length;
+    const neverUsed = perUser.filter((u) => u.status === 'nunca').length;
+    const totalViews = byScreen.reduce((s, r) => s + r.views, 0);
+    const busiest = daily.reduce((mx, d) => (Number(d.views) > (mx?.views || 0) ? { day: d.day, views: Number(d.views) } : mx), null);
+    const avgPerActive = activeUsers > 0 ? Math.round(totalViews / activeUsers) : 0;
+
     return sendJson(res, 200, {
-      days, since,
-      byScreen: byScreen.map((r) => ({ screen_key: r.screen_key, views: Number(r.views), users: Number(r.users), last: r.last })),
+      days, churnDays, since, today,
+      byScreen,
       daily: daily.map((r) => ({ day: r.day, views: Number(r.views), users: Number(r.users) })),
-      totals: { users: Number(totalUsers), activeUsers: Number(activeUsers), views: totalViews },
+      perUser,
+      totals: { users: users.length, activeUsers, churned, neverUsed, views: totalViews, avgPerActive, busiest },
     });
   } catch (e) { return sendJson(res, 500, { error: e.message }); }
 }

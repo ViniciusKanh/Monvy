@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { BarChart3, Users, Eye, Activity, Star, Megaphone, TrendingUp, TrendingDown } from 'lucide-react';
+import { BarChart3, Users, Eye, Activity, Star, Megaphone, TrendingUp, TrendingDown, UserX, UserMinus, Flame, CalendarDays } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Select, Field, Badge, Spinner, EmptyState } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
@@ -9,10 +9,23 @@ import { findNavItem } from '../lib/screens.js';
 import { toast } from '../lib/toast.js';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
-const labelFor = (key) => findNavItem(key)?.label || key;
+const labelFor = (key) => findNavItem(key)?.label || key || '—';
+const relDay = (d) => { if (!d) return 'nunca'; const diff = Math.round((Date.now() - new Date(d + 'T00:00').getTime()) / 86400000); return diff <= 0 ? 'hoje' : diff === 1 ? 'ontem' : `há ${diff} dias`; };
+const STATUS_UI = { ativo: { label: 'Ativo', color: 'emerald' }, sumiu: { label: 'Sumiu', color: 'rose' }, nunca: { label: 'Nunca usou', color: 'slate' } };
+
+function Stat({ icon: Icon, label, value, tone = 'slate' }) {
+  const tones = { slate: 'text-slate-500', emerald: 'text-emerald-600', rose: 'text-rose-500', amber: 'text-amber-600', violet: 'text-violet-600', blue: 'text-blue-600' };
+  return (
+    <Card className="p-3">
+      <p className="text-[11px] text-muted flex items-center gap-1"><Icon className={`w-3.5 h-3.5 ${tones[tone]}`} /> {label}</p>
+      <p className="font-display text-xl sm:text-2xl font-bold leading-tight mt-0.5">{typeof value === 'number' ? <AnimatedValue value={value} /> : value}</p>
+    </Card>
+  );
+}
 
 export default function AdminAnalytics() {
   const [days, setDays] = useState(30);
+  const [uf, setUf] = useState('all'); // all | heavy | sumiu | nunca
   const { data, isLoading } = useQuery({ queryKey: ['admin-usage', days], queryFn: () => Admin.usage(days) });
   const campQ = useQuery({ queryKey: ['admin-campaign'], queryFn: () => Admin.getCampaign() });
 
@@ -51,11 +64,15 @@ export default function AdminAnalytics() {
 
       {isLoading ? <div className="flex justify-center py-16"><Spinner className="w-7 h-7" /></div> : (<>
         {/* Totais */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card><p className="text-xs text-muted flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Usuários</p><p className="font-display text-2xl font-bold"><AnimatedValue value={data?.totals?.users || 0} /></p></Card>
-          <Card><p className="text-xs text-muted flex items-center gap-1"><Activity className="w-3.5 h-3.5" /> Ativos ({days}d)</p><p className="font-display text-2xl font-bold text-emerald-600"><AnimatedValue value={data?.totals?.activeUsers || 0} /></p></Card>
-          <Card><p className="text-xs text-muted flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Acessos</p><p className="font-display text-2xl font-bold"><AnimatedValue value={data?.totals?.views || 0} /></p></Card>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+          <Stat icon={Users} label="Usuários" value={data?.totals?.users || 0} />
+          <Stat icon={Activity} label={`Ativos (${days}d)`} value={data?.totals?.activeUsers || 0} tone="emerald" />
+          <Stat icon={UserMinus} label="Sumiram" value={data?.totals?.churned || 0} tone="rose" />
+          <Stat icon={UserX} label="Nunca usaram" value={data?.totals?.neverUsed || 0} />
+          <Stat icon={Eye} label="Acessos" value={data?.totals?.views || 0} tone="violet" />
+          <Stat icon={Flame} label="Média/ativo" value={data?.totals?.avgPerActive || 0} tone="amber" />
         </div>
+        {data?.totals?.busiest && <p className="text-xs text-muted flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Dia de pico: <b>{relDay(data.totals.busiest.day)}</b> ({data.totals.busiest.views} acessos)</p>}
 
         {/* Tendência */}
         <Card>
@@ -105,6 +122,43 @@ export default function AdminAnalytics() {
             )}
           </Card>
         </div>
+
+        {/* Usuários — quem usa, quem sumiu */}
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2"><Users className="w-4 h-4 text-indigo-500" /> Usuários ({(data?.perUser || []).length})</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {[['all', 'Todos'], ['heavy', 'Usam muito'], ['sumiu', 'Sumiram'], ['nunca', 'Nunca usaram']].map(([k, lb]) => (
+                <button key={k} onClick={() => setUf(k)} className={`text-xs px-2.5 py-1 rounded-full font-medium ${uf === k ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-muted'}`}>{lb}</button>
+              ))}
+            </div>
+          </div>
+          {(() => {
+            let list = data?.perUser || [];
+            if (uf === 'heavy') list = list.filter((u) => u.events > 0).slice(0, 15);
+            else if (uf === 'sumiu') list = list.filter((u) => u.status === 'sumiu');
+            else if (uf === 'nunca') list = list.filter((u) => u.status === 'nunca');
+            if (!list.length) return <p className="text-sm text-muted py-4 text-center">Ninguém neste filtro.</p>;
+            const maxEv = Math.max(1, ...list.map((u) => u.events));
+            return (
+              <div className="divide-y divide-[hsl(var(--border))]">
+                {list.map((u, i) => { const st = STATUS_UI[u.status] || STATUS_UI.nunca; return (
+                  <div key={u.id} className="flex items-center gap-3 py-2">
+                    <div className="w-7 h-7 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center text-xs font-bold shrink-0">{(u.name || '?').slice(0, 1).toUpperCase()}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate flex items-center gap-1.5">{u.name}{uf === 'heavy' && i < 3 && u.events > 0 && <Flame className="w-3.5 h-3.5 text-amber-500" />}</p>
+                      <p className="text-xs text-muted truncate">{u.topScreen ? `+ usa: ${labelFor(u.topScreen)}` : 'sem uso no período'} · visto {relDay(u.lastSeen)}</p>
+                    </div>
+                    <div className="hidden sm:block w-24 shrink-0"><div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-1.5 rounded-full bg-indigo-500" style={{ width: `${(u.events / maxEv) * 100}%` }} /></div></div>
+                    <div className="text-right shrink-0 w-16"><p className="text-sm font-bold leading-none">{u.events}</p><p className="text-[10px] text-muted">acessos</p></div>
+                    <Badge color={st.color}>{st.label}</Badge>
+                  </div>
+                ); })}
+              </div>
+            );
+          })()}
+          <p className="text-[11px] text-muted mt-2">"Sumiu" = último acesso há mais de {data?.churnDays || 14} dias. Os dados começam a contar a partir do deploy desta funcionalidade.</p>
+        </Card>
       </>)}
 
       {/* Campanha de avaliação */}
