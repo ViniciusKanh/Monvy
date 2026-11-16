@@ -1,0 +1,62 @@
+{
+  "name": "@viniciuskanh/monvy-finance",
+  "version": "0.1.0",
+  "description": "Financial calculation toolkit for JavaScript and TypeScript, featuring compound interest, loan amortization, debt payoff, financial goals and cash-flow analytics.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Vinicius Santos",
+  "homepage": "https://github.com/ViniciusKanh/Monvy/tree/main/packages/monvy-finance#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ViniciusKanh/Monvy.git",
+    "directory": "packages/monvy-finance"
+  },
+  "bugs": {
+    "url": "https://github.com/ViniciusKanh/Monvy/issues"
+  },
+  "keywords": [
+    "finance",
+    "financial-calculator",
+    "compound-interest",
+    "amortization",
+    "price",
+    "sac",
+    "debt-payoff",
+    "fire",
+    "cash-flow",
+    "typescript"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --sourcemap",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}

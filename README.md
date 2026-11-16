@@ -32,6 +32,7 @@ Contas, cartões, metas, orçamento, relatórios e IA — tudo em um só lugar. 
 - [📱 Publicar nas lojas (Play Store / Microsoft Store)](#-publicar-nas-lojas)
 - [🔒 Privacidade e segurança](#-privacidade-e-segurança)
 - [🗺️ Roadmap](#️-roadmap)
+- [📦 Monvy Finance (biblioteca npm)](#-monvy-finance-biblioteca-npm)
 - [👤 Autor](#-autor)
 
 ---
@@ -164,6 +165,25 @@ Passo a passo completo em **[STORE.md](STORE.md)**. 📦
 - 🛡️ Rate limiting no login e controle de acesso por tela (admin define o que cada usuário vê).
 - 🧾 Leitura de faturas e OCR **100% no seu dispositivo** — o arquivo não sai dele.
 - 📜 Política de privacidade pública em `/privacidade` (exigida pelas lojas).
+
+---
+
+## 📦 Monvy Finance (biblioteca npm)
+
+A lógica financeira do Monvy (juros compostos, PRICE/SAC, quitação de dívidas, metas, FIRE,
+poupança × CDB, divisão de despesas, fluxo de caixa) também existe como uma biblioteca
+**independente, tipada e testada**: [`@viniciuskanh/monvy-finance`](./packages/monvy-finance).
+
+Ela é um componente reutilizável **derivado** do Monvy — não um substituto do aplicativo. Serve
+para quem quer embutir os mesmos cálculos em outro projeto (Node.js ou navegador), sem depender
+de React, Turso ou do app inteiro.
+
+```bash
+npm install @viniciuskanh/monvy-finance
+```
+
+Veja o [README do pacote](./packages/monvy-finance/README.md) para a documentação completa da
+API, exemplos e convenções matemáticas.
 
 ---
 
