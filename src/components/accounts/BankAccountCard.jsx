@@ -29,13 +29,13 @@ export function BankAccountCard({ account, transactions, consolidatedPositive, i
       <div className="relative flex items-start justify-between">
         <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center"><Icon className="w-5 h-5" /></div>
         <div className="flex items-center gap-1">
-          <button onClick={() => onToggleFavorite(account.id)} title={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} className="p-1.5 rounded-lg hover:bg-white/15">
+          <button onClick={() => onToggleFavorite(account.id)} title={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} aria-label={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} aria-pressed={isFavorite} className="p-1.5 rounded-lg hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60 outline-none">
             <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-300 text-amber-300' : ''}`} />
           </button>
           <div className="relative">
-            <button onClick={() => setMenuOpen((v) => !v)} className="p-1.5 rounded-lg hover:bg-white/15"><MoreVertical className="w-4 h-4" /></button>
+            <button onClick={() => setMenuOpen((v) => !v)} aria-label="Mais opções da conta" aria-haspopup="menu" aria-expanded={menuOpen} className="p-1.5 rounded-lg hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60 outline-none"><MoreVertical className="w-4 h-4" /></button>
             {menuOpen && (
-              <div className="absolute right-0 mt-1 w-32 card p-1 z-10 text-[hsl(var(--text))]">
+              <div role="menu" className="absolute right-0 mt-1 w-32 card p-1 z-10 text-[hsl(var(--text))]">
                 <button onClick={() => { onEdit(account); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-3.5 h-3.5" /> Editar</button>
                 <button onClick={() => { onDelete(account.id); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Trash2 className="w-3.5 h-3.5" /> Excluir</button>
               </div>
