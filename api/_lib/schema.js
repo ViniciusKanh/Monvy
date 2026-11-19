@@ -227,6 +227,7 @@ export const SCHEMA_STATEMENTS = [
     user_name TEXT, user_email TEXT,
     image_url TEXT,
     resolved_date TEXT,
+    assigned_to_id TEXT,
     is_deleted INTEGER DEFAULT 0,
     created_date TEXT, updated_date TEXT, created_by_id TEXT
   )`,
@@ -237,6 +238,7 @@ export const SCHEMA_STATEMENTS = [
     author_id TEXT, author_role TEXT, author_name TEXT,
     body TEXT, image_url TEXT,
     email_status TEXT, email_error TEXT, email_to TEXT,
+    internal INTEGER DEFAULT 0,
     created_date TEXT
   )`,
 
@@ -479,6 +481,10 @@ export const MIGRATIONS = [
     `ALTER TABLE TicketMessage ADD COLUMN email_status TEXT`,
     `ALTER TABLE TicketMessage ADD COLUMN email_error TEXT`,
     `ALTER TABLE TicketMessage ADD COLUMN email_to TEXT`,
+  ] },
+  { id: '024_ticket_internal_assign', statements: [
+    `ALTER TABLE TicketMessage ADD COLUMN internal INTEGER DEFAULT 0`,
+    `ALTER TABLE SupportTicket ADD COLUMN assigned_to_id TEXT`,
   ] },
 ];
 // compat

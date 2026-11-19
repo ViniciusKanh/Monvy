@@ -9,6 +9,7 @@ import { toast } from '../lib/toast.js';
 import {
   Ticket, Plus, Search, Settings2, Send, Paperclip, X, Image as ImageIcon, UserCircle, Mail,
   Shield, CheckCircle2, RotateCcw, Trash2, Filter, MailWarning, MailX, RefreshCw,
+  Lock, UserPlus, MessageSquareText, ChevronDown,
 } from 'lucide-react';
 
 const HEX = { amber: '#f59e0b', blue: '#3b82f6', violet: '#8b5cf6', emerald: '#10b981', slate: '#64748b', rose: '#f43f5e', sky: '#0ea5e9', teal: '#14b8a6', indigo: '#6366f1' };
@@ -58,6 +59,8 @@ export default function TicketsCenter() {
   const cfgQ = useQuery({ queryKey: ['support-config'], queryFn: () => Support.config() });
   const tickets = ticketsQ.data?.tickets || [];
   const isAdmin = ticketsQ.data?.isAdmin ?? (user?.role === 'admin');
+  const admins = ticketsQ.data?.admins || [];
+  const adminMap = useMemo(() => Object.fromEntries(admins.map((a) => [a.id, a])), [admins]);
   const categories = cfgQ.data?.categories || [];
   const statuses = cfgQ.data?.statuses || [];
   const statusMap = useMemo(() => Object.fromEntries(statuses.map((s) => [s.key, s])), [statuses]);
@@ -67,9 +70,11 @@ export default function TicketsCenter() {
   const [fStatus, setFStatus] = useState('all');
   const [fCat, setFCat] = useState('all');
   const [scope, setScope] = useState('all'); // admin: all | mine | users
+  const [fAssigned, setFAssigned] = useState('all'); // admin: all | mine | unassigned
   const [openId, setOpenId] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [cfgOpen, setCfgOpen] = useState(false);
+  const [macrosOpen, setMacrosOpen] = useState(false);
 
   const shown = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -78,10 +83,12 @@ export default function TicketsCenter() {
       if (fCat !== 'all' && t.category !== fCat) return false;
       if (isAdmin && scope === 'mine' && t.created_by_id !== user?.id) return false;
       if (isAdmin && scope === 'users' && t.created_by_id === user?.id) return false;
+      if (isAdmin && fAssigned === 'mine' && t.assigned_to_id !== user?.id) return false;
+      if (isAdmin && fAssigned === 'unassigned' && t.assigned_to_id) return false;
       if (qq) { const hay = `#${t.number || ''} ${t.subject || ''} ${t.user_name || ''} ${t.user_email || ''}`.toLowerCase(); if (!hay.includes(qq.replace('#', ''))) return false; }
       return true;
     });
-  }, [tickets, q, fStatus, fCat, scope, isAdmin, user]);
+  }, [tickets, q, fStatus, fCat, scope, fAssigned, isAdmin, user]);
 
   const counts = useMemo(() => { const m = {}; for (const t of tickets) m[t.status] = (m[t.status] || 0) + 1; return m; }, [tickets]);
   const openCount = tickets.filter((t) => !stOf(t.status).final).length;
@@ -94,7 +101,7 @@ export default function TicketsCenter() {
       <PageHeader
         title={<span className="flex items-center gap-2"><Ticket className="w-6 h-6 text-indigo-500" /> Central de Tickets</span>}
         subtitle={isAdmin ? 'Gerencie, responda e resolva os chamados' : 'Acompanhe seus chamados'}
-        actions={<div className="flex gap-2">{isAdmin && <Button variant="outline" onClick={() => setCfgOpen(true)}><Settings2 className="w-4 h-4" /> Categorias & Status</Button>}<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Novo chamado</Button></div>}
+        actions={<div className="flex gap-2">{isAdmin && <Button variant="outline" onClick={() => setMacrosOpen(true)}><MessageSquareText className="w-4 h-4" /> Respostas prontas</Button>}{isAdmin && <Button variant="outline" onClick={() => setCfgOpen(true)}><Settings2 className="w-4 h-4" /> Categorias & Status</Button>}<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Novo chamado</Button></div>}
       />
 
       {/* KPIs */}
@@ -112,6 +119,7 @@ export default function TicketsCenter() {
           <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="w-auto"><option value="all">Todos os status</option>{statuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
           <Select value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-auto"><option value="all">Todas as categorias</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
           {isAdmin && <Select value={scope} onChange={(e) => setScope(e.target.value)} className="w-auto"><option value="all">Todos</option><option value="users">De usuários</option><option value="mine">Abertos por mim</option></Select>}
+          {isAdmin && <Select value={fAssigned} onChange={(e) => setFAssigned(e.target.value)} className="w-auto"><option value="all">Qualquer responsável</option><option value="mine">Atribuídos a mim</option><option value="unassigned">Não atribuídos</option></Select>}
         </div>
       </Card>
 
@@ -132,6 +140,7 @@ export default function TicketsCenter() {
                       </div>
                     </button>
                     {isAdmin && t.priority && t.priority !== 'normal' && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0" style={{ background: (t.priority === 'urgente' ? HEX.rose : HEX.amber) + '22', color: t.priority === 'urgente' ? HEX.rose : HEX.amber }}>{t.priority}</span>}
+                    {isAdmin && t.assigned_to_id && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 bg-indigo-500/10 text-indigo-500 flex items-center gap-0.5"><UserPlus className="w-3 h-3" /> {adminMap[t.assigned_to_id]?.name || 'responsável'}</span>}
                     <StatusChip st={stOf(t.status)} />
                     <button onClick={(e) => { e.stopPropagation(); confirmDel(t); }} title="Excluir chamado" className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 shrink-0"><Trash2 className="w-4 h-4" /></button>
                   </div>
@@ -142,8 +151,9 @@ export default function TicketsCenter() {
         )}
 
       {createOpen && <CreateTicket categories={categories} onClose={() => setCreateOpen(false)} onDone={() => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); setCreateOpen(false); }} />}
-      {openId && <TicketThread id={openId} isAdmin={isAdmin} statuses={statuses} categories={categories} stOf={stOf} onClose={() => setOpenId(null)} />}
+      {openId && <TicketThread id={openId} isAdmin={isAdmin} statuses={statuses} categories={categories} stOf={stOf} admins={admins} onClose={() => setOpenId(null)} />}
       {cfgOpen && <ConfigModal categories={categories} statuses={statuses} onClose={() => setCfgOpen(false)} onDone={() => { qc.invalidateQueries({ queryKey: ['support-config'] }); setCfgOpen(false); }} />}
+      {macrosOpen && <MacrosModal onClose={() => setMacrosOpen(false)} />}
     </div>
   );
 }
@@ -177,20 +187,25 @@ function CreateTicket({ categories, onClose, onDone }) {
   );
 }
 
-function TicketThread({ id, isAdmin, statuses, categories, stOf, onClose }) {
+function TicketThread({ id, isAdmin, statuses, categories, stOf, admins = [], onClose }) {
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ['ticket', id], queryFn: () => Support.ticket(id) });
+  const macrosQ = useQuery({ queryKey: ['ticket-macros'], queryFn: () => Support.macros(), enabled: isAdmin });
+  const macros = macrosQ.data?.macros || [];
   const ticket = query.data?.ticket;
   const messages = query.data?.messages || [];
   const [reply, setReply] = useState('');
   const [img, setImg] = useState('');
+  const [internalNote, setInternalNote] = useState(false);
+  const [macrosMenuOpen, setMacrosMenuOpen] = useState(false);
   const fileRef = useRef(null);
   const refresh = () => { qc.invalidateQueries({ queryKey: ['ticket', id] }); qc.invalidateQueries({ queryKey: ['support-tickets'] }); };
   const sendReply = useMutation({
-    mutationFn: () => Support.replyTicket({ id, body: reply, image_url: img || undefined }),
-    onSuccess: (r) => { setReply(''); setImg(''); refresh(); if (r?.emailStatus === 'failed') toast.error('Resposta salva, mas o e-mail falhou — você pode reenviar.'); },
+    mutationFn: () => Support.replyTicket({ id, body: reply, image_url: img || undefined, internal: internalNote }),
+    onSuccess: (r) => { setReply(''); setImg(''); setInternalNote(false); refresh(); if (r?.emailStatus === 'failed') toast.error('Resposta salva, mas o e-mail falhou — você pode reenviar.'); else if (r?.internal) toast.success('Nota interna salva.'); },
     onError: (e) => toast.error(e.message || 'Falha'),
   });
+  const assign = useMutation({ mutationFn: (assignedToId) => Support.assignTicket(id, assignedToId), onSuccess: refresh, onError: (e) => toast.error(e.message || 'Falha') });
   const [resendingId, setResendingId] = useState(null);
   const resendEmail = useMutation({
     mutationFn: (msgId) => Support.resendTicketEmail(msgId),
@@ -221,20 +236,29 @@ function TicketThread({ id, isAdmin, statuses, categories, stOf, onClose }) {
           {isAdmin && (
             <div className="rounded-lg bg-black/5 dark:bg-white/5 p-2.5 space-y-2">
               <div className="flex items-center gap-1.5 text-xs"><UserCircle className="w-3.5 h-3.5 text-emerald-500" /><b className="text-[hsl(var(--text))]">{ticket.user_name || 'Sem nome'}</b><a href={`mailto:${ticket.user_email}`} className="text-sky-500 hover:underline flex items-center gap-1"><Mail className="w-3 h-3" /> {ticket.user_email}</a></div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Select value={ticket.status} onChange={(e) => { const st = statuses.find((s) => s.key === e.target.value); setStatus.mutate({ status: st.key, statusLabel: st.label, final: !!st.final }); }}>{statuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
                 <Select value={ticket.category || ''} onChange={(e) => meta.mutate({ category: e.target.value })}>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
                 <Select value={ticket.priority || 'normal'} onChange={(e) => meta.mutate({ priority: e.target.value })}>{['baixa', 'normal', 'alta', 'urgente'].map((p) => <option key={p} value={p}>Prio: {p}</option>)}</Select>
+                <Select value={ticket.assigned_to_id || ''} onChange={(e) => assign.mutate(e.target.value || null)}>
+                  <option value="">Sem responsável</option>
+                  {admins.map((a) => <option key={a.id} value={a.id}>Responsável: {a.name}</option>)}
+                </Select>
               </div>
             </div>
           )}
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {messages.map((m) => {
               const mine = m.author_role === (isAdmin ? 'admin' : 'user');
+              const isInternal = !!m.internal;
               return (
-                <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${m.author_role === 'admin' ? 'bg-emerald-500/15' : 'bg-black/5 dark:bg-white/10'}`}>
-                    <p className="text-[11px] font-semibold text-muted flex items-center gap-1">{m.author_role === 'admin' && <Shield className="w-3 h-3 text-emerald-500" />}{m.author_name || (m.author_role === 'admin' ? 'Suporte' : 'Você')}</p>
+                <div key={m.id} className={`flex ${isInternal ? 'justify-center' : mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[90%] rounded-2xl px-3 py-2 ${isInternal ? 'bg-amber-500/10 border border-dashed border-amber-500/40 w-full' : m.author_role === 'admin' ? 'bg-emerald-500/15' : 'bg-black/5 dark:bg-white/10'}`}>
+                    <p className="text-[11px] font-semibold text-muted flex items-center gap-1">
+                      {isInternal ? <Lock className="w-3 h-3 text-amber-500" /> : m.author_role === 'admin' && <Shield className="w-3 h-3 text-emerald-500" />}
+                      {m.author_name || (m.author_role === 'admin' ? 'Suporte' : 'Você')}
+                      {isInternal && <span className="text-[10px] font-normal text-amber-500">· nota interna (so admins veem)</span>}
+                    </p>
                     <p className="text-sm whitespace-pre-line">{m.body}</p>
                     {m.image_url && (m.image_url.startsWith('data:application/pdf') ? <a href={m.image_url} target="_blank" rel="noreferrer" className="text-xs text-sky-500 underline">ver anexo (PDF)</a> : <img src={m.image_url} alt="" className="mt-1 rounded-lg max-h-40" />)}
                     <p className="text-[10px] text-muted mt-0.5">{fmtDate(m.created_date)}</p>
@@ -244,15 +268,36 @@ function TicketThread({ id, isAdmin, statuses, categories, stOf, onClose }) {
               );
             })}
           </div>
-          {!stOf(ticket.status).final && (
+          {(!stOf(ticket.status).final || isAdmin) && (
             <div className="border-t border-[hsl(var(--border))] pt-3 space-y-2">
-              <Textarea rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Escreva uma resposta..." />
-              <div className="flex items-center gap-2">
+              <Textarea rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={internalNote ? 'Escreva uma nota interna (so a equipe ve)...' : 'Escreva uma resposta...'} className={internalNote ? 'ring-1 ring-amber-500/40' : ''} />
+              <div className="flex items-center gap-2 flex-wrap">
                 <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onImg} />
                 <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}><Paperclip className="w-4 h-4" /> {img ? 'Anexado' : 'Anexar'}</Button>
                 {img && <button onClick={() => setImg('')} className="text-rose-500 text-xs">remover</button>}
+                {isAdmin && macros.length > 0 && (
+                  <div className="relative">
+                    <Button size="sm" variant="outline" onClick={() => setMacrosMenuOpen((v) => !v)}><MessageSquareText className="w-4 h-4" /> Respostas prontas <ChevronDown className="w-3 h-3" /></Button>
+                    {macrosMenuOpen && (
+                      <div className="absolute left-0 bottom-full mb-1 z-20 min-w-[14rem] max-h-56 overflow-y-auto rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl p-1">
+                        {macros.map((m) => (
+                          <button key={m.id} onClick={() => { setReply((r) => (r ? `${r}
+${m.body}` : m.body)); setMacrosMenuOpen(false); }} className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/5">
+                            <p className="font-medium truncate">{m.title}</p>
+                            <p className="text-[11px] text-muted truncate">{m.body}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {isAdmin && (
+                  <label className="flex items-center gap-1 text-xs text-muted cursor-pointer" title="Nota interna: visivel so pra admins, nao envia e-mail nem muda o status do chamado">
+                    <input type="checkbox" className="w-3.5 h-3.5 accent-amber-500" checked={internalNote} onChange={(e) => setInternalNote(e.target.checked)} /> <Lock className="w-3 h-3" /> nota interna
+                  </label>
+                )}
                 <div className="flex-1" />
-                <Button size="sm" onClick={() => sendReply.mutate()} disabled={sendReply.isPending || !reply.trim()}>{sendReply.isPending ? <Spinner className="w-4 h-4" /> : <><Send className="w-4 h-4" /> Enviar</>}</Button>
+                <Button size="sm" onClick={() => sendReply.mutate()} disabled={sendReply.isPending || !reply.trim()} className={internalNote ? 'bg-amber-500 hover:bg-amber-600 border-amber-500' : ''}>{sendReply.isPending ? <Spinner className="w-4 h-4" /> : <><Send className="w-4 h-4" /> {internalNote ? 'Salvar nota' : 'Enviar'}</>}</Button>
               </div>
             </div>
           )}
@@ -302,6 +347,44 @@ function ConfigModal({ categories, statuses, onClose, onDone }) {
           <p className="text-xs text-muted mt-2">"final" = status que encerra o chamado (o usuário pode reabrir). Ex.: Resolvido, Finalizado.</p>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+function MacrosModal({ onClose }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ['ticket-macros'], queryFn: () => Support.macros() });
+  const [items, setItems] = useState(null);
+  const list = items ?? q.data?.macros ?? [];
+  const save = useMutation({
+    mutationFn: () => Support.saveMacros(list),
+    onSuccess: () => { toast.success('Respostas prontas salvas.'); qc.invalidateQueries({ queryKey: ['ticket-macros'] }); onClose(); },
+    onError: (e) => toast.error(e.message || 'Falha'),
+  });
+  const setItem = (i, patch) => setItems(list.map((m, idx) => idx === i ? { ...m, ...patch } : m));
+  const addItem = () => setItems([...list, { id: `m_${Date.now()}`, title: 'Nova resposta', body: '' }]);
+  const delItem = (i) => setItems(list.filter((_, idx) => idx !== i));
+  return (
+    <Modal open onClose={onClose} title="Respostas prontas" maxWidth="max-w-lg"
+      footer={<><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
+      {q.isLoading ? <div className="flex justify-center py-6"><Spinner className="w-5 h-5 text-emerald-500" /></div> : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted">Modelos de resposta rapida que aparecem no botao "Respostas prontas" ao responder um chamado.</p>
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+            {list.map((m, i) => (
+              <div key={m.id} className="rounded-lg bg-black/5 dark:bg-white/5 p-2.5 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Input value={m.title} onChange={(e) => setItem(i, { title: e.target.value })} placeholder="Titulo (ex.: Pedir mais detalhes)" className="flex-1" />
+                  <button onClick={() => delItem(i)} className="text-rose-500 shrink-0"><Trash2 className="w-4 h-4" /></button>
+                </div>
+                <Textarea rows={2} value={m.body} onChange={(e) => setItem(i, { body: e.target.value })} placeholder="Texto que sera inserido na resposta" />
+              </div>
+            ))}
+            {list.length === 0 && <p className="text-xs text-muted text-center py-4">Nenhuma resposta pronta ainda.</p>}
+          </div>
+          <Button size="sm" variant="outline" onClick={addItem}><Plus className="w-4 h-4" /> Adicionar resposta pronta</Button>
+        </div>
+      )}
     </Modal>
   );
 }

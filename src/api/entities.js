@@ -68,8 +68,11 @@ export const Support = {
   setTicketStatus: (id, data) => api.post('/api/support/tickets', { op: 'status', id, ...data }),
   deleteTicket: (id) => api.post('/api/support/tickets', { op: 'delete', id }),
   updateTicket: (id, data) => api.post('/api/support/tickets', { op: 'meta', id, ...data }),
+  assignTicket: (id, assignedToId) => api.post('/api/support/tickets', { op: 'assign', id, assignedToId }),
   config: () => api.post('/api/support/config', { op: 'get' }),
   saveConfig: (data) => api.post('/api/support/config', { op: 'save', ...data }),
+  macros: () => api.post('/api/support/macros', { op: 'list' }),
+  saveMacros: (macros) => api.post('/api/support/macros', { op: 'save', macros }),
 };
 
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };

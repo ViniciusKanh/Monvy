@@ -14,7 +14,7 @@ async function adminEmails() {
   return r.rows.map((x) => x.email).filter(Boolean);
 }
 async function adminUsers() {
-  const r = await db().execute(`SELECT id, email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`);
+  const r = await db().execute(`SELECT id, email, full_name FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`);
   return r.rows;
 }
 // Notificacao no app: garante o aviso mesmo se o e-mail falhar silenciosamente
@@ -154,13 +154,18 @@ export default async function handler(req, res) {
         const rows = isAdmin
           ? (await db().execute(`SELECT * FROM SupportTicket WHERE (is_deleted IS NULL OR is_deleted=0) ORDER BY updated_date DESC`)).rows
           : (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) ORDER BY updated_date DESC`, args: [u.id] })).rows;
-        return sendJson(res, 200, { tickets: rows, isAdmin });
+        // para o admin poder atribuir um chamado a um responsavel, manda a lista de admins junto
+        const admins = isAdmin ? (await adminUsers()).map((a) => ({ id: a.id, name: a.full_name || a.email, email: a.email })) : undefined;
+        return sendJson(res, 200, { tickets: rows, isAdmin, admins });
       }
       if (op === 'get') {
         const t = (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE id=?`, args: [body.id] })).rows[0];
         if (!t) return sendJson(res, 404, { error: 'Chamado não encontrado' });
         if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
-        const messages = (await db().execute({ sql: `SELECT * FROM TicketMessage WHERE ticket_id=? ORDER BY created_date ASC`, args: [body.id] })).rows;
+        // notas internas (so admin) nunca aparecem pro usuário final
+        const messages = isAdmin
+          ? (await db().execute({ sql: `SELECT * FROM TicketMessage WHERE ticket_id=? ORDER BY created_date ASC`, args: [body.id] })).rows
+          : (await db().execute({ sql: `SELECT * FROM TicketMessage WHERE ticket_id=? AND (internal IS NULL OR internal=0) ORDER BY created_date ASC`, args: [body.id] })).rows;
         return sendJson(res, 200, { ticket: t, messages, isAdmin });
       }
       if (op === 'reply') {
@@ -168,9 +173,16 @@ export default async function handler(req, res) {
         if (!t) return sendJson(res, 404, { error: 'Chamado não encontrado' });
         if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
         if (!body.body) return sendJson(res, 400, { error: 'Mensagem vazia' });
+        const isInternal = !!body.internal;
+        if (isInternal && !isAdmin) return sendJson(res, 403, { error: 'Apenas administradores' });
         const msgId = newId();
         const authorRole = isAdmin ? 'admin' : 'user';
-        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [msgId, body.id, u.id, authorRole, u.full_name || u.email, body.body, body.image_url || null, nowIso()] });
+        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,internal,created_date) VALUES (?,?,?,?,?,?,?,?,?)`, args: [msgId, body.id, u.id, authorRole, u.full_name || u.email, body.body, body.image_url || null, isInternal ? 1 : 0, nowIso()] });
+        if (isInternal) {
+          // nota interna: visivel so pra admins, nunca vai por e-mail, nunca muda o status
+          // do chamado nem notifica o usuário — e so um registro entre a equipe de suporte.
+          return sendJson(res, 200, { ok: true, internal: true });
+        }
         const newStatus = isAdmin ? 'answered' : 'pending';
         await db().execute({ sql: `UPDATE SupportTicket SET status=?, updated_date=? WHERE id=?`, args: [newStatus, nowIso(), body.id] });
         // envia o e-mail (pra quem responde: usuario se foi o admin, admins se foi o usuario),
@@ -183,6 +195,18 @@ export default async function handler(req, res) {
           await notifyAdmins(await adminUsers(), { title: `Nova mensagem no chamado #${t.number || ''}`, text: `${u.full_name || u.email}: ${String(body.body).slice(0, 120)}` });
         }
         return sendJson(res, 200, { ok: true, emailStatus: mail.status });
+      }
+      if (op === 'assign') {
+        // atribui o chamado a um admin responsavel (ou remove a atribuicao com assignedToId vazio)
+        if (!isAdmin) return sendJson(res, 403, { error: 'Apenas administradores' });
+        const t = (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE id=?`, args: [body.id] })).rows[0];
+        if (!t) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+        const assignedToId = body.assignedToId || null;
+        await db().execute({ sql: `UPDATE SupportTicket SET assigned_to_id=?, updated_date=? WHERE id=?`, args: [assignedToId, nowIso(), body.id] });
+        if (assignedToId && assignedToId !== u.id) {
+          await notify({ userId: assignedToId, title: `Chamado #${t.number || ''} atribuido a você`, text: t.subject || '' });
+        }
+        return sendJson(res, 200, { ok: true });
       }
       if (op === 'resend-email') {
         // reenvia o e-mail de uma mensagem especifica (quando falhou, ou so pra garantir)
@@ -278,6 +302,21 @@ export default async function handler(req, res) {
         if (!isAdmin) return sendJson(res, 403, { error: 'Apenas administradores' });
         if (Array.isArray(body.categories)) await setSetting('ticket_categories', JSON.stringify(body.categories));
         if (Array.isArray(body.statuses)) await setSetting('ticket_statuses', JSON.stringify(body.statuses));
+        return sendJson(res, 200, { ok: true });
+      }
+      return sendJson(res, 400, { error: 'Operacao invalida' });
+    }
+
+    // ---------- RESPOSTAS PRONTAS (macros, so admin) ----------
+    if (action === 'macros') {
+      if (!isAdmin) return sendJson(res, 403, { error: 'Apenas administradores' });
+      if (op === 'list') {
+        let macros = null;
+        try { macros = JSON.parse((await getSetting('ticket_macros')) || 'null'); } catch { /* ignore */ }
+        return sendJson(res, 200, { macros: Array.isArray(macros) ? macros : [] });
+      }
+      if (op === 'save') {
+        if (Array.isArray(body.macros)) await setSetting('ticket_macros', JSON.stringify(body.macros));
         return sendJson(res, 200, { ok: true });
       }
       return sendJson(res, 400, { error: 'Operacao invalida' });
