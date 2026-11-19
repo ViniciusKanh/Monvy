@@ -72,6 +72,7 @@ export const Support = {
 };
 
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
+export const CampaignEvent = { log: (campaignId, kind) => api.post('/api/campaign-event', { campaignId, kind }).catch(() => {}) };
 export const Summary = { get: (month) => api.get(`/api/summary?month=${month}`) };
 export const Cards = {
   generateInvoices: () => api.post('/api/cards/invoices', { action: 'generate' }),
@@ -108,4 +109,5 @@ export const Admin = {
   usage: (days = 30) => api.get(`/api/admin/usage?days=${days}`),
   getCampaign: () => api.get('/api/admin/campaign'),
   saveCampaign: (data) => api.put('/api/admin/campaign', data),
+  getCampaignStats: () => api.get('/api/admin/campaign-stats'),
 };

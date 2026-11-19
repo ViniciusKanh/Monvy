@@ -43,6 +43,8 @@ import TaxBurden from './pages/TaxBurden.jsx';
 import Impostos from './pages/Impostos.jsx';
 import NotasFiscais from './pages/NotasFiscais.jsx';
 import AdminAnalytics from './pages/AdminAnalytics.jsx';
+import AdminUserAnalytics from './pages/AdminUserAnalytics.jsx';
+import AdminCampaign from './pages/AdminCampaign.jsx';
 import Fipe from './pages/Fipe.jsx';
 import GoalPlanner from './pages/GoalPlanner.jsx';
 import PriceSac from './pages/PriceSac.jsx';
@@ -119,6 +121,8 @@ export default function App() {
         <Route path="/impostos" element={<Protected screenKey="taxes"><Impostos /></Protected>} />
         <Route path="/notas-fiscais" element={<Protected screenKey="fiscalnotes"><NotasFiscais /></Protected>} />
         <Route path="/analytics" element={<Protected screenKey="adminanalytics"><AdminAnalytics /></Protected>} />
+        <Route path="/analytics/usuarios" element={<Protected screenKey="adminuseranalytics"><AdminUserAnalytics /></Protected>} />
+        <Route path="/campanhas" element={<Protected screenKey="admincampaign"><AdminCampaign /></Protected>} />
         <Route path="/notificacoes" element={<Protected screenKey="notifications"><Notifications /></Protected>} />
         <Route path="/assinaturas" element={<Protected screenKey="subscriptions"><Subscriptions /></Protected>} />
         <Route path="/cofres" element={<Protected screenKey="safes"><VirtualSafes /></Protected>} />

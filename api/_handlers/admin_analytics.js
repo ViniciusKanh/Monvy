@@ -54,6 +54,14 @@ export async function usage(req, res) {
       if (Number(r.views) > u.topViews) { u.topViews = Number(r.views); u.top = r.screen_key; }
       if (r.last > u.last) u.last = r.last;
     }
+    // telas usadas por cada usuario (para a tela de Analytics por Usuário do admin)
+    const screensMap = {};
+    for (const r of rows) {
+      const list = (screensMap[r.uid] = screensMap[r.uid] || []);
+      list.push({ screen_key: r.screen_key, views: Number(r.views), days: Number(r.days), last: r.last });
+    }
+    for (const uid of Object.keys(screensMap)) screensMap[uid].sort((a, b) => b.views - a.views);
+
     const perUser = users.map((u) => {
       const a = uMap[u.id];
       const lastSeen = lastEver[u.id] || null;
@@ -62,6 +70,7 @@ export async function usage(req, res) {
       return {
         id: u.id, name: u.full_name || u.email, email: u.email, role: u.role,
         events: a ? a.events : 0, topScreen: a ? a.top : null, lastSeen, totalEver: totalEver[u.id] || 0, status,
+        screens: screensMap[u.id] || [],
       };
     }).sort((x, y) => y.events - x.events);
 
@@ -105,11 +114,27 @@ export async function campaign(req, res) {
         title: String(b.title || 'Gostando do Monvy?').slice(0, 120),
         message: String(b.message || 'Sua avaliação nos ajuda demais. Que tal avaliar na loja?').slice(0, 400),
         url: String(b.url || '').slice(0, 500),
+        icon: String(b.icon || '⭐').slice(0, 8),
+        start_date: b.start_date ? String(b.start_date).slice(0, 10) : '',
+        end_date: b.end_date ? String(b.end_date).slice(0, 10) : '',
         updated_at: new Date().toISOString(),
       };
       await setSetting('rate_campaign', JSON.stringify(data));
       return sendJson(res, 200, { ok: true, campaign: data });
     }
     return sendJson(res, 405, { error: 'Metodo nao permitido' });
+  } catch (e) { return sendJson(res, 500, { error: e.message }); }
+}
+
+// GET /api/admin/campaign-stats -> metricas reais de engajamento da campanha (admin)
+export async function campaignStats(req, res) {
+  const auth = await requireAdmin(req, res); if (!auth) return;
+  try {
+    const raw = await getSetting('rate_campaign_stats');
+    let all = {}; try { all = raw ? JSON.parse(raw) : {}; } catch { all = {}; }
+    const rawCamp = await getSetting('rate_campaign');
+    let camp = null; try { camp = rawCamp ? JSON.parse(rawCamp) : null; } catch { camp = null; }
+    const current = (camp && all[camp.id]) || { shown: 0, clicked: 0, dismissed: 0 };
+    return sendJson(res, 200, { campaignId: camp?.id || null, current, history: all });
   } catch (e) { return sendJson(res, 500, { error: e.message }); }
 }
