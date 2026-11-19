@@ -1,10 +1,10 @@
 import {
   LayoutDashboard, Wallet, CreditCard, ArrowLeftRight, Tags, PiggyBank,
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
-  Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
-  Activity, Upload, FileText, Settings, Users, CircleDollarSign,
+  BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
+  Activity, Upload, FileText, Settings, Users, UserSearch, CircleDollarSign,
   ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, Repeat, MapPin, ShieldCheck, Car,
-  PieChart, Gauge, Bug, Mail,
+  PieChart, Gauge, Bug, Mail, Megaphone,
 } from 'lucide-react';
 
 // key deve bater com allowed_screens no banco
@@ -95,6 +95,8 @@ export const NAV_GROUPS = [
       { key: 'tickets', label: 'Central de Tickets', path: '/chamados', icon: Ticket },
       { key: 'settings', label: 'Configurações', path: '/configuracoes', icon: Settings },
       { key: 'adminanalytics', label: 'Analytics de Uso', path: '/analytics', icon: BarChart3, adminOnly: true },
+      { key: 'adminuseranalytics', label: 'Analytics por Usuário', path: '/analytics/usuarios', icon: UserSearch, adminOnly: true },
+      { key: 'admincampaign', label: 'Campanhas', path: '/campanhas', icon: Megaphone, adminOnly: true },
       { key: 'users', label: 'Usuários & Acessos', path: '/usuarios', icon: Users, adminOnly: true },
       { key: 'newusers', label: 'Onboarding (novos usuários)', path: '/config-novos-usuarios', icon: UserPlus, adminOnly: true },
     ],

@@ -2,7 +2,7 @@ import users from '../_handlers/admin_users.js';
 import usersItem from '../_handlers/admin_users_item.js';
 import mail from '../_handlers/admin_mail.js';
 import defaults from '../_handlers/admin_defaults.js';
-import { usage, campaign } from '../_handlers/admin_analytics.js';
+import { usage, campaign, campaignStats } from '../_handlers/admin_analytics.js';
 import { sendJson } from '../_lib/auth.js';
 
 export default function handler(req, res) {
@@ -16,5 +16,6 @@ export default function handler(req, res) {
   if (a === 'defaults') return defaults(req, res);
   if (a === 'usage') return usage(req, res);
   if (a === 'campaign') return campaign(req, res);
+  if (a === 'campaign-stats') return campaignStats(req, res);
   return sendJson(res, 404, { error: 'Rota nao encontrada' });
 }

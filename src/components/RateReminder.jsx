@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Star, X } from 'lucide-react';
 import { Button } from './ui';
+import { CampaignEvent } from '../api/entities.js';
 
-// Lembrete de avaliação na loja. Definido pelo admin (campanha), aparece UMA
-// vez por campanha e marca como lido no dispositivo (não volta a aparecer).
+// Lembrete de avaliação na loja. Definido pelo admin (tela Campanhas), aparece
+// UMA vez por campanha, marca como lido no dispositivo (não volta a aparecer)
+// e registra o engajamento real (exibido/avaliou/dispensou) para a analítica do admin.
 export function RateReminder({ campaign }) {
   const [open, setOpen] = useState(false);
   const flag = campaign?.id ? `monvy_rate_${campaign.id}` : null;
@@ -11,12 +13,17 @@ export function RateReminder({ campaign }) {
   useEffect(() => {
     if (!campaign || !campaign.active || !flag) return;
     try { if (localStorage.getItem(flag)) return; } catch { return; }
-    const t = setTimeout(() => setOpen(true), 1800); // deixa a tela carregar antes
+    const t = setTimeout(() => { setOpen(true); CampaignEvent.log(campaign.id, 'shown'); }, 1800); // deixa a tela carregar antes
     return () => clearTimeout(t);
   }, [campaign, flag]);
 
-  const dismiss = () => { try { if (flag) localStorage.setItem(flag, '1'); } catch { /* */ } setOpen(false); };
-  const rate = () => { try { if (campaign.url) window.open(campaign.url, '_blank', 'noopener'); } catch { /* */ } dismiss(); };
+  const dismiss = () => { try { if (flag) localStorage.setItem(flag, '1'); } catch { /* */ } setOpen(false); CampaignEvent.log(campaign?.id, 'dismissed'); };
+  const rate = () => {
+    try { if (campaign.url) window.open(campaign.url, '_blank', 'noopener'); } catch { /* */ }
+    CampaignEvent.log(campaign?.id, 'clicked');
+    try { if (flag) localStorage.setItem(flag, '1'); } catch { /* */ }
+    setOpen(false);
+  };
 
   if (!open || !campaign) return null;
   return (
@@ -24,8 +31,8 @@ export function RateReminder({ campaign }) {
       <div className="w-full max-w-sm rounded-3xl bg-[hsl(var(--card))] shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="relative p-6 text-center text-white" style={{ background: 'linear-gradient(135deg,#059669,#0d9488)' }}>
           <button onClick={dismiss} className="absolute top-3 right-3 text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
-          <div className="w-16 h-16 rounded-2xl bg-white/15 mx-auto flex items-center justify-center">
-            <Star className="w-8 h-8" fill="currentColor" />
+          <div className="w-16 h-16 rounded-2xl bg-white/15 mx-auto flex items-center justify-center text-3xl">
+            {campaign.icon || <Star className="w-8 h-8" fill="currentColor" />}
           </div>
           <div className="flex justify-center gap-1 mt-3">
             {[0, 1, 2, 3, 4].map((i) => <Star key={i} className="w-5 h-5 text-amber-300" fill="currentColor" />)}

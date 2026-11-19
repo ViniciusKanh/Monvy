@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { BarChart3, Users, Eye, Activity, Star, Megaphone, TrendingUp, TrendingDown, UserX, UserMinus, Flame, CalendarDays } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart3, Users, Eye, Activity, TrendingUp, TrendingDown, UserX, UserMinus, Flame, CalendarDays } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader.jsx';
-import { Card, Button, Input, Select, Field, Badge, Spinner, EmptyState } from '../components/ui';
-import { AnimatedValue, Reveal } from '../components/Animated.jsx';
+import { Card, Select, Badge, Spinner, EmptyState } from '../components/ui';
+import { AnimatedValue } from '../components/Animated.jsx';
 import { Admin } from '../api/entities.js';
 import { findNavItem } from '../lib/screens.js';
-import { toast } from '../lib/toast.js';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 const labelFor = (key) => findNavItem(key)?.label || key || '—';
@@ -27,25 +26,6 @@ export default function AdminAnalytics() {
   const [days, setDays] = useState(30);
   const [uf, setUf] = useState('all'); // all | heavy | sumiu | nunca
   const { data, isLoading } = useQuery({ queryKey: ['admin-usage', days], queryFn: () => Admin.usage(days) });
-  const campQ = useQuery({ queryKey: ['admin-campaign'], queryFn: () => Admin.getCampaign() });
-
-  const [form, setForm] = useState(null);
-  const camp = campQ.data?.campaign;
-  // inicializa o form uma vez quando a campanha carrega
-  if (form === null && campQ.isSuccess) {
-    setForm(camp ? { ...camp } : { active: false, title: 'Gostando do Monvy?', message: 'Sua avaliação nos ajuda demais. Que tal avaliar o Monvy na loja? Leva 10 segundos ❤️', url: '', id: '' });
-  }
-
-  const save = useMutation({
-    mutationFn: () => {
-      const payload = { ...form };
-      // novo id sempre que ativar/editar => reexibe para quem já tinha dispensado
-      if (payload.active && (!payload.id || campQ.data?.campaign?.active !== true)) payload.id = `c${Date.now()}`;
-      return Admin.saveCampaign(payload);
-    },
-    onSuccess: (r) => { toast.success('Campanha salva.'); setForm(r.campaign); campQ.refetch(); },
-    onError: (e) => toast.error(e.message || 'Falha ao salvar.'),
-  });
 
   const byScreen = data?.byScreen || [];
   const top = byScreen.slice(0, 10);
@@ -160,27 +140,6 @@ export default function AdminAnalytics() {
           <p className="text-[11px] text-muted mt-2">"Sumiu" = último acesso há mais de {data?.churnDays || 14} dias. Os dados começam a contar a partir do deploy desta funcionalidade.</p>
         </Card>
       </>)}
-
-      {/* Campanha de avaliação */}
-      <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-1"><Megaphone className="w-4 h-4 text-violet-500" /> Campanha de avaliação na loja</h3>
-        <p className="text-xs text-muted mb-3">Um lembrete que aparece <b>uma única vez</b> por usuário. Ao ativar (ou reativar), ele volta a aparecer para todos — como uma nova campanha.</p>
-        {campQ.isLoading || !form ? <div className="py-4"><Spinner className="w-5 h-5" /></div> : (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={!!form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="w-4 h-4 accent-emerald-500" />
-              Campanha ativa {form.active ? <Badge color="emerald">no ar</Badge> : <Badge color="slate">pausada</Badge>}
-            </label>
-            <Field label="Título"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
-            <Field label="Mensagem"><Input value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} /></Field>
-            <Field label="Link da loja (Microsoft Store)" hint="cole a URL do app na loja"><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://apps.microsoft.com/detail/..." /></Field>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted">{camp?.id ? `campanha atual: ${camp.id}` : 'nenhuma campanha salva'}</span>
-              <Button disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending ? <Spinner className="w-4 h-4" /> : <><Star className="w-4 h-4" /> Salvar campanha</>}</Button>
-            </div>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }

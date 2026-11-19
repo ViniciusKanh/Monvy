@@ -23,7 +23,16 @@ export default async function handler(req, res) {
       ]);
     // Campanha de avaliação (global, definida pelo admin) — entregue a todos os usuários
     let rateCampaign = null;
-    try { const raw = await getSetting('rate_campaign'); if (raw) { const c = JSON.parse(raw); if (c && c.active) rateCampaign = c; } } catch { /* sem campanha */ }
+    try {
+      const raw = await getSetting('rate_campaign');
+      if (raw) {
+        const c = JSON.parse(raw);
+        const today = new Date().toISOString().slice(0, 10);
+        const afterStart = !c.start_date || today >= c.start_date;
+        const beforeEnd = !c.end_date || today <= c.end_date;
+        if (c && c.active && afterStart && beforeEnd) rateCampaign = c;
+      }
+    } catch { /* sem campanha */ }
     return sendJson(res, 200, { accounts, categories, transactions, cards, cardTx, invoices, goals, subscriptions, safes, settings, rateCampaign });
   } catch (e) {
     return sendJson(res, 500, { error: e.message });
