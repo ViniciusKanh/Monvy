@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Account, Transaction } from '../api/entities.js';
 import { Button, Card, Input, Select, Field, Modal, Spinner, EmptyState } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
-import { Wallet } from 'lucide-react';
+import { Wallet, GripVertical } from 'lucide-react';
 import { useFavoriteAccounts } from '../lib/useFavoriteAccounts.js';
+import { useAccountOrder } from '../lib/useAccountOrder.js';
 
 import { AccountsHeader } from '../components/accounts/AccountsHeader.jsx';
 import { AccountsNavigation } from '../components/accounts/AccountsNavigation.jsx';
@@ -38,6 +39,9 @@ export default function Accounts() {
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: banks = [] } = useQuery({ queryKey: ['banks'], queryFn: fetchBanks, staleTime: 7 * 24 * 3_600_000, retry: 1 });
   const { isFavorite, toggle: toggleFavorite } = useFavoriteAccounts();
+  const { applyOrder, moveTo, hasCustomOrder, resetOrder } = useAccountOrder();
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
 
   const [tab, setTab] = useState('overview');
   const [period, setPeriod] = useState(30);
@@ -64,12 +68,23 @@ export default function Accounts() {
   const total = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0);
   const totalPositive = accounts.reduce((s, a) => s + Math.max(0, Number(a.current_balance || 0)), 0);
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
-  // ordena favoritas primeiro, preservando a ordem de criação dentro de cada grupo
+  // sem ordem manual salva: favoritas primeiro, preservando a ordem de criação dentro de cada grupo;
+  // com ordem manual (arrastar e soltar): respeita exatamente a ordem escolhida pelo usuário
   const orderedAccounts = useMemo(() => {
+    if (hasCustomOrder) return applyOrder(accounts);
     const favs = accounts.filter((a) => isFavorite(a.id));
     const rest = accounts.filter((a) => !isFavorite(a.id));
     return [...favs, ...rest];
-  }, [accounts, isFavorite]);
+  }, [accounts, isFavorite, hasCustomOrder, applyOrder]);
+
+  const handleDragStart = (id) => (e) => { setDraggingId(id); e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragOver = (id) => (e) => { e.preventDefault(); if (id !== dragOverId) setDragOverId(id); };
+  const handleDrop = (id) => (e) => {
+    e.preventDefault();
+    if (draggingId) moveTo(orderedAccounts.map((a) => a.id), draggingId, id);
+    setDraggingId(null); setDragOverId(null);
+  };
+  const handleDragEnd = () => { setDraggingId(null); setDragOverId(null); };
 
   return (
     <div className="animate-fadeIn space-y-5">
@@ -84,9 +99,21 @@ export default function Accounts() {
         <div className="space-y-5">
           <AccountsBalanceHero accounts={accounts} transactions={transactions} total={total} period={period} onPeriodChange={setPeriod} />
 
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted flex items-center gap-1"><GripVertical className="w-3.5 h-3.5" /> arraste os cartões para reordenar</p>
+            {hasCustomOrder && <button onClick={resetOrder} className="text-xs text-muted hover:text-rose-500">restaurar ordem padrão</button>}
+          </div>
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {orderedAccounts.map((a, i) => (
-              <Reveal key={a.id} i={i}>
+              <Reveal
+                key={a.id} i={i}
+                draggable
+                onDragStart={handleDragStart(a.id)}
+                onDragOver={handleDragOver(a.id)}
+                onDrop={handleDrop(a.id)}
+                onDragEnd={handleDragEnd}
+                className={`relative cursor-grab active:cursor-grabbing transition-opacity ${draggingId === a.id ? 'opacity-40' : ''} ${dragOverId === a.id && draggingId && draggingId !== a.id ? 'ring-2 ring-indigo-500 rounded-2xl' : ''}`}
+              >
                 <BankAccountCard
                   account={a} transactions={transactions} consolidatedPositive={totalPositive}
                   isFavorite={isFavorite(a.id)} onToggleFavorite={toggleFavorite}
