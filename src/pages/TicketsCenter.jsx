@@ -8,7 +8,7 @@ import { Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import {
   Ticket, Plus, Search, Settings2, Send, Paperclip, X, Image as ImageIcon, UserCircle, Mail,
-  Shield, CheckCircle2, RotateCcw, Trash2, Filter,
+  Shield, CheckCircle2, RotateCcw, Trash2, Filter, MailWarning, MailX, RefreshCw,
 } from 'lucide-react';
 
 const HEX = { amber: '#f59e0b', blue: '#3b82f6', violet: '#8b5cf6', emerald: '#10b981', slate: '#64748b', rose: '#f43f5e', sky: '#0ea5e9', teal: '#14b8a6', indigo: '#6366f1' };
@@ -29,6 +29,26 @@ function readImage(file, max = 1100) {
 function StatusChip({ st }) {
   const hex = HEX[st?.color] || HEX.slate;
   return <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: `${hex}22`, color: hex }}>{st?.label || 'Novo'}</span>;
+}
+// Sinalizacao de entrega do e-mail da mensagem — nunca afirma "enviado" sem
+// confirmacao real do provedor (vem direto do que o backend gravou).
+function EmailStatus({ status, error, onResend, resending }) {
+  if (!status) return null;
+  const map = {
+    sent: { icon: CheckCircle2, cls: 'text-emerald-500', text: 'e-mail enviado' },
+    failed: { icon: MailX, cls: 'text-rose-500', text: 'falha ao enviar e-mail' },
+    skipped: { icon: MailWarning, cls: 'text-amber-500', text: 'e-mail não configurado' },
+  };
+  const info = map[status] || map.skipped;
+  const Icon = info.icon;
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <span className={`text-[10px] flex items-center gap-1 ${info.cls}`} title={error || ''}><Icon className="w-3 h-3" /> {info.text}</span>
+      <button onClick={onResend} disabled={resending} title="Reenviar este e-mail" className="text-[10px] text-sky-500 hover:underline flex items-center gap-0.5 disabled:opacity-50">
+        {resending ? <Spinner className="w-2.5 h-2.5" /> : <RefreshCw className="w-2.5 h-2.5" />} reenviar
+      </button>
+    </div>
+  );
 }
 
 export default function TicketsCenter() {
@@ -166,7 +186,19 @@ function TicketThread({ id, isAdmin, statuses, categories, stOf, onClose }) {
   const [img, setImg] = useState('');
   const fileRef = useRef(null);
   const refresh = () => { qc.invalidateQueries({ queryKey: ['ticket', id] }); qc.invalidateQueries({ queryKey: ['support-tickets'] }); };
-  const sendReply = useMutation({ mutationFn: () => Support.replyTicket({ id, body: reply, image_url: img || undefined }), onSuccess: () => { setReply(''); setImg(''); refresh(); }, onError: (e) => toast.error(e.message || 'Falha') });
+  const sendReply = useMutation({
+    mutationFn: () => Support.replyTicket({ id, body: reply, image_url: img || undefined }),
+    onSuccess: (r) => { setReply(''); setImg(''); refresh(); if (r?.emailStatus === 'failed') toast.error('Resposta salva, mas o e-mail falhou — você pode reenviar.'); },
+    onError: (e) => toast.error(e.message || 'Falha'),
+  });
+  const [resendingId, setResendingId] = useState(null);
+  const resendEmail = useMutation({
+    mutationFn: (msgId) => Support.resendTicketEmail(msgId),
+    onMutate: (msgId) => setResendingId(msgId),
+    onSuccess: (r) => { refresh(); if (r?.emailStatus === 'sent') toast.success('E-mail reenviado com sucesso.'); else if (r?.emailStatus === 'skipped') toast.error('Sem provedor de e-mail configurado.'); else toast.error('Falha ao reenviar: ' + (r?.emailError || 'erro desconhecido')); },
+    onError: (e) => toast.error(e.message || 'Falha ao reenviar'),
+    onSettled: () => setResendingId(null),
+  });
   const setStatus = useMutation({ mutationFn: (payload) => Support.setTicketStatus(id, payload), onSuccess: refresh, onError: (e) => toast.error(e.message || 'Falha') });
   const meta = useMutation({ mutationFn: (data) => Support.updateTicket(id, data), onSuccess: refresh });
   const onImg = async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; try { setImg(await readImage(f)); } catch {} };
@@ -206,6 +238,7 @@ function TicketThread({ id, isAdmin, statuses, categories, stOf, onClose }) {
                     <p className="text-sm whitespace-pre-line">{m.body}</p>
                     {m.image_url && (m.image_url.startsWith('data:application/pdf') ? <a href={m.image_url} target="_blank" rel="noreferrer" className="text-xs text-sky-500 underline">ver anexo (PDF)</a> : <img src={m.image_url} alt="" className="mt-1 rounded-lg max-h-40" />)}
                     <p className="text-[10px] text-muted mt-0.5">{fmtDate(m.created_date)}</p>
+                    <EmailStatus status={m.email_status} error={m.email_error} resending={resendingId === m.id} onResend={() => resendEmail.mutate(m.id)} />
                   </div>
                 </div>
               );

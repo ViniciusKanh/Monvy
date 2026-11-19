@@ -64,6 +64,7 @@ export const Support = {
   ticket: (id) => api.post('/api/support/tickets', { op: 'get', id }),
   createTicket: (data) => api.post('/api/support/tickets', { op: 'create', ...data }),
   replyTicket: (data) => api.post('/api/support/tickets', { op: 'reply', ...data }),
+  resendTicketEmail: (id) => api.post('/api/support/tickets', { op: 'resend-email', id }),
   setTicketStatus: (id, data) => api.post('/api/support/tickets', { op: 'status', id, ...data }),
   deleteTicket: (id) => api.post('/api/support/tickets', { op: 'delete', id }),
   updateTicket: (id, data) => api.post('/api/support/tickets', { op: 'meta', id, ...data }),

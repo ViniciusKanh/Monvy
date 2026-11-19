@@ -236,6 +236,7 @@ export const SCHEMA_STATEMENTS = [
     ticket_id TEXT,
     author_id TEXT, author_role TEXT, author_name TEXT,
     body TEXT, image_url TEXT,
+    email_status TEXT, email_error TEXT, email_to TEXT,
     created_date TEXT
   )`,
 
@@ -473,6 +474,11 @@ export const MIGRATIONS = [
     `ALTER TABLE BankRate ADD COLUMN prazo_max INTEGER`,
     `ALTER TABLE BankRate ADD COLUMN system TEXT DEFAULT 'price'`,
     `ALTER TABLE BankRate ADD COLUMN updated_at TEXT`,
+  ] },
+  { id: '023_ticket_email_status', statements: [
+    `ALTER TABLE TicketMessage ADD COLUMN email_status TEXT`,
+    `ALTER TABLE TicketMessage ADD COLUMN email_error TEXT`,
+    `ALTER TABLE TicketMessage ADD COLUMN email_to TEXT`,
   ] },
 ];
 // compat

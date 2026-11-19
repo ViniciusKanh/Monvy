@@ -48,7 +48,7 @@ function providers(cfg) {
 
 // Envia e-mail se configurado/habilitado. Nunca lanca (não quebra o fluxo principal).
 // Tenta cada provedor em ordem; se um falhar, cai para o próximo (fallback).
-export async function sendMail({ to, subject, html, replyTo }) {
+export async function sendMail({ to, cc, subject, html, replyTo }) {
   try {
     const cfg = await getMailConfig().catch(() => ({}));
     const list = providers(cfg);
@@ -63,6 +63,7 @@ export async function sendMail({ to, subject, html, replyTo }) {
           headers: { 'List-Unsubscribe': `<mailto:${p.fromAddr}?subject=descadastrar>`, 'Auto-Submitted': 'auto-generated' },
         };
         if (replyTo) msg.replyTo = replyTo;
+        if (cc) msg.cc = cc;
         await transporter(p).sendMail(msg);
         return { sent: true, via: p.label };
       } catch (e) { lastErr = e; /* tenta o próximo provedor */ }

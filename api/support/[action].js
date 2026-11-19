@@ -28,6 +28,39 @@ async function notify({ userId, kind = 'ticket', title, text, path = '/chamados'
 }
 async function notifyAdmins(admins, opts) { for (const a of admins) await notify({ ...opts, userId: a.id }); }
 
+// Envia (ou reenvia) o e-mail de uma mensagem do chamado e grava no proprio
+// TicketMessage se foi enviado, falhou ou foi pulado (sem SMTP configurado) —
+// assim o status do e-mail fica visivel e reenviavel direto no ticket.
+// Quando quem envia e um admin, manda copia (cc) pra quem enviou, pra ficar
+// registrado quem foi o responsavel pela resposta.
+async function deliverTicketMessage({ req, t, msg, senderAdmin }) {
+  const appLink = `${baseUrl(req)}/ajuda`;
+  let result, to;
+  if (msg.author_role === 'admin') {
+    to = t.user_email || '';
+    result = to
+      ? await sendMail({
+          to, cc: senderAdmin?.email || undefined,
+          subject: `Resposta ao seu chamado: ${t.subject}`,
+          html: tpl('Você tem uma resposta do suporte 💬', `Seu chamado <b>#${t.number || ''} — ${t.subject}</b> foi respondido:<br/><br/>${String(msg.body || '').replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Ver no app', ctaUrl: appLink }),
+        })
+      : { skipped: true };
+  } else {
+    const adminList = await adminUsers();
+    to = adminList.map((a) => a.email).join(',');
+    result = adminList.length
+      ? await sendMail({
+          to, replyTo: t.user_email,
+          subject: `Nova mensagem no chamado: ${t.subject}`,
+          html: tpl('Nova mensagem em um chamado 💬', `<b>${msg.author_name || t.user_name || t.user_email}</b> respondeu no chamado <b>#${t.number || ''} — ${t.subject}</b>:<br/><br/>${String(msg.body || '').replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }),
+        })
+      : { skipped: true };
+  }
+  const status = result.sent ? 'sent' : (result.skipped ? 'skipped' : 'failed');
+  await db().execute({ sql: `UPDATE TicketMessage SET email_status=?, email_error=?, email_to=? WHERE id=?`, args: [status, result.error || null, to || null, msg.id] });
+  return { status, error: result.error || null, to };
+}
+
 const DEFAULT_ARTICLES = [
   { category: 'Primeiros passos', title: 'Como comecar no Monvy', body: 'Cadastre suas contas em Contas, depois registre receitas e despesas em Lancamentos. No Dashboard você acompanha o resumo do mês, o fluxo de caixa e os gastos por categoria. Dica: defina um orcamento por categoria para receber alertas quando gastar demais.' },
   { category: 'Cartao de crédito', title: 'Como importar a fatura do cartão', body: 'Abra Cartoes, selecione o cartão e o mês, e clique em Importar fatura. Envie o PDF da fatura: o Monvy le, separa e categoriza cada compra automaticamente, considerando estornos e creditos. Se algo não bater, compare o total com o do PDF e use Excluir fatura para reimportar.' },
@@ -99,14 +132,21 @@ export default async function handler(req, res) {
         const id = newId();
         const number = Number((await db().execute(`SELECT COALESCE(MAX(number),1000) n FROM SupportTicket`)).rows[0]?.n || 1000) + 1;
         await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,image_url,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subject, 'open', category || 'Duvida', 'normal', u.full_name || '', u.email, image_url || null, u.id, nowIso(), nowIso()] });
-        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [newId(), id, u.id, 'user', u.full_name || u.email, description, image_url || null, nowIso()] });
+        const msgId = newId();
+        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [msgId, id, u.id, 'user', u.full_name || u.email, description, image_url || null, nowIso()] });
         // notifica os admins (podem responder por e-mail direto ao usuário via Reply-To, ou no app)
+        // e grava no proprio TicketMessage se o e-mail saiu, falhou, ou foi pulado (sem SMTP).
         const adminList = await adminUsers();
-        if (adminList.length) sendMail({
-          to: adminList.map((a) => a.email).join(','), replyTo: u.email,
-          subject: `Novo chamado: ${subject}`,
-          html: tpl('Novo chamado aberto 🎫', `<b>${u.full_name || u.email}</b> abriu um chamado.<br/><br/><b>Assunto:</b> ${subject}<br/><b>Categoria:</b> ${category || 'Duvida'}<br/><b>Descricao:</b><br/>${String(description).replace(/</g, '&lt;').slice(0, 1200)}${image_url ? '<br/><br/>(o usuário anexou um arquivo)' : ''}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }),
-        }).catch(() => {});
+        const adminTo = adminList.map((a) => a.email).join(',');
+        const mailResult = adminList.length
+          ? await sendMail({
+              to: adminTo, replyTo: u.email,
+              subject: `Novo chamado: ${subject}`,
+              html: tpl('Novo chamado aberto 🎫', `<b>${u.full_name || u.email}</b> abriu um chamado.<br/><br/><b>Assunto:</b> ${subject}<br/><b>Categoria:</b> ${category || 'Duvida'}<br/><b>Descricao:</b><br/>${String(description).replace(/</g, '&lt;').slice(0, 1200)}${image_url ? '<br/><br/>(o usuário anexou um arquivo)' : ''}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }),
+            })
+          : { skipped: true };
+        const mailStatus = mailResult.sent ? 'sent' : (mailResult.skipped ? 'skipped' : 'failed');
+        await db().execute({ sql: `UPDATE TicketMessage SET email_status=?, email_error=?, email_to=? WHERE id=?`, args: [mailStatus, mailResult.error || null, adminTo || null, msgId] });
         await notifyAdmins(adminList, { title: `Novo chamado #${number}`, text: `${u.full_name || u.email}: ${subject}` });
         return sendJson(res, 200, { ok: true, id });
       }
@@ -128,20 +168,31 @@ export default async function handler(req, res) {
         if (!t) return sendJson(res, 404, { error: 'Chamado não encontrado' });
         if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
         if (!body.body) return sendJson(res, 400, { error: 'Mensagem vazia' });
-        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [newId(), body.id, u.id, isAdmin ? 'admin' : 'user', u.full_name || u.email, body.body, body.image_url || null, nowIso()] });
+        const msgId = newId();
+        const authorRole = isAdmin ? 'admin' : 'user';
+        await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [msgId, body.id, u.id, authorRole, u.full_name || u.email, body.body, body.image_url || null, nowIso()] });
         const newStatus = isAdmin ? 'answered' : 'pending';
         await db().execute({ sql: `UPDATE SupportTicket SET status=?, updated_date=? WHERE id=?`, args: [newStatus, nowIso(), body.id] });
+        // envia o e-mail (pra quem responde: usuario se foi o admin, admins se foi o usuario),
+        // com copia pro proprio admin quando ele responde, e grava o status (enviado/falhou/pulado)
+        // direto no TicketMessage — aparece no ticket e pode ser reenviado se falhar.
+        const mail = await deliverTicketMessage({ req, t, msg: { id: msgId, author_role: authorRole, author_name: u.full_name || u.email, body: body.body }, senderAdmin: isAdmin ? u : undefined });
         if (isAdmin) {
-          // resposta do suporte -> avisa o usuário (e-mail + notificacao no app)
-          if (t.user_email) sendMail({ to: t.user_email, subject: `Resposta ao seu chamado: ${t.subject}`, html: tpl('Você tem uma resposta do suporte 💬', `Seu chamado <b>${t.subject}</b> foi respondido:<br/><br/>${String(body.body).replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Ver no app', ctaUrl: appLink }) }).catch(() => {});
           await notify({ userId: t.created_by_id, title: `Resposta no chamado #${t.number || ''}`, text: String(body.body).slice(0, 140) });
         } else {
-          // resposta do usuário -> avisa os admins (e-mail + notificacao no app)
-          const adminList = await adminUsers();
-          if (adminList.length) sendMail({ to: adminList.map((a) => a.email).join(','), replyTo: u.email, subject: `Nova mensagem no chamado: ${t.subject}`, html: tpl('Nova mensagem em um chamado 💬', `<b>${u.full_name || u.email}</b> respondeu no chamado <b>${t.subject}</b>:<br/><br/>${String(body.body).replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }) }).catch(() => {});
-          await notifyAdmins(adminList, { title: `Nova mensagem no chamado #${t.number || ''}`, text: `${u.full_name || u.email}: ${String(body.body).slice(0, 120)}` });
+          await notifyAdmins(await adminUsers(), { title: `Nova mensagem no chamado #${t.number || ''}`, text: `${u.full_name || u.email}: ${String(body.body).slice(0, 120)}` });
         }
-        return sendJson(res, 200, { ok: true });
+        return sendJson(res, 200, { ok: true, emailStatus: mail.status });
+      }
+      if (op === 'resend-email') {
+        // reenvia o e-mail de uma mensagem especifica (quando falhou, ou so pra garantir)
+        const msg = (await db().execute({ sql: `SELECT * FROM TicketMessage WHERE id=?`, args: [body.id] })).rows[0];
+        if (!msg) return sendJson(res, 404, { error: 'Mensagem não encontrada' });
+        const t = (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE id=?`, args: [msg.ticket_id] })).rows[0];
+        if (!t) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+        if (!isAdmin && t.created_by_id !== u.id) return sendJson(res, 403, { error: 'Sem acesso' });
+        const mail = await deliverTicketMessage({ req, t, msg, senderAdmin: isAdmin ? u : undefined });
+        return sendJson(res, 200, { ok: true, emailStatus: mail.status, emailError: mail.error });
       }
       if (op === 'meta') { // admin: categoria/prioridade (escalonamento)
         if (!isAdmin) return sendJson(res, 403, { error: 'Apenas administradores' });
