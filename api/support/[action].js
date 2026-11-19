@@ -13,6 +13,20 @@ async function adminEmails() {
   const r = await db().execute(`SELECT email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`);
   return r.rows.map((x) => x.email).filter(Boolean);
 }
+async function adminUsers() {
+  const r = await db().execute(`SELECT id, email FROM users WHERE role='admin' AND (is_active IS NULL OR is_active=1)`);
+  return r.rows;
+}
+// Notificacao no app: garante o aviso mesmo se o e-mail falhar silenciosamente
+// (SMTP nao configurado, limite diario, endereco invalido, etc.) — nunca lanca.
+async function notify({ userId, kind = 'ticket', title, text, path = '/chamados' }) {
+  if (!userId) return;
+  try {
+    await db().execute({ sql: `INSERT INTO Notification (id,kind,title,text,path,read,is_deleted,created_date,updated_date,created_by_id) VALUES (?,?,?,?,?,0,0,?,?,?)`,
+      args: [newId(), kind, title, text, path, nowIso(), nowIso(), userId] });
+  } catch { /* nunca quebra o fluxo principal */ }
+}
+async function notifyAdmins(admins, opts) { for (const a of admins) await notify({ ...opts, userId: a.id }); }
 
 const DEFAULT_ARTICLES = [
   { category: 'Primeiros passos', title: 'Como comecar no Monvy', body: 'Cadastre suas contas em Contas, depois registre receitas e despesas em Lancamentos. No Dashboard você acompanha o resumo do mês, o fluxo de caixa e os gastos por categoria. Dica: defina um orcamento por categoria para receber alertas quando gastar demais.' },
@@ -87,12 +101,13 @@ export default async function handler(req, res) {
         await db().execute({ sql: `INSERT INTO SupportTicket (id,number,subject,status,category,priority,user_name,user_email,image_url,created_by_id,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, number, subject, 'open', category || 'Duvida', 'normal', u.full_name || '', u.email, image_url || null, u.id, nowIso(), nowIso()] });
         await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,image_url,created_date) VALUES (?,?,?,?,?,?,?,?)`, args: [newId(), id, u.id, 'user', u.full_name || u.email, description, image_url || null, nowIso()] });
         // notifica os admins (podem responder por e-mail direto ao usuário via Reply-To, ou no app)
-        const admins = await adminEmails();
-        if (admins.length) sendMail({
-          to: admins.join(','), replyTo: u.email,
+        const adminList = await adminUsers();
+        if (adminList.length) sendMail({
+          to: adminList.map((a) => a.email).join(','), replyTo: u.email,
           subject: `Novo chamado: ${subject}`,
           html: tpl('Novo chamado aberto 🎫', `<b>${u.full_name || u.email}</b> abriu um chamado.<br/><br/><b>Assunto:</b> ${subject}<br/><b>Categoria:</b> ${category || 'Duvida'}<br/><b>Descricao:</b><br/>${String(description).replace(/</g, '&lt;').slice(0, 1200)}${image_url ? '<br/><br/>(o usuário anexou um arquivo)' : ''}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }),
         }).catch(() => {});
+        await notifyAdmins(adminList, { title: `Novo chamado #${number}`, text: `${u.full_name || u.email}: ${subject}` });
         return sendJson(res, 200, { ok: true, id });
       }
       if (op === 'list') {
@@ -117,12 +132,14 @@ export default async function handler(req, res) {
         const newStatus = isAdmin ? 'answered' : 'pending';
         await db().execute({ sql: `UPDATE SupportTicket SET status=?, updated_date=? WHERE id=?`, args: [newStatus, nowIso(), body.id] });
         if (isAdmin) {
-          // resposta do suporte -> avisa o usuário
+          // resposta do suporte -> avisa o usuário (e-mail + notificacao no app)
           if (t.user_email) sendMail({ to: t.user_email, subject: `Resposta ao seu chamado: ${t.subject}`, html: tpl('Você tem uma resposta do suporte 💬', `Seu chamado <b>${t.subject}</b> foi respondido:<br/><br/>${String(body.body).replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Ver no app', ctaUrl: appLink }) }).catch(() => {});
+          await notify({ userId: t.created_by_id, title: `Resposta no chamado #${t.number || ''}`, text: String(body.body).slice(0, 140) });
         } else {
-          // resposta do usuário -> avisa os admins
-          const admins = await adminEmails();
-          if (admins.length) sendMail({ to: admins.join(','), replyTo: u.email, subject: `Nova mensagem no chamado: ${t.subject}`, html: tpl('Nova mensagem em um chamado 💬', `<b>${u.full_name || u.email}</b> respondeu no chamado <b>${t.subject}</b>:<br/><br/>${String(body.body).replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }) }).catch(() => {});
+          // resposta do usuário -> avisa os admins (e-mail + notificacao no app)
+          const adminList = await adminUsers();
+          if (adminList.length) sendMail({ to: adminList.map((a) => a.email).join(','), replyTo: u.email, subject: `Nova mensagem no chamado: ${t.subject}`, html: tpl('Nova mensagem em um chamado 💬', `<b>${u.full_name || u.email}</b> respondeu no chamado <b>${t.subject}</b>:<br/><br/>${String(body.body).replace(/</g, '&lt;').slice(0, 1200)}`, { ctaText: 'Responder no app', ctaUrl: appLink, footerNote: 'responda este e-mail para falar direto com o usuário.' }) }).catch(() => {});
+          await notifyAdmins(adminList, { title: `Nova mensagem no chamado #${t.number || ''}`, text: `${u.full_name || u.email}: ${String(body.body).slice(0, 120)}` });
         }
         return sendJson(res, 200, { ok: true });
       }
@@ -148,8 +165,15 @@ export default async function handler(req, res) {
         await db().execute({ sql: `UPDATE SupportTicket SET status=?, resolved_date=?, updated_date=? WHERE id=?`, args: [s, resolvedDate, nowIso(), body.id] });
         const evt = final ? `Chamado finalizado (${label}).` : (wasFinal ? `Chamado reaberto (${label}).` : `Status alterado para "${label}".`);
         await db().execute({ sql: `INSERT INTO TicketMessage (id,ticket_id,author_id,author_role,author_name,body,created_date) VALUES (?,?,?,?,?,?,?)`, args: [newId(), body.id, u.id, isAdmin ? 'admin' : 'user', u.full_name || u.email, evt, nowIso()] });
-        if (final && isAdmin && t.user_email) sendMail({ to: t.user_email, subject: `Chamado #${t.number || ''} finalizado: ${t.subject}`, html: tpl('Seu chamado foi finalizado ✅', `O chamado <b>#${t.number || ''} — ${t.subject}</b> foi finalizado (${label}). Se a solucao não te atender, você pode reabri-lo no app.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
-        if (!final && wasFinal && !isAdmin) { const admins = await adminEmails(); if (admins.length) sendMail({ to: admins.join(','), replyTo: t.user_email, subject: `Chamado #${t.number || ''} reaberto: ${t.subject}`, html: tpl('Um chamado foi reaberto 🔁', `O usuário <b>${t.user_name || t.user_email}</b> reabriu o chamado <b>#${t.number || ''} — ${t.subject}</b>.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {}); }
+        if (final && isAdmin) {
+          if (t.user_email) sendMail({ to: t.user_email, subject: `Chamado #${t.number || ''} finalizado: ${t.subject}`, html: tpl('Seu chamado foi finalizado ✅', `O chamado <b>#${t.number || ''} — ${t.subject}</b> foi finalizado (${label}). Se a solucao não te atender, você pode reabri-lo no app.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
+          await notify({ userId: t.created_by_id, title: `Chamado #${t.number || ''} finalizado`, text: t.subject || '' });
+        }
+        if (!final && wasFinal && !isAdmin) {
+          const adminList = await adminUsers();
+          if (adminList.length) sendMail({ to: adminList.map((a) => a.email).join(','), replyTo: t.user_email, subject: `Chamado #${t.number || ''} reaberto: ${t.subject}`, html: tpl('Um chamado foi reaberto 🔁', `O usuário <b>${t.user_name || t.user_email}</b> reabriu o chamado <b>#${t.number || ''} — ${t.subject}</b>.`, { ctaText: 'Ver no app', ctaUrl: `${baseUrl(req)}/chamados` }) }).catch(() => {});
+          await notifyAdmins(adminList, { title: `Chamado #${t.number || ''} reaberto`, text: `${t.user_name || t.user_email}: ${t.subject || ''}` });
+        }
         return sendJson(res, 200, { ok: true });
       }
       if (op === 'delete') {
