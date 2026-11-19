@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Transaction, Account, Category } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { TransactionModal } from '../components/TransactionModal.jsx';
@@ -21,6 +22,7 @@ const SMART = [
 
 export default function Transactions() {
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mk, setMk] = useState(monthKey(new Date()));
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -88,6 +90,15 @@ export default function Transactions() {
   const grouped = useMemo(() => { const g = {}; for (const t of filtered) { const d = t.date.slice(0, 10); (g[d] = g[d] || []).push(t); } return g; }, [filtered]);
   const shiftMonth = (d) => { const [y, m] = mk.split('-').map(Number); setMk(monthKey(new Date(y, m - 1 + d, 1))); };
   const openNew = (type) => { setEditing(null); setDefaultType(type); setModal(true); };
+  // abre direto no tipo pedido quando chega de um atalho (ex.: ações rápidas da tela Contas)
+  useEffect(() => {
+    const novo = searchParams.get('novo');
+    if (novo === 'transfer' || novo === 'income' || novo === 'expense') {
+      openNew(novo);
+      const next = new URLSearchParams(searchParams); next.delete('novo'); setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const dayNet = (items) => items.reduce((s, t) => s + (t.type === 'income' ? Number(t.amount) : t.type === 'expense' ? -Number(t.amount) : 0), 0);
 
   const toggleSel = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
