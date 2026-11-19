@@ -1,14 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { Transaction, Account, Category } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { TransactionModal } from '../components/TransactionModal.jsx';
-import { Button, Card, Input, Modal, Spinner, EmptyState, Badge } from '../components/ui';
+import { RecurrencesPanel } from '../components/transactions/RecurrencesPanel.jsx';
+import { Button, Card, Input, Select, Modal, Spinner, EmptyState, Badge } from '../components/ui';
 import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
+import { exportTransactionsXlsx } from '../lib/exportXlsx.js';
+import { exportReportToPdf } from '../lib/exportPdf.js';
 import { formatCurrency, monthKey, monthLabel, monthRange, inMonth, todayIso } from '../lib/utils.js';
-import { Plus, ChevronLeft, ChevronRight, Search, ArrowLeftRight, Pencil, Trash2, ArrowUpRight, ArrowDownRight, CircleCheck, Clock, Paperclip, Copy, CheckSquare, X, Pin, RefreshCw, Wand2 } from 'lucide-react';
+import {
+  Plus, ChevronLeft, ChevronRight, Search, ArrowLeftRight, Pencil, Trash2, ArrowUpRight, ArrowDownRight,
+  CircleCheck, Clock, Paperclip, Copy, CheckSquare, X, Pin, RefreshCw, Wand2, SlidersHorizontal, Repeat,
+  FileSpreadsheet, FileText, CalendarRange,
+} from 'lucide-react';
 
 const TYPE_FILTERS = [['all', 'Tudo'], ['income', 'Receitas'], ['expense', 'Despesas'], ['transfer', 'Transferências']];
 const STATUS_FILTERS = [['all', 'Todos'], ['pending', 'Em aberto'], ['completed', 'Concluídos']];
@@ -35,6 +42,16 @@ export default function Transactions() {
   const [viewReceipt, setViewReceipt] = useState(null);
   const [selMode, setSelMode] = useState(false);
   const [sel, setSel] = useState(() => new Set());
+  const [advOpen, setAdvOpen] = useState(false);
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [amountMin, setAmountMin] = useState('');
+  const [amountMax, setAmountMax] = useState('');
+  const [customRange, setCustomRange] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+  const [recurOpen, setRecurOpen] = useState(false);
+  const [recurEditing, setRecurEditing] = useState(null);
+  const pageRef = useRef(null);
 
   const { data: transactions = [], isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
@@ -53,17 +70,28 @@ export default function Transactions() {
     onSuccess: () => { inval(); toast.success('Lançamento duplicado para hoje, em aberto.'); },
   });
 
+  // Periodo base: mes selecionado no hero, OU um intervalo de datas livre
+  // (filtro avancado) quando ativado — os dois nunca se combinam.
   const monthTx = useMemo(() => transactions.filter((t) => inMonth(t.date, mk)), [transactions, mk]);
+  const rangeTx = useMemo(() => {
+    if (!customRange || !rangeFrom || !rangeTo) return null;
+    return transactions.filter((t) => String(t.date).slice(0, 10) >= rangeFrom && String(t.date).slice(0, 10) <= rangeTo);
+  }, [transactions, customRange, rangeFrom, rangeTo]);
+  const baseTx = rangeTx ?? monthTx;
   const smartFn = SMART.find((s) => s[0] === smart)?.[2];
-  const filtered = useMemo(() => monthTx.filter((t) => {
+  const filtered = useMemo(() => baseTx.filter((t) => {
     if (typeFilter !== 'all' && t.type !== typeFilter) return false;
     const st = t.status || 'pending';
     if (statusFilter === 'pending' && st !== 'pending') return false;
     if (statusFilter === 'completed' && st !== 'completed') return false;
     if (smartFn && !smartFn(t)) return false;
+    if (accountFilter !== 'all' && t.account_id !== accountFilter && t.account_to_id !== accountFilter) return false;
+    if (amountMin !== '' && Number(t.amount) < Number(amountMin)) return false;
+    if (amountMax !== '' && Number(t.amount) > Number(amountMax)) return false;
     if (search) { const q = search.toLowerCase(); const cat = catMap[t.category_id]?.name?.toLowerCase() || ''; if (!(t.description || '').toLowerCase().includes(q) && !cat.includes(q)) return false; }
     return true;
-  }).sort((a, b) => (a.date < b.date ? 1 : -1)), [monthTx, typeFilter, statusFilter, smartFn, search, catMap]);
+  }).sort((a, b) => (a.date < b.date ? 1 : -1)), [baseTx, typeFilter, statusFilter, smartFn, accountFilter, amountMin, amountMax, search, catMap]);
+  const advActive = accountFilter !== 'all' || amountMin !== '' || amountMax !== '' || customRange;
 
   const totals = useMemo(() => {
     let inc = 0, exp = 0, pend = 0;
@@ -107,18 +135,32 @@ export default function Transactions() {
   const bulkDelete = async () => { const ids = [...sel]; for (const id of ids) await Transaction.remove(id); inval(); toast.success(`${ids.length} lançamento(s) excluídos.`); clearSel(); };
   const selValue = [...sel].reduce((s, id) => { const t = transactions.find((x) => x.id === id); return s + (t && t.type !== 'transfer' ? Number(t.amount) : 0); }, 0);
 
+  const doExportXlsx = () => exportTransactionsXlsx(filtered, { accMap, catMap, periodLabel: customRange ? `${rangeFrom} a ${rangeTo}` : monthLabel(mk), filename: `monvy-lancamentos-${customRange ? `${rangeFrom}_${rangeTo}` : mk}.xlsx` });
+  const doExportPdf = () => exportReportToPdf(pageRef.current, { filename: `monvy-lancamentos-${customRange ? `${rangeFrom}_${rangeTo}` : mk}.pdf`, title: 'Lançamentos', subtitle: customRange ? `Período de ${rangeFrom} a ${rangeTo}` : monthLabel(mk) });
+
   return (
-    <div className="animate-fadeIn pb-24">
-      <PageHeader title="Lançamentos" subtitle="Receitas, despesas e transferências"
-        actions={<>
-          <Button variant="outline" onClick={() => { setSelMode((v) => !v); setSel(new Set()); }} className={selMode ? 'text-emerald-600 border-emerald-500' : ''}><CheckSquare className="w-4 h-4" /> {selMode ? 'Cancelar' : 'Selecionar'}</Button>
-          <Button variant="outline" onClick={() => openNew('transfer')}><ArrowLeftRight className="w-4 h-4 text-indigo-500" /> Transferir</Button>
-          <Button variant="outline" onClick={() => openNew('income')}><ArrowUpRight className="w-4 h-4 text-emerald-500" /> Receita</Button>
-          <Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Despesa</Button>
-        </>} />
+    <div className="animate-fadeIn pb-24" ref={pageRef}>
+      <div className="print:hidden">
+        <PageHeader title="Lançamentos" subtitle="Receitas, despesas e transferências"
+          actions={<>
+            <Button variant="outline" onClick={() => setRecurOpen(true)}><Repeat className="w-4 h-4 text-indigo-500" /> Recorrências</Button>
+            <div className="relative group">
+              <Button variant="outline"><FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Exportar</Button>
+              <div className="absolute right-0 top-full mt-1 hidden group-hover:block group-focus-within:block z-20 min-w-[11rem] rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl p-1">
+                <button onClick={doExportXlsx} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/5"><FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Excel (.xlsx)</button>
+                <button onClick={doExportPdf} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-black/5 dark:hover:bg-white/5"><FileText className="w-4 h-4 text-rose-500" /> PDF</button>
+              </div>
+            </div>
+            <Button variant="outline" onClick={() => setAdvOpen((v) => !v)} className={advActive ? 'text-indigo-600 border-indigo-500' : ''}><SlidersHorizontal className="w-4 h-4" /> Filtros</Button>
+            <Button variant="outline" onClick={() => { setSelMode((v) => !v); setSel(new Set()); }} className={selMode ? 'text-emerald-600 border-emerald-500' : ''}><CheckSquare className="w-4 h-4" /> {selMode ? 'Cancelar' : 'Selecionar'}</Button>
+            <Button variant="outline" onClick={() => openNew('transfer')}><ArrowLeftRight className="w-4 h-4 text-indigo-500" /> Transferir</Button>
+            <Button variant="outline" onClick={() => openNew('income')}><ArrowUpRight className="w-4 h-4 text-emerald-500" /> Receita</Button>
+            <Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Despesa</Button>
+          </>} />
+      </div>
 
       {/* Hero do mês — resumo do movimento */}
-      <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>
+      <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5 print:text-slate-900 print:bg-none print:ring-0" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>
         <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full glow-pulse pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,.28), transparent 68%)' }} />
         <div className="absolute inset-0 grid-bg opacity-25" />
         <div className="relative">
@@ -148,8 +190,47 @@ export default function Transactions() {
         </div>
       </div>
 
+      {/* Painel de filtros avançados */}
+      {advOpen && (
+        <Card className="mb-3 p-4 print:hidden">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold flex items-center gap-1.5"><SlidersHorizontal className="w-4 h-4 text-indigo-500" /> Filtros avançados</p>
+            {advActive && <button onClick={() => { setAccountFilter('all'); setAmountMin(''); setAmountMax(''); setCustomRange(false); setRangeFrom(''); setRangeTo(''); }} className="text-xs text-muted hover:text-rose-500">limpar</button>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-muted block mb-1">Conta</label>
+              <Select value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
+                <option value="all">Todas as contas</option>
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">Valor mínimo</label>
+              <Input type="number" step="0.01" value={amountMin} onChange={(e) => setAmountMin(e.target.value)} placeholder="R$ 0,00" />
+            </div>
+            <div>
+              <label className="text-xs text-muted block mb-1">Valor máximo</label>
+              <Input type="number" step="0.01" value={amountMax} onChange={(e) => setAmountMax(e.target.value)} placeholder="Sem limite" />
+            </div>
+            <div>
+              <label className="text-xs text-muted flex items-center gap-1.5 mb-1"><CalendarRange className="w-3.5 h-3.5" /> Período personalizado</label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer mb-1">
+                <input type="checkbox" checked={customRange} onChange={(e) => setCustomRange(e.target.checked)} /> usar intervalo de datas
+              </label>
+              {customRange && (
+                <div className="flex gap-1.5">
+                  <Input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} />
+                  <Input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} />
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Busca + filtros */}
-      <div className="flex flex-col md:flex-row gap-3 mb-3">
+      <div className="flex flex-col md:flex-row gap-3 mb-3 print:hidden">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por descrição ou categoria" className="pl-9" />
@@ -164,7 +245,7 @@ export default function Transactions() {
         </div>
       </div>
       {/* filtros inteligentes */}
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-5 print:hidden">
         {SMART.map(([id, label]) => {
           const active = smart === id;
           return <button key={id} onClick={() => setSmart(active ? null : id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${active ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-[hsl(var(--border))] text-muted hover:bg-black/5 dark:hover:bg-white/5'}`}>
@@ -243,7 +324,7 @@ export default function Transactions() {
 
       {/* Barra de ações em lote */}
       {selMode && sel.size > 0 && (
-        <div className="fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl">
+        <div className="fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl print:hidden">
           <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl animate-[popIn_.2s_ease]">
             <span className="text-sm font-semibold px-1">{sel.size} selecionado(s)</span>
             <span className="text-xs text-muted hidden sm:inline">· {formatCurrency(selValue)}</span>
@@ -253,6 +334,16 @@ export default function Transactions() {
             <button onClick={clearSel} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
           </div>
         </div>
+      )}
+
+      {recurOpen && (
+        <RecurrencesPanel
+          transactions={transactions}
+          accMap={accMap}
+          catMap={catMap}
+          onClose={() => setRecurOpen(false)}
+          onEdit={(p) => { setRecurOpen(false); setEditing(p); setModal(true); }}
+        />
       )}
 
       <TransactionModal open={modal} onClose={() => { setModal(false); setEditing(null); }} onSubmit={(p) => save.mutate(p)} saving={save.isPending} accounts={accounts} categories={categories} transactions={transactions} initial={editing} defaultType={defaultType} />

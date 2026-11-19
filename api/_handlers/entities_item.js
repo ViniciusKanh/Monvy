@@ -1,4 +1,4 @@
-import { ensureSchema } from '../_lib/db.js';
+import { db, ensureSchema } from '../_lib/db.js';
 import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 import { getRow, updateRow, deleteRow } from '../_lib/entities.js';
 import { recalcAllAccounts } from '../_lib/hooks.js';
@@ -26,6 +26,19 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
+      // Cancelar a serie: ao excluir o lancamento "pai" de uma recorrencia
+      // mensal, remove tambem as ocorrencias futuras ainda em aberto (nao
+      // mexe nas ja concluidas/passadas, que ficam no historico real).
+      if (entity === 'Transaction') {
+        const row = await getRow(entity, owner, id);
+        if (row && row.is_fixed && row.recurrence === 'monthly' && !row.parent_transaction_id) {
+          const today = new Date().toISOString().slice(0, 10);
+          await db().execute({
+            sql: `DELETE FROM "Transaction" WHERE created_by_id = ? AND parent_transaction_id = ? AND date >= ? AND (status IS NULL OR status != 'completed')`,
+            args: [owner, id, today],
+          });
+        }
+      }
       const ok = await deleteRow(entity, owner, id);
       if (!ok) return sendJson(res, 404, { error: 'Nao encontrado' });
       if (entity === 'Transaction' || entity === 'Account') await recalcAllAccounts(owner);

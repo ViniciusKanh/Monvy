@@ -158,3 +158,45 @@ export function exportReportXlsx(data, filename = 'monvy-relatorio.xlsx') {
   a.href = url; a.download = filename.endsWith('.xls') || filename.endsWith('.xlsx') ? filename.replace('.xlsx', '.xls') : `${filename}.xls`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
+
+function downloadXls(xml, filename) {
+  const blob = new Blob(['\ufeff', xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename.endsWith('.xls') || filename.endsWith('.xlsx') ? filename.replace('.xlsx', '.xls') : `${filename}.xls`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+// transactions: lista ja filtrada (o que esta na tela), com os mesmos campos
+// de "Transaction" (date, type, description, amount, status, account_id,
+// account_to_id, category_id). accMap/catMap: id -> {name,...}.
+export function exportTransactionsXlsx(transactions, { accMap = {}, catMap = {}, periodLabel = '', filename = 'monvy-lancamentos.xlsx' } = {}) {
+  const Z = (i) => (i % 2 === 1);
+  const typeLabel = (t) => (t === 'income' ? 'Receita' : t === 'transfer' ? 'Transferência' : 'Despesa');
+  const sorted = [...transactions].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const hdr = row([
+    strCell('Data', 'hdr'), strCell('Tipo', 'hdr'), strCell('Descrição', 'hdr'), strCell('Categoria', 'hdr'),
+    strCell('Conta', 'hdr'), strCell('Entrada', 'hdr'), strCell('Saída', 'hdr'), strCell('Status', 'hdr'),
+  ]);
+  const body = sorted.map((t, i) => {
+    const z = Z(i); const cs = z ? 'cellZ' : 'cell';
+    const isInc = t.type === 'income'; const isExp = t.type === 'expense'; const isTr = t.type === 'transfer';
+    const conta = isTr ? `${accMap[t.account_id]?.name || ''} → ${accMap[t.account_to_id]?.name || ''}` : (accMap[t.account_id]?.name || '');
+    return row([
+      strCell(String(t.date).slice(0, 10), cs),
+      strCell(typeLabel(t.type), cs),
+      strCell(t.description || catMap[t.category_id]?.name || '', cs),
+      strCell(isTr ? '—' : (catMap[t.category_id]?.name || 'Sem categoria'), cs),
+      strCell(conta, cs),
+      isInc ? numCell(t.amount, z ? 'inZ' : 'in') : strCell('', cs),
+      (isExp || isTr) ? numCell(t.amount, z ? 'outZ' : 'out') : strCell('', cs),
+      strCell(isTr ? '—' : (t.status === 'completed' ? 'Concluído' : 'Em aberto'), cs),
+    ]);
+  }).join('');
+  const totEnt = sorted.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const totSai = sorted.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const tot = row([strCell('Totais', 'tot'), strCell('', 'tot'), strCell('', 'tot'), strCell('', 'tot'), strCell('', 'tot'), numCell(totEnt, 'totMoney'), numCell(totSai, 'totMoney'), strCell('', 'tot')]);
+  const rows = [brandHeader(8, `Lançamentos — ${periodLabel}`), hdr, body, tot].join('');
+  const sh = sheet('Lançamentos', col(90) + col(100) + col(280) + col(160) + col(160) + col(120) + col(120) + col(110), rows);
+  downloadXls(workbook(sh), filename);
+}
