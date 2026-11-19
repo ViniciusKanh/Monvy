@@ -1,11 +1,13 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction, Account, Category, Investment, Debt } from '../api/entities.js';
-import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Select, Input, Badge, Spinner } from '../components/ui';
 import { formatCurrency } from '../lib/utils.js';
 import { DEFAULT_TAX, calcAnual, calcMensal, calcRendaVariavel } from '../lib/tax.js';
-import { Landmark, FileText, Calculator, CalendarClock, ClipboardList, Wallet, TrendingUp, Printer, Settings2, Info, CheckCircle2, ArrowUpRight, LineChart, Paperclip } from 'lucide-react';
+import { Landmark, FileText, Calculator, CalendarClock, ClipboardList, Wallet, TrendingUp, Printer, Settings2, CheckCircle2, ArrowUpRight, LineChart, Paperclip } from 'lucide-react';
+import { TaxOfficialHeader } from '../components/incometax/TaxOfficialHeader.jsx';
+import { TaxSummaryBar } from '../components/incometax/TaxSummaryBar.jsx';
+import { TaxStepper } from '../components/incometax/TaxStepper.jsx';
 
 const LS_KEY = 'monvy_tax_v1';
 const load = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; } };
@@ -14,11 +16,11 @@ const save = (o) => { try { localStorage.setItem(LS_KEY, JSON.stringify(o)); } c
 const DEDUCTIBLE = { saude: /saude|médico|medico|hospital|farmacia|farmácia|plano de saude|odonto|dentista/i, educacao: /educa|escola|faculdade|curso|mensalidade|universidade/i, previdencia: /previd|inss|pgbl/i };
 
 const TABS = [
-  { id: 'org', label: 'Organizador', icon: ClipboardList },
-  { id: 'anual', label: 'Estimativa anual', icon: Calculator },
-  { id: 'mensal', label: 'Carnê-Leão', icon: CalendarClock },
-  { id: 'rv', label: 'Renda variável', icon: LineChart },
-  { id: 'rel', label: 'Relatório', icon: FileText },
+  { id: 'org', label: 'Organizador', icon: ClipboardList, hint: 'Visão geral do ano' },
+  { id: 'anual', label: 'Estimativa anual', icon: Calculator, hint: 'Rendimentos e deduções' },
+  { id: 'mensal', label: 'Carnê-Leão', icon: CalendarClock, hint: 'Autônomos (mensal)' },
+  { id: 'rv', label: 'Renda variável', icon: LineChart, hint: 'Ações, FIIs, cripto' },
+  { id: 'rel', label: 'Relatório', icon: FileText, hint: 'Para o contador' },
 ];
 
 function Stat({ label, value, color = '', icon: Icon }) {
@@ -95,20 +97,24 @@ export default function IncomeTax() {
   const usarDados = () => setAnual((a) => ({ ...a, tributavel: org.rendimentos.toFixed(2), saude: org.ded.saude.toFixed(2), educacao: org.ded.educacao.toFixed(2), previdencia: org.ded.previdencia.toFixed(2), outras: org.ded.outras.toFixed(2) }));
   const setCfgTabela = (key, i, field, val) => setCfg((c) => ({ ...c, [key]: c[key].map((f, j) => j === i ? { ...f, [field]: Number(val) } : f) }));
 
+  // Indica, por secao, se ha dado real preenchido — usado so pra marcar o
+  // "check" na barra de etapas, nunca inventa progresso.
+  const anualFilled = Number(anual.tributavel) > 0;
+  const stepFilled = useMemo(() => ({
+    org: org.rendimentos > 0 || org.dedTx.length > 0,
+    anual: anualFilled,
+    mensal: Number(mensal.rendimento) > 0,
+    rv: [rv.acoesVendas, rv.acoesGanho, rv.daytradeGanho, rv.fiiGanho, rv.criptoVendas, rv.criptoGanho].some((v) => Number(v) > 0),
+    rel: org.rendimentos > 0 || org.bens > 0,
+  }), [org, anualFilled, mensal.rendimento, rv]);
+
   if (isLoading) return <div className="flex justify-center py-24"><Spinner className="w-8 h-8 text-emerald-500" /></div>;
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><Landmark className="w-6 h-6 text-emerald-500" /> Imposto de Renda</span>}
-        subtitle="Organize a declaracao, estime o imposto e apure o carne-leao — tudo com seus dados"
-        actions={<div className="flex items-center gap-2">
-          <Select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-auto">{years.map((y) => <option key={y} value={y}>Ano {y}</option>)}</Select>
-          <Button variant="outline" onClick={() => setShowCfg((v) => !v)}><Settings2 className="w-4 h-4" /> Tabela</Button>
-        </div>} />
+      <TaxOfficialHeader year={year} years={years} onYear={setYear} onToggleCfg={() => setShowCfg((v) => !v)} dataComplete={anualFilled} />
 
-      <Card className="py-3 bg-amber-500/5 border-amber-500/30">
-        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2"><Info className="w-4 h-4 shrink-0 mt-0.5" /> Ferramenta de apoio — não substitui o programa oficial da Receita nem orientacao contabil. As tabelas usam a base 2024/2025; confira e ajuste em "Tabela" os valores vigentes do ano.</p>
-      </Card>
+      <TaxSummaryBar org={org} rAnual={rAnual} anualFilled={anualFilled} />
 
       {showCfg && (
         <Card>
@@ -142,13 +148,7 @@ export default function IncomeTax() {
         </Card>
       )}
 
-      <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 overflow-x-auto">
-        {TABS.map((t) => { const Icon = t.icon; return (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${tab === t.id ? 'bg-white dark:bg-neutral-800 shadow text-emerald-600 dark:text-emerald-400' : 'text-muted hover:text-current'}`}>
-            <Icon className="w-4 h-4" /> {t.label}
-          </button>
-        ); })}
-      </div>
+      <TaxStepper steps={TABS} active={tab} onChange={setTab} filled={stepFilled} />
 
       {tab === 'org' && (
         <div className="space-y-4">
