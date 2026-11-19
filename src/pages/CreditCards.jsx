@@ -310,12 +310,6 @@ export default function CreditCards() {
               </div>
             )}
 
-            {/* Automação: robô do cartão */}
-            <button onClick={() => navigate('/agentes')} className="w-full flex items-center gap-3 text-left rounded-2xl p-3 border border-indigo-500/30 bg-indigo-500/[0.06] hover:bg-indigo-500/10 transition">
-              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-indigo-500 text-white flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4" /></span>
-              <span className="min-w-0"><span className="text-sm font-semibold block">Robô de olho no cartão</span><span className="text-xs text-muted block">Receba um aviso quando a fatura fechar, o vencimento chegar ou o limite passar de 80%. Toque para ativar.</span></span>
-            </button>
-
             {topCats.length > 0 && (
               <Card>
                 <h3 className="font-semibold mb-3 text-sm">Onde você gastou neste cartão</h3>

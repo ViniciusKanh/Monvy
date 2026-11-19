@@ -32,7 +32,6 @@ export const Anomaly = makeEntity('Anomaly');
 export const Forecast = makeEntity('Forecast');
 export const AppSettings = makeEntity('AppSettings');
 export const Safe = makeEntity('Safe');
-export const Trigger = makeEntity('Trigger');
 export const Investment = makeEntity('Investment');
 export const Debt = makeEntity('Debt');
 export const CategoryRule = makeEntity('CategoryRule');
@@ -72,7 +71,6 @@ export const Support = {
   saveConfig: (data) => api.post('/api/support/config', { op: 'save', ...data }),
 };
 
-export const Robots = { check: () => api.post('/api/agents/check', {}) };
 export const Bootstrap = { load: () => api.get('/api/bootstrap') };
 export const Summary = { get: (month) => api.get(`/api/summary?month=${month}`) };
 export const Cards = {
