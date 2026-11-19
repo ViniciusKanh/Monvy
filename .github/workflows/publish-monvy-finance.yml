@@ -7,9 +7,17 @@ name: Publish monvy-finance
 #   npm pack --dry-run e instalação em um projeto consumidor temporário). NUNCA publica.
 # - Em uma tag no padrão `monvy-finance-v*` (ex.: monvy-finance-v0.1.0): valida tudo de novo e,
 #   se a versão do package.json bater com a tag e a versão ainda não existir no registro,
-#   publica no GitHub Packages. Publicação exige o ambiente `npm-packages` (configure uma regra
-#   de proteção de ambiente no GitHub para exigir aprovação manual antes do deploy, já que esta
-#   tarefa não deve publicar sem autorização humana).
+#   publica em DOIS registros, em paralelo:
+#     - GitHub Packages (job `publish-github`), autenticado com o GITHUB_TOKEN do próprio
+#       workflow — não exige segredo adicional.
+#     - npmjs.org, o registro público do npm (job `publish-npmjs`), para que o pacote possa ser
+#       instalado em qualquer lugar (StackBlitz, CodeSandbox, Replit, CI de terceiros, etc.) sem
+#       token nenhum. Exige o segredo de repositório `NPM_TOKEN` (um token de automação gerado em
+#       npmjs.com, da conta/organização dona do escopo @viniciuskanh) — sem esse segredo
+#       configurado, o job falha e NÃO quebra a publicação no GitHub Packages (jobs independentes).
+#   Cada job de publicação usa seu próprio ambiente do GitHub (`npm-packages` / `npm-public`) —
+#   configure regras de proteção de ambiente para exigir aprovação manual antes do deploy, já que
+#   esta tarefa não deve publicar sem autorização humana.
 
 on:
   pull_request:
@@ -79,7 +87,7 @@ jobs:
           NODEEOF
           node test.mjs
 
-  publish:
+  publish-github:
     name: Publicar no GitHub Packages
     needs: validate
     if: startsWith(github.ref, 'refs/tags/monvy-finance-v')
@@ -112,12 +120,12 @@ jobs:
             exit 1
           fi
 
-      - name: Conferir que a versão ainda não foi publicada
+      - name: Conferir que a versão ainda não foi publicada no GitHub Packages
         run: |
           set -e
           PKG_VERSION=$(node -p "require('./package.json').version")
           if npm view "@viniciuskanh/monvy-finance@$PKG_VERSION" version 2>/dev/null; then
-            echo "Versão $PKG_VERSION já publicada — abortando para não sobrescrever." >&2
+            echo "Versão $PKG_VERSION já publicada no GitHub Packages — abortando para não sobrescrever." >&2
             exit 1
           fi
         env:
@@ -126,7 +134,70 @@ jobs:
       - name: Typecheck, testes e build
         run: npm test && npm run typecheck
 
-      - name: Publicar
+      - name: Publicar no GitHub Packages
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npmjs:
+    name: Publicar no npmjs.org (registro público)
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/monvy-finance-v')
+    runs-on: ubuntu-latest
+    environment: npm-public
+    permissions:
+      contents: read
+    env:
+      # No npmjs.org o pacote é publicado SEM escopo, como "monvy-finance" (o escopo
+      # @viniciuskanh não estava disponível para a conta do autor nesse registro). No GitHub
+      # Packages o nome continua "@viniciuskanh/monvy-finance" normalmente — são dois nomes,
+      # um em cada registro, documentados no README do pacote.
+      PUBLIC_PACKAGE_NAME: monvy-finance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/monvy-finance/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Conferir que a tag corresponde à versão do package.json
+        run: |
+          set -e
+          TAG_VERSION="${GITHUB_REF_NAME#monvy-finance-v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag ($GITHUB_REF_NAME) não corresponde à versão do package.json ($PKG_VERSION)." >&2
+            exit 1
+          fi
+
+      - name: Conferir que a versão ainda não foi publicada no npmjs.org
+        run: |
+          set -e
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "$PUBLIC_PACKAGE_NAME@$PKG_VERSION" version --registry=https://registry.npmjs.org 2>/dev/null; then
+            echo "Versão $PKG_VERSION já publicada no npmjs.org — abortando para não sobrescrever." >&2
+            exit 1
+          fi
+
+      - name: Typecheck, testes e build
+        run: npm test && npm run typecheck
+
+      - name: "Publicar no npmjs.org (nome sem escopo: monvy-finance)"
+        run: |
+          set -e
+          npm pkg set name="$PUBLIC_PACKAGE_NAME"
+          # publishConfig.registry aponta pro GitHub Packages (usado pelo job publish-github) e
+          # tem precedência sobre qualquer .npmrc/registry-url — precisa ser removido aqui, senão
+          # o npm publish tenta ir pro registro errado mesmo com --registry/.npmrc configurados.
+          npm pkg delete publishConfig
+          npm publish
+          # reverte name e publishConfig localmente no runner (não é commitado — o checkout do job é descartado ao fim)
+          git checkout -- package.json
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

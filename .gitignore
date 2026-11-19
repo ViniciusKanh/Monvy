@@ -7,3 +7,6 @@ dist
 .DS_Store
 
 .vercel
+
+# credenciais locais de registro npm (nunca commitar token)
+.npmrc
