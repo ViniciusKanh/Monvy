@@ -3,7 +3,7 @@ import {
   Target, RefreshCw, Vault, Calendar, Brain, HeartPulse, GraduationCap,
   Bot, BarChart3, Calculator, Landmark, TrendingUp, Sparkles, GitCompare,
   Activity, Upload, FileText, Settings, Users, CircleDollarSign,
-  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, MessagesSquare, Repeat, MapPin, ShieldCheck, Car,
+  ArrowRightLeft, CalendarDays, Building2, LifeBuoy, UserPlus, Zap, Ticket, LineChart, Wand2, Flame, Bell, Repeat, MapPin, ShieldCheck, Car,
   PieChart, Gauge, Bug, Mail,
 } from 'lucide-react';
 
@@ -91,8 +91,6 @@ export const NAV_GROUPS = [
     items: [
       { key: 'reports', label: 'Relatórios', path: '/relatorios', icon: FileText },
       { key: 'notifications', label: 'Notificações', path: '/notificacoes', icon: Bell },
-      { key: 'triggers', label: 'Agentes & Robôs', path: '/agentes', icon: Bot },
-      { key: 'chat', label: 'Chat dos Robôs', path: '/chat', icon: MessagesSquare },
       { key: 'help', label: 'Ajuda & Suporte', path: '/ajuda', icon: LifeBuoy },
       { key: 'tickets', label: 'Central de Tickets', path: '/chamados', icon: Ticket },
       { key: 'settings', label: 'Configurações', path: '/configuracoes', icon: Settings },

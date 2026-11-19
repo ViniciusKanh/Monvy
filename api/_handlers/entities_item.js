@@ -2,9 +2,6 @@ import { ensureSchema } from '../_lib/db.js';
 import { getAuth, sendJson, readBody } from '../_lib/auth.js';
 import { getRow, updateRow, deleteRow } from '../_lib/entities.js';
 import { recalcAllAccounts } from '../_lib/hooks.js';
-import { evaluateAgentsEvent } from '../_lib/agents.js';
-
-const WATCHED = new Set(['Transaction', 'Account', 'Debt', 'Investment', 'CreditCardTransaction', 'CreditCardInvoice', 'Goal', 'Subscription']);
 
 export default async function handler(req, res) {
   try {
@@ -25,7 +22,6 @@ export default async function handler(req, res) {
       const row = await updateRow(entity, owner, id, body);
       if (!row) return sendJson(res, 404, { error: 'Nao encontrado' });
       if (entity === 'Transaction' || entity === 'Account') await recalcAllAccounts(owner);
-      if (WATCHED.has(entity)) await evaluateAgentsEvent(owner);
       return sendJson(res, 200, row);
     }
 

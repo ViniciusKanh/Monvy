@@ -6,7 +6,6 @@ import { AiWordCloud } from '../components/AiWordCloud.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLang } from '../context/LangContext.jsx';
 import { Card, Spinner } from '../components/ui';
-import { RobotsSummaryCard } from '../components/RobotsSummaryCard.jsx';
 import { TaxBurdenCard } from '../components/TaxBurdenCard.jsx';
 import { TaxMeasuredBlock } from '../components/TaxMeasuredBlock.jsx';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
@@ -318,7 +317,6 @@ export default function Dashboard() {
         <Reveal i={3}><Kpi label={t('dash.savings_rate')} amount={rate} percent icon={PiggyBank} tone={rate >= 20 ? 'emerald' : 'amber'} pct={cur.rate - prev.rate} good="up" suffix="pp" spark={series6.map((s) => (s.inc > 0 ? ((s.inc - s.exp) / s.inc) * 100 : 0))} /></Reveal>
       </div>
 
-      <RobotsSummaryCard />
 
       <TaxBurdenCard />
 

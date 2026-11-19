@@ -9,7 +9,7 @@ import { Reveal, AnimatedValue } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import { formatCurrency, monthKey, monthLabel, monthRange, inMonth, todayIso } from '../lib/utils.js';
 import { useHolidayMap } from '../lib/holidays.js';
-import { ChevronLeft, ChevronRight, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CircleCheck, Undo2, Pencil, Paperclip, AlertTriangle, CalendarClock, ArrowLeftRight, Repeat, Bot, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, ArrowUpRight, ArrowDownRight, CircleCheck, Undo2, Pencil, Paperclip, AlertTriangle, CalendarClock, ArrowLeftRight, Repeat } from 'lucide-react';
 
 const addMonthIso = (iso, n) => { const [y, m, d] = iso.slice(0, 10).split('-').map(Number); const base = new Date(y, m - 1 + n, 1); const day = Math.min(d, new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()); return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; };
 
@@ -141,15 +141,8 @@ export default function Payments() {
         </div>
       </div>
 
-      {/* Faixa de automação + filtro tipo */}
+      {/* Filtro por tipo */}
       <div className="flex flex-col lg:flex-row gap-3 mb-5">
-        <button onClick={() => navigate('/agentes')} className="flex items-center gap-3 flex-1 text-left rounded-2xl p-3 border border-indigo-500/30 bg-indigo-500/[0.06] hover:bg-indigo-500/10 transition">
-          <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-indigo-500 text-white flex items-center justify-center shrink-0"><Bot className="w-4 h-4" /></span>
-          <span className="min-w-0">
-            <span className="text-sm font-semibold flex items-center gap-1.5">Coloque um robô de olho nos vencimentos <Zap className="w-3.5 h-3.5 text-amber-500" /></span>
-            <span className="text-xs text-muted block">Ele te avisa no app e no e-mail quando algo estiver perto de vencer. Toque para configurar.</span>
-          </span>
-        </button>
         <div className="inline-flex p-1 rounded-xl bg-black/5 dark:bg-white/5 self-start">
           {[['all', 'Tudo'], ['expense', 'A pagar'], ['income', 'A receber']].map(([v, l]) => <button key={v} onClick={() => setTypeFilter(v)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${typeFilter === v ? 'bg-[hsl(var(--card))] shadow text-[hsl(var(--text))]' : 'text-muted'}`}>{l}</button>)}
         </div>
