@@ -10,7 +10,7 @@ import { formatCurrency, monthKey, monthLabel, todayIso } from '../lib/utils.js'
 import { colorAt } from '../lib/analytics.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 import { isStaleChunkError, reloadOnceForFreshVersion } from '../lib/staleChunk.js';
-import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock, ShieldCheck, KeyRound } from 'lucide-react';
+import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock, ShieldCheck, KeyRound, Receipt, Gauge, CalendarDays, Target } from 'lucide-react';
 
 const BRANDS = ['visa', 'mastercard', 'elo', 'amex', 'hipercard', 'other'];
 const emptyCard = { name: '', last_digits: '', brand: 'visa', closing_day: 1, due_day: 10, credit_limit: '', color: '#6d28d9', account_id: '' };
@@ -258,10 +258,10 @@ export default function CreditCards() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Card className="py-3"><p className="text-xs text-muted">Fatura de {monthLabel(mk).split(' ')[0]}</p><p className="font-display text-lg font-bold"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p></Card>
-                  <Card className="py-3"><p className="text-xs text-muted">Limite disponível</p><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '—'}</p></Card>
-                  {stats && <Card className="py-3"><p className="text-xs text-muted">Vence em</p><p className={`font-display text-lg font-bold ${stats.daysToDue <= 3 ? 'text-rose-500' : stats.daysToDue <= 7 ? 'text-amber-500' : ''}`}>{stats.daysToDue === 0 ? 'hoje' : `${stats.daysToDue} dias`}</p></Card>}
-                  {stats && <Card className="py-3"><p className="text-xs text-muted">Melhor dia de compra</p><p className="font-display text-lg font-bold">dia {stats.bestBuyDay}</p></Card>}
+                  <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><Receipt className="w-3.5 h-3.5" /><p className="text-xs">Fatura de {monthLabel(mk).split(' ')[0]}</p></div><p className="font-display text-lg font-bold"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p></Card>
+                  <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><Gauge className="w-3.5 h-3.5" /><p className="text-xs">Limite disponível</p></div><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '—'}</p></Card>
+                  {stats && <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><CalendarDays className="w-3.5 h-3.5" /><p className="text-xs">Vence em</p></div><p className={`font-display text-lg font-bold ${stats.daysToDue <= 3 ? 'text-rose-500' : stats.daysToDue <= 7 ? 'text-amber-500' : ''}`}>{stats.daysToDue === 0 ? 'hoje' : `${stats.daysToDue} dias`}</p></Card>}
+                  {stats && <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><Target className="w-3.5 h-3.5" /><p className="text-xs">Melhor dia de compra</p></div><p className="font-display text-lg font-bold">dia {stats.bestBuyDay}</p></Card>}
                 </div>
 
                 {stats && stats.future > 0 && (
