@@ -8,9 +8,11 @@ import { buildBalanceSeries } from '../../lib/accountBalanceSeries.js';
 const TYPE_ICON = { checking: Landmark, savings: PiggyBank, wallet: Wallet, credit_card: CardIcon };
 const TYPE_LABEL = { checking: 'Conta Corrente', savings: 'Poupança', wallet: 'Carteira', credit_card: 'Cartão' };
 
-export function BankAccountCard({ account, transactions, consolidatedPositive, isFavorite, onToggleFavorite, onEdit, onDelete }) {
+export function BankAccountCard({ account, transactions, consolidatedPositive, isFavorite, onToggleFavorite, onEdit, onDelete, bankInfo }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoBroken, setLogoBroken] = useState(false);
   const Icon = TYPE_ICON[account.account_type] || Wallet;
+  const showLogo = !!bankInfo?.logoUrl && !logoBroken;
   const neg = Number(account.current_balance) < 0;
   const pct = consolidatedPositive > 0 ? Math.round((Math.max(0, Number(account.current_balance || 0)) / consolidatedPositive) * 100) : 0;
 
@@ -27,7 +29,17 @@ export function BankAccountCard({ account, transactions, consolidatedPositive, i
       style={{ background: bankGradient(account) }}>
       <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-white/10" />
       <div className="relative flex items-start justify-between">
-        <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center"><Icon className="w-5 h-5" /></div>
+        <div className="relative w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center overflow-hidden"
+          title={bankInfo?.fullName ? `${bankInfo.fullName}${bankInfo.code ? ` · COMPE ${bankInfo.code}` : ''}` : undefined}>
+          {showLogo
+            ? <img src={bankInfo.logoUrl} alt={bankInfo.fullName || account.bank || ''} className="w-7 h-7 object-contain" onError={() => setLogoBroken(true)} />
+            : <Icon className="w-5 h-5" />}
+          {showLogo && (
+            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-black/30 backdrop-blur flex items-center justify-center ring-1 ring-white/20">
+              <Icon className="w-2.5 h-2.5" />
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
           <button onClick={() => onToggleFavorite(account.id)} title={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} aria-label={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} aria-pressed={isFavorite} className="p-1.5 rounded-lg hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60 outline-none">
             <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-300 text-amber-300' : ''}`} />
@@ -45,8 +57,8 @@ export function BankAccountCard({ account, transactions, consolidatedPositive, i
       </div>
 
       <p className="relative font-medium mt-4 text-white/90 truncate">{account.name}</p>
-      <span className="relative inline-flex items-center gap-1 text-[11px] mt-1 px-2 py-0.5 rounded-full bg-white/15">
-        {TYPE_LABEL[account.account_type] || 'Conta'}{account.bank ? ` · ${account.bank}` : ''}
+      <span className="relative inline-flex items-center gap-1 text-[11px] mt-1 px-2 py-0.5 rounded-full bg-white/15" title={bankInfo?.fullName || undefined}>
+        {TYPE_LABEL[account.account_type] || 'Conta'}{account.bank ? ` · ${account.bank}` : ''}{bankInfo?.code ? ` · COMPE ${bankInfo.code}` : ''}
       </span>
       <p className={`relative font-display text-3xl font-extrabold mt-3 ${neg ? 'text-rose-200' : ''}`}>{formatCurrency(account.current_balance)}</p>
 

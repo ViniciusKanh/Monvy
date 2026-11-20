@@ -6,6 +6,7 @@ import { Reveal } from '../components/Animated.jsx';
 import { Wallet, GripVertical } from 'lucide-react';
 import { useFavoriteAccounts } from '../lib/useFavoriteAccounts.js';
 import { useAccountOrder } from '../lib/useAccountOrder.js';
+import { fetchBankDirectory } from '../lib/bankDirectory.js';
 
 import { AccountsHeader } from '../components/accounts/AccountsHeader.jsx';
 import { AccountsNavigation } from '../components/accounts/AccountsNavigation.jsx';
@@ -25,19 +26,16 @@ const TYPES = [
   { v: 'credit_card', label: 'Cartão' },
 ];
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e'];
-const emptyForm = { name: '', account_type: 'checking', initial_balance: 0, color: '#10b981', bank: '' };
-
-async function fetchBanks() {
-  const r = await fetch('https://brasilapi.com.br/api/banks/v1');
-  if (!r.ok) throw new Error('Falha ao buscar bancos');
-  return r.json();
-}
+const emptyForm = { name: '', account_type: 'checking', initial_balance: 0, color: '#10b981', bank: '', bank_ispb: '' };
 
 export default function Accounts() {
   const qc = useQueryClient();
   const { data: accounts = [], isLoading, isFetching } = useQuery({ queryKey: ['accounts'], queryFn: () => Account.list() });
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
-  const { data: banks = [] } = useQuery({ queryKey: ['banks'], queryFn: fetchBanks, staleTime: 7 * 24 * 3_600_000, retry: 1 });
+  // diretorio publico de bancos (nome, codigo, logo oficial) — estatico, sem Open Finance
+  const { data: bankDir } = useQuery({ queryKey: ['bank-directory'], queryFn: fetchBankDirectory, staleTime: 7 * 24 * 3_600_000, retry: 1 });
+  const banks = bankDir?.banks || [];
+  const getBankInfo = (a) => bankDir?.resolve(a.bank_ispb, a.bank) || null;
   const { isFavorite, toggle: toggleFavorite } = useFavoriteAccounts();
   const { applyOrder, moveTo, hasCustomOrder, resetOrder } = useAccountOrder();
   const [draggingId, setDraggingId] = useState(null);
@@ -56,9 +54,18 @@ export default function Accounts() {
   const del = useMutation({ mutationFn: (id) => Account.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }) });
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setModal(true); };
-  const openEdit = (a) => { setEditing(a); setForm({ name: a.name, account_type: a.account_type, initial_balance: a.initial_balance, color: a.color, bank: a.bank || '' }); setModal(true); };
+  const openEdit = (a) => { setEditing(a); setForm({ name: a.name, account_type: a.account_type, initial_balance: a.initial_balance, color: a.color, bank: a.bank || '', bank_ispb: a.bank_ispb || '' }); setModal(true); };
   const close = () => setModal(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // ao digitar/selecionar o banco, tenta casar com o diretorio oficial pra
+  // gravar o ISPB junto (e assim exibir o logo e os dados certos depois) —
+  // texto livre que nao bate com nenhum banco conhecido fica sem ISPB, sem
+  // inventar nada.
+  const setBank = (e) => {
+    const name = e.target.value;
+    const match = bankDir?.byNameGet(name);
+    setForm((f) => ({ ...f, bank: name, bank_ispb: match ? match.ispb : '' }));
+  };
   const submit = (e) => { e.preventDefault(); save.mutate({ ...form, initial_balance: Number(form.initial_balance) }); };
 
   const handleDelete = (id) => { if (window.confirm('Excluir esta conta? Essa ação não pode ser desfeita.')) del.mutate(id); };
@@ -117,7 +124,7 @@ export default function Accounts() {
                 <BankAccountCard
                   account={a} transactions={transactions} consolidatedPositive={totalPositive}
                   isFavorite={isFavorite(a.id)} onToggleFavorite={toggleFavorite}
-                  onEdit={openEdit} onDelete={handleDelete}
+                  onEdit={openEdit} onDelete={handleDelete} bankInfo={getBankInfo(a)}
                 />
               </Reveal>
             ))}
@@ -142,8 +149,8 @@ export default function Accounts() {
         footer={<><Button variant="outline" onClick={close}>Cancelar</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button></>}>
         <form onSubmit={submit} className="space-y-4">
           <Field label="Nome"><Input required value={form.name} onChange={set('name')} placeholder="Ex: Nubank" /></Field>
-          <Field label="Banco (opcional)" hint="Comece a digitar para buscar na lista oficial de bancos">
-            <Input list="banks-list" value={form.bank} onChange={set('bank')} placeholder="Ex: Nubank, Itau, Bradesco" />
+          <Field label="Banco (opcional)" hint={form.bank_ispb ? 'Banco reconhecido — logo e dados oficiais serao exibidos automaticamente' : 'Comece a digitar para buscar na lista oficial de bancos'}>
+            <Input list="banks-list" value={form.bank} onChange={setBank} placeholder="Ex: Nubank, Itau, Bradesco" />
             <datalist id="banks-list">{banks.filter((b) => b.name).map((b) => <option key={b.ispb} value={b.name}>{b.code ? `${b.code} — ${b.name}` : b.name}</option>)}</datalist>
           </Field>
           <Field label="Tipo"><Select value={form.account_type} onChange={set('account_type')}>{TYPES.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}</Select></Field>

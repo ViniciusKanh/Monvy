@@ -486,6 +486,9 @@ export const MIGRATIONS = [
     `ALTER TABLE TicketMessage ADD COLUMN internal INTEGER DEFAULT 0`,
     `ALTER TABLE SupportTicket ADD COLUMN assigned_to_id TEXT`,
   ] },
+  { id: '025_account_bank_ispb', statements: [
+    `ALTER TABLE Account ADD COLUMN bank_ispb TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);
