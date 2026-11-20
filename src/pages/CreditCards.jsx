@@ -9,7 +9,8 @@ import { toast } from '../lib/toast.js';
 import { formatCurrency, monthKey, monthLabel, todayIso } from '../lib/utils.js';
 import { colorAt } from '../lib/analytics.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
-import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock } from 'lucide-react';
+import { isStaleChunkError, reloadOnceForFreshVersion } from '../lib/staleChunk.js';
+import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock, ShieldCheck, KeyRound } from 'lucide-react';
 
 const BRANDS = ['visa', 'mastercard', 'elo', 'amex', 'hipercard', 'other'];
 const emptyCard = { name: '', last_digits: '', brand: 'visa', closing_day: 1, due_day: 10, credit_limit: '', color: '#6d28d9', account_id: '' };
@@ -185,7 +186,15 @@ export default function CreditCards() {
         toast.info('Chave de IA não configurada. Usando leitura local — configure a chave em Configurações para melhor precisao.');
       }
       // 2) Fallback local (offline)
-      const { parseInvoicePdf } = await import('../lib/invoiceParser.js');
+      let parseInvoicePdf;
+      try {
+        ({ parseInvoicePdf } = await import('../lib/invoiceParser.js'));
+      } catch (chunkErr) {
+        // Aba aberta antes de um novo deploy: o arquivo deste modulo mudou de nome.
+        // Em vez de um erro confuso, avisamos e recarregamos a pagina uma vez.
+        if (isStaleChunkError(chunkErr) && reloadOnceForFreshVersion()) { setImporting(false); return; }
+        throw chunkErr;
+      }
       const { isInvoice, items } = await parseInvoicePdf(file, { year: Number(mk.slice(0, 4)), onOcr: () => toast.info('PDF sem texto — lendo com OCR local (pode demorar)...') });
       if (!isInvoice && items.length < 2) { toast.error('Este PDF não parece uma fatura de cartão de crédito.'); setImporting(false); return; }
       if (!items.length) { toast.error('Nao encontrei lançamentos na fatura.'); setImporting(false); return; }
@@ -317,6 +326,19 @@ export default function CreditCards() {
                   {topCats.slice(0, 6).map((c, i) => (
                     <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />{c.name}</span><span className="font-semibold">{formatCurrency(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(c.value / maxCat) * 100}%`, background: c.color }} /></div></div>
                   ))}
+                </div>
+              </Card>
+            )}
+
+            {!settingsList[0]?.gemini_api_key_configured && (
+              <Card className="border-amber-200 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/5">
+                <div className="flex items-start gap-3">
+                  <KeyRound className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">Leitura de fatura por IA desativada — falta sua chave pessoal</p>
+                    <p className="text-xs text-muted mt-0.5">Cada usuário do Monvy tem sua própria chave do Google Gemini — a sua ainda não está cadastrada. Sem ela, a importação de PDF usa um método local, mais limitado. A chave fica guardada criptografada e só você pode usá-la.</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => navigate('/configuracoes')} className="shrink-0"><ShieldCheck className="w-4 h-4" /> Configurar minha chave</Button>
                 </div>
               </Card>
             )}

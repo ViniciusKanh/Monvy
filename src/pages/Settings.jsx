@@ -290,22 +290,25 @@ export default function Settings() {
           )}
         </Card>
 
-        {/* Leitura de faturas por IA (somente admin) */}
-        {isAdmin && (
-          <Card className="hover-lift">
-            <h3 className="font-semibold flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-violet-500" /> Leitura de faturas (IA)</h3>
-            <p className="text-xs text-muted mb-3">Chave da API do Google Gemini para ler e categorizar faturas de cartão em PDF automaticamente. A camada gratuita costuma bastar. Gere em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold inline-flex items-center gap-0.5">aistudio.google.com/apikey <ExternalLink className="w-3 h-3" /></a>.</p>
-            <div className="space-y-3">
-              <Field label="Chave da API Gemini" hint={settings?.gemini_api_key_configured ? 'Configurada — preencha só para alterar' : 'Sem chave, a leitura usa o método local'}>
-                <div className="relative">
-                  <Input type={showKey ? 'text' : 'password'} value={form.gemini_api_key} onChange={(e) => set('gemini_api_key', e.target.value)} placeholder="AIza..." className="pr-10" />
-                  <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
-                </div>
-              </Field>
-              <Button variant="outline" onClick={() => saveSettings.mutate(form)} disabled={saveSettings.isPending} className="w-full">{saveSettings.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar chave'}</Button>
-            </div>
-          </Card>
-        )}
+        {/* Leitura de faturas por IA — pessoal: cada usuário cadastra a própria chave */}
+        <Card className="hover-lift">
+          <h3 className="font-semibold flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-violet-500" /> Leitura de faturas (IA)</h3>
+          <p className="text-xs text-muted mb-1">Essa chave é <b>pessoal e sua</b> — cada usuário do Monvy precisa cadastrar a própria chave do Google Gemini para que a importação de faturas em PDF leia e categorize os lançamentos automaticamente com a melhor precisão. Sem uma chave cadastrada, o Monvy ainda tenta ler o PDF por um método local (mais limitado, mas funciona offline).</p>
+          <p className="text-xs text-muted mb-3">A camada gratuita do Gemini costuma bastar para uso pessoal. Gere a sua em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold inline-flex items-center gap-0.5">aistudio.google.com/apikey <ExternalLink className="w-3 h-3" /></a>.</p>
+          <div className={`mb-3 flex items-start gap-2 p-3 rounded-xl text-xs ${settings?.gemini_api_key_configured ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300'}`}>
+            <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{settings?.gemini_api_key_configured ? <><b>Chave configurada.</b> Ela fica guardada de forma segura e criptografada na sua conta — só você consegue usá-la, ninguém mais no Monvy tem acesso a ela.</> : <><b>Você ainda não cadastrou sua chave.</b> Assim que salvar, ela fica guardada de forma segura e criptografada apenas na sua conta, para uso exclusivamente seu.</>}</span>
+          </div>
+          <div className="space-y-3">
+            <Field label="Chave da API Gemini (sua, pessoal)" hint={settings?.gemini_api_key_configured ? 'Configurada — preencha só para alterar' : 'Sem chave, a leitura usa o método local'}>
+              <div className="relative">
+                <Input type={showKey ? 'text' : 'password'} value={form.gemini_api_key} onChange={(e) => set('gemini_api_key', e.target.value)} placeholder="AIza..." className="pr-10" />
+                <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted">{showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+              </div>
+            </Field>
+            <Button variant="outline" onClick={() => saveSettings.mutate(form)} disabled={saveSettings.isPending} className="w-full">{saveSettings.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar chave'}</Button>
+          </div>
+        </Card>
 
         {/* Envio de e-mail (somente admin) */}
         {isAdmin && (

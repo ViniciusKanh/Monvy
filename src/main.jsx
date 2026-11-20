@@ -8,7 +8,16 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 import { LangProvider } from './context/LangContext.jsx';
 import { Toaster } from './components/Toaster.jsx';
 import { toast } from './lib/toast.js';
+import { isStaleChunkError, reloadOnceForFreshVersion } from './lib/staleChunk.js';
 import './index.css';
+
+// Depois de um novo deploy, uma aba aberta antigamente pode tentar buscar um
+// chunk (JS dividido por rota/import dinamico) que ja nao existe mais no build
+// atual. Isso aparece como "Failed to fetch dynamically imported module" ou
+// "error loading dynamically imported module". Nao recarregamos sem avisar:
+// mostramos um aviso e recarregamos uma unica vez (evita loop infinito).
+window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reloadOnceForFreshVersion(); });
+window.addEventListener('unhandledrejection', (e) => { if (isStaleChunkError(e.reason) && reloadOnceForFreshVersion()) e.preventDefault(); });
 
 // Erros de qualquer query/mutation viram toast visivel (nada mais falha em silencio)
 const queryClient = new QueryClient({
