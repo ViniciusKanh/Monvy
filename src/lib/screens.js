@@ -98,6 +98,7 @@ export const NAV_GROUPS = [
       { key: 'adminuseranalytics', label: 'Analytics por Usuário', path: '/analytics/usuarios', icon: UserSearch, adminOnly: true },
       { key: 'admincampaign', label: 'Campanhas', path: '/campanhas', icon: Megaphone, adminOnly: true },
       { key: 'users', label: 'Usuários & Acessos', path: '/usuarios', icon: Users, adminOnly: true },
+      { key: 'adminmail', label: 'Envio de E-mail', path: '/configuracoes/email', icon: Mail, adminOnly: true },
       { key: 'newusers', label: 'Onboarding (novos usuários)', path: '/config-novos-usuarios', icon: UserPlus, adminOnly: true },
     ],
   },

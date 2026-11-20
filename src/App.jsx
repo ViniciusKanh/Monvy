@@ -71,6 +71,7 @@ import Reconciliation from './pages/Reconciliation.jsx';
 import BankImport from './pages/BankImport.jsx';
 import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
+import AdminMailSettings from './pages/AdminMailSettings.jsx';
 import { Placeholder } from './pages/Placeholder.jsx';
 import Enroll2FA from './pages/Enroll2FA.jsx';
 
@@ -164,6 +165,7 @@ export default function App() {
         <Route path="/importar" element={<Protected screenKey="bankImport"><BankImport /></Protected>} />
         <Route path="/relatorios" element={<Protected screenKey="reports"><Reports /></Protected>} />
         <Route path="/configuracoes" element={<Protected screenKey="settings"><Settings /></Protected>} />
+        <Route path="/configuracoes/email" element={<Protected screenKey="adminmail"><AdminMailSettings /></Protected>} />
         <Route path="/usuarios" element={<Protected screenKey="users"><Users /></Protected>} />
       </Route>
 
