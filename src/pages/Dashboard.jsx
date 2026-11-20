@@ -256,7 +256,13 @@ export default function Dashboard() {
                   );
                 })()}
               </div>
-              <div className="hidden sm:flex flex-col items-center shrink-0"><Ring pct={rate} /><span className="text-[11px] text-slate-400 mt-1">poupança</span></div>
+              <div className="hidden sm:flex items-center gap-4 shrink-0">
+                <div className="flex flex-col items-end gap-1">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-300 bg-white/[0.06] border border-white/10 px-2.5 py-1 rounded-full"><Wallet className="w-3 h-3 text-emerald-400" /> {accounts.length} conta{accounts.length === 1 ? '' : 's'} ativa{accounts.length === 1 ? '' : 's'}</span>
+                  <div className="flex gap-1">{accounts.slice(0, 6).map((a, i) => <span key={a.id} className="w-1.5 h-1.5 rounded-full" style={{ background: a.color || colorAt(i) }} title={a.name} />)}</div>
+                </div>
+                <div className="flex flex-col items-center"><Ring pct={rate} /><span className="text-[11px] text-slate-400 mt-1">poupança</span></div>
+              </div>
             </div>
 
             {(() => {
@@ -515,8 +521,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Análises extras */}
-      <div style={{ order: 96 }} className="grid md:grid-cols-2 gap-5">
+      {/* Análises complementares (nível 3 — mais discretas, pra nao competir com o essencial) */}
+      <div style={{ order: 96 }}>
+      <div className="flex items-center gap-2 mb-3 opacity-80"><span className="w-1 h-4 rounded-full bg-[hsl(var(--border))]" /><h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Análises complementares</h3></div>
+      <div className="grid md:grid-cols-2 gap-5">
         <Card className="hover-lift">
           <h3 className="font-semibold mb-1">Gasto por dia da semana</h3>
           <p className="text-xs text-muted mb-3">Onde o dinheiro escapa na rotina (contas + cartão)</p>
@@ -548,7 +556,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Visuais dos módulos de Inteligência (unificados no painel) */}
+      </div>
+
+      {/* Visuais dos módulos de Inteligência (unificados no painel) — tambem nivel 3 */}
       <div style={{ order: 97 }} className="grid md:grid-cols-2 gap-5">
         <Card className="hover-lift">
           <div className="flex items-center justify-between mb-1">

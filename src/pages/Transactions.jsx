@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Transaction, Account, Category } from '../api/entities.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { TransactionModal } from '../components/TransactionModal.jsx';
@@ -11,11 +11,15 @@ import { toast } from '../lib/toast.js';
 import { exportTransactionsXlsx } from '../lib/exportXlsx.js';
 import { exportReportToPdf } from '../lib/exportPdf.js';
 import { formatCurrency, monthKey, monthLabel, monthRange, inMonth, todayIso } from '../lib/utils.js';
+import { colorAt } from '../lib/analytics.js';
+import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, Tooltip } from 'recharts';
 import {
   Plus, ChevronLeft, ChevronRight, Search, ArrowLeftRight, Pencil, Trash2, ArrowUpRight, ArrowDownRight,
   CircleCheck, Clock, Paperclip, Copy, CheckSquare, X, Pin, RefreshCw, Wand2, SlidersHorizontal, Repeat,
-  FileSpreadsheet, FileText, CalendarRange,
+  FileSpreadsheet, FileText, CalendarRange, Sparkles, TrendingDown, TrendingUp, PiggyBank,
 } from 'lucide-react';
+
+const TABS = [['overview', 'Visão Geral'], ['list', 'Lista de Lançamentos'], ['recurring', 'Recorrências'], ['rules', 'Regras Automáticas']];
 
 const TYPE_FILTERS = [['all', 'Tudo'], ['income', 'Receitas'], ['expense', 'Despesas'], ['transfer', 'Transferências']];
 const STATUS_FILTERS = [['all', 'Todos'], ['pending', 'Em aberto'], ['completed', 'Concluídos']];
@@ -29,7 +33,9 @@ const SMART = [
 
 export default function Transactions() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState('overview');
   const [mk, setMk] = useState(monthKey(new Date()));
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -104,6 +110,59 @@ export default function Transactions() {
   }, [monthTx]);
   const incExpMax = Math.max(totals.inc, totals.exp, 1);
 
+  // evolução semanal (receitas x despesas) dentro do periodo exibido no hero —
+  // sempre a partir de dados reais do mes, nunca estimado.
+  const weeklySeries = useMemo(() => {
+    const weeks = [[], [], [], [], []];
+    for (const t of monthTx) {
+      const day = Number(String(t.date).slice(8, 10)) || 1;
+      const wi = Math.min(4, Math.floor((day - 1) / 7));
+      weeks[wi].push(t);
+    }
+    return weeks.map((items, i) => ({
+      name: `Sem ${i + 1}`,
+      Receitas: items.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0),
+      Despesas: items.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0),
+    })).filter((w, i) => i === 0 || w.Receitas > 0 || w.Despesas > 0);
+  }, [monthTx]);
+
+  // despesas por categoria dentro do escopo atualmente filtrado (acompanha
+  // o periodo e os filtros aplicados, igual ao resto da tela)
+  const filteredExpByCategory = useMemo(() => {
+    const map = {};
+    for (const t of filtered) {
+      if (t.type !== 'expense') continue;
+      const c = catMap[t.category_id];
+      const name = c?.name || 'Sem categoria';
+      (map[name] = map[name] || { name, value: 0, color: c?.color }).value += Number(t.amount) || 0;
+    }
+    return Object.values(map).sort((a, b) => b.value - a.value).map((c, i) => ({ ...c, color: c.color || colorAt(i) }));
+  }, [filtered, catMap]);
+  const filteredExpTotal = filteredExpByCategory.reduce((s, c) => s + c.value, 0);
+
+  // insights dos lancamentos — so a partir de dados reais do periodo exibido;
+  // a comparacao com "mes anterior" so faz sentido quando nao ha intervalo
+  // personalizado ativo (ai nao ha um "mes anterior" bem definido)
+  const prevMk = useMemo(() => { const [y, m] = mk.split('-').map(Number); return monthKey(new Date(y, m - 2, 1)); }, [mk]);
+  const prevExp = useMemo(() => !customRange ? transactions.filter((t) => inMonth(t.date, prevMk) && t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0) : 0, [transactions, prevMk, customRange]);
+  const pendingRecurring = useMemo(() => monthTx.filter((t) => t.parent_transaction_id && (t.status || 'pending') !== 'completed'), [monthTx]);
+  const txInsights = useMemo(() => {
+    const out = [];
+    if (!customRange && prevExp > 0) {
+      const delta = ((totals.exp - prevExp) / prevExp) * 100;
+      if (Math.abs(delta) >= 1) out.push({ icon: delta < 0 ? TrendingDown : TrendingUp, color: delta < 0 ? '#10b981' : '#f43f5e', title: `Suas despesas ${delta < 0 ? 'caíram' : 'subiram'} ${Math.abs(delta).toFixed(1)}%`, text: 'Comparado ao mês anterior.' });
+    }
+    if (pendingRecurring.length) {
+      const sum = pendingRecurring.reduce((s, t) => s + Number(t.amount), 0);
+      out.push({ icon: Repeat, color: '#6366f1', title: `${pendingRecurring.length} recorrência(s) agendada(s)`, text: `Total de ${formatCurrency(sum)} neste mês.` });
+    }
+    if (filteredExpByCategory[0]) {
+      const top = filteredExpByCategory[0];
+      out.push({ icon: PiggyBank, color: top.color, title: `${top.name} é seu maior gasto`, text: `${formatCurrency(top.value)} (${filteredExpTotal > 0 ? Math.round((top.value / filteredExpTotal) * 100) : 0}% do total).` });
+    }
+    return out;
+  }, [customRange, prevExp, totals.exp, pendingRecurring, filteredExpByCategory, filteredExpTotal]);
+
   // saldo acumulado do mês por dia (ordem cronológica), para a coluna-guia
   const cumByDay = useMemo(() => {
     const days = [...new Set(filtered.map((t) => t.date.slice(0, 10)))].sort();
@@ -159,7 +218,15 @@ export default function Transactions() {
           </>} />
       </div>
 
+      {/* Navegação por abas */}
+      <div className="inline-flex p-1 rounded-xl bg-black/5 dark:bg-white/5 mb-5 print:hidden overflow-x-auto max-w-full">
+        {TABS.map(([v, l]) => (
+          <button key={v} onClick={() => setTab(v)} className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition ${tab === v ? 'bg-[hsl(var(--card))] shadow text-[hsl(var(--text))]' : 'text-muted hover:text-[hsl(var(--text))]'}`}>{l}</button>
+        ))}
+      </div>
+
       {/* Hero do mês — resumo do movimento */}
+      {(tab === 'overview' || tab === 'list') && <>
       <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-soft ring-1 ring-white/10 mb-5 print:text-slate-900 print:bg-none print:ring-0" style={{ background: 'linear-gradient(135deg,#080d1f,#0d1433 55%,#111b3f)' }}>
         <div className="absolute -top-16 -right-12 w-64 h-64 rounded-full glow-pulse pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,.28), transparent 68%)' }} />
         <div className="absolute inset-0 grid-bg opacity-25" />
@@ -187,6 +254,20 @@ export default function Transactions() {
             <div className="bg-emerald-400 transition-all" style={{ width: `${(totals.inc / incExpMax) * 50}%` }} />
             <div className="bg-rose-400 transition-all" style={{ width: `${(totals.exp / incExpMax) * 50}%` }} />
           </div>
+
+          {weeklySeries.length > 1 && (
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <p className="text-xs text-slate-400 mb-1">Receitas x despesas por semana — {monthLabel(mk)}</p>
+              <ResponsiveContainer width="100%" height={90}>
+                <BarChart data={weeklySeries} barGap={3}>
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 10, border: 'none', background: '#0b1330', color: '#fff', fontSize: 12 }} />
+                  <Bar dataKey="Receitas" fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="Despesas" fill="#fb7185" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -255,6 +336,11 @@ export default function Transactions() {
         })}
         {(smart || typeFilter !== 'all' || statusFilter !== 'all' || search) && <button onClick={() => { setSmart(null); setTypeFilter('all'); setStatusFilter('all'); setSearch(''); }} className="text-xs text-muted hover:text-rose-500 px-2">limpar filtros</button>}
       </div>
+      </>}
+
+      {tab === 'overview' && (
+      <div className="grid lg:grid-cols-3 gap-5">
+      <div className="lg:col-span-2 min-w-0">
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
         : filtered.length === 0 ? <Card><EmptyState icon={ArrowLeftRight} title="Nenhum lançamento" subtitle="Adicione uma receita ou despesa neste mês, ou ajuste os filtros." action={<Button onClick={() => openNew('expense')}><Plus className="w-4 h-4" /> Novo lançamento</Button>} /></Card>
@@ -321,6 +407,106 @@ export default function Transactions() {
             </div>
           </div>
         )}
+
+      </div>
+
+      {/* Painel lateral — insights dos lançamentos + despesas por categoria (acompanha os filtros aplicados) */}
+      <div className="space-y-5 print:hidden">
+        <Card className="hover-lift">
+          <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Insights dos lançamentos</h3>
+          {txInsights.length === 0 ? <p className="text-sm text-muted py-4">Sem dados suficientes neste período para gerar insights.</p> : (
+            <div className="space-y-2.5">
+              {txInsights.map((i, k) => (
+                <div key={k} className="flex items-start gap-3 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition">
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${i.color}1f`, color: i.color }}><i.icon className="w-4 h-4" /></span>
+                  <div className="min-w-0"><p className="text-sm font-semibold leading-tight">{i.title}</p><p className="text-xs text-muted leading-tight mt-0.5">{i.text}</p></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="hover-lift">
+          <h3 className="font-semibold mb-1">Despesas por categoria</h3>
+          <p className="text-xs text-muted mb-2 capitalize">{customRange ? `${rangeFrom} a ${rangeTo}` : monthLabel(mk)}</p>
+          {filteredExpByCategory.length === 0 ? <div className="flex flex-col items-center justify-center h-[180px] text-muted text-sm"><PiggyBank className="w-8 h-8 mb-2 opacity-40" />Sem despesas neste período.</div> : (
+            <>
+              <div className="relative">
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart><Pie data={filteredExpByCategory} dataKey="value" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={3} stroke="none">{filteredExpByCategory.map((e, i) => <Cell key={i} fill={e.color} />)}</Pie><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /></PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="text-xs text-muted">despesas</span><span className="font-display font-bold">{formatCurrency(filteredExpTotal)}</span></div>
+              </div>
+              <div className="space-y-1.5 mt-2">{filteredExpByCategory.slice(0, 5).map((c, i) => (<div key={i} className="flex items-center gap-2 text-sm"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} /><span className="flex-1 truncate">{c.name}</span><span className="font-semibold shrink-0">{formatCurrency(c.value)}</span></div>))}</div>
+            </>
+          )}
+        </Card>
+      </div>
+
+      </div>
+      )}
+
+      {tab === 'list' && (
+        filtered.length === 0 ? <Card><EmptyState icon={ArrowLeftRight} title="Nenhum lançamento" subtitle="Ajuste os filtros ou o período selecionado." /></Card> : (
+          <Card className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs text-muted border-b border-[hsl(var(--border))]"><th className="px-3 py-2 font-medium">Data</th><th className="px-3 py-2 font-medium">Descrição</th><th className="px-3 py-2 font-medium">Categoria</th><th className="px-3 py-2 font-medium">Conta</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 font-medium text-right">Valor</th></tr></thead>
+              <tbody>
+                {filtered.map((t) => {
+                  const cat = catMap[t.category_id]; const isInc = t.type === 'income'; const isTransfer = t.type === 'transfer';
+                  const pend = !isTransfer && (t.status || 'pending') !== 'completed';
+                  return (
+                    <tr key={t.id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer" onClick={() => { setEditing(t); setModal(true); }}>
+                      <td className="px-3 py-2 whitespace-nowrap text-muted">{new Date(t.date + 'T00:00').toLocaleDateString('pt-BR')}</td>
+                      <td className="px-3 py-2 truncate max-w-[220px]">{t.description || cat?.name || (isTransfer ? 'Transferência' : 'Lançamento')}</td>
+                      <td className="px-3 py-2 text-muted truncate">{isTransfer ? 'Transferência' : (cat?.name || 'Sem categoria')}</td>
+                      <td className="px-3 py-2 text-muted truncate">{accMap[t.account_id]?.name || ''}</td>
+                      <td className="px-3 py-2">{isTransfer ? <span className="text-muted">—</span> : <Badge color={pend ? 'amber' : 'emerald'}>{pend ? (isInc ? 'A receber' : 'A pagar') : (isInc ? 'Recebido' : 'Pago')}</Badge>}</td>
+                      <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${isInc ? 'text-emerald-500' : isTransfer ? 'text-indigo-500' : 'text-rose-500'}`}>{isInc ? '+' : isTransfer ? '' : '-'}{formatCurrency(t.amount)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        )
+      )}
+
+      {tab === 'recurring' && (
+        <Card>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h3 className="font-semibold flex items-center gap-2"><Repeat className="w-4 h-4 text-indigo-500" /> Recorrências ativas</h3>
+            <Button variant="outline" onClick={() => setRecurOpen(true)}>Gerenciar recorrências</Button>
+          </div>
+          {(() => {
+            const parents = transactions.filter((t) => t.is_fixed && t.recurrence === 'monthly' && !t.parent_transaction_id);
+            if (!parents.length) return <EmptyState icon={Repeat} title="Nenhuma recorrência" subtitle="Marque 'Lançamento fixo' com recorrência mensal ao criar um lançamento pra ele aparecer aqui." />;
+            return (
+              <div className="space-y-2">
+                {parents.map((p) => {
+                  const isInc = p.type === 'income'; const isTr = p.type === 'transfer';
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 rounded-xl border border-[hsl(var(--border))] p-3">
+                      <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: isTr ? '#6366f1' : (catMap[p.category_id]?.color || (isInc ? '#10b981' : '#f43f5e')) }}>{isInc ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}</span>
+                      <div className="min-w-0 flex-1"><p className="font-medium text-sm truncate">{p.description || catMap[p.category_id]?.name || 'Lançamento'}</p><p className="text-[11px] text-muted truncate">{accMap[p.account_id]?.name || ''} · mensal</p></div>
+                      <p className={`font-semibold text-sm shrink-0 ${isInc ? 'text-emerald-500' : 'text-rose-500'}`}>{formatCurrency(p.amount)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </Card>
+      )}
+
+      {tab === 'rules' && (
+        <Card className="text-center py-10">
+          <Wand2 className="w-10 h-10 mx-auto text-indigo-500 opacity-70 mb-3" />
+          <h3 className="font-semibold text-lg">Regras automáticas de categorização</h3>
+          <p className="text-sm text-muted mt-1 max-w-md mx-auto">Crie regras pra categorizar lançamentos novos automaticamente com base na descrição, valor ou conta.</p>
+          <Button className="mt-4" onClick={() => navigate('/regras')}>Abrir Regras de Categoria</Button>
+        </Card>
+      )}
 
       {/* Barra de ações em lote */}
       {selMode && sel.size > 0 && (
