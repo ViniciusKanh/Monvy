@@ -307,7 +307,7 @@ export default function CreditCards() {
                   const active = selected.id === c.id;
                   return (
                     <button key={c.id} onClick={() => setSelectedId(c.id)}
-                      className={`relative shrink-0 w-40 rounded-xl p-3 text-white text-left transition ${active ? 'ring-2 ring-emerald-400' : 'opacity-80 hover:opacity-100'}`}
+                      className={`relative shrink-0 w-40 rounded-xl p-3 text-white text-left transition-all duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg))] focus-visible:ring-emerald-400 ${active ? 'ring-2 ring-emerald-400' : 'opacity-80 hover:opacity-100'}`}
                       style={{ background: `linear-gradient(135deg, ${c.color || CARD_COLORS[i % CARD_COLORS.length]}, #05070f 150%)` }}>
                       <div className="flex items-center justify-between"><span className="text-[10px] uppercase tracking-widest font-bold opacity-70">{c.brand}</span><CardIcon className="w-4 h-4 opacity-70" /></div>
                       <p className="text-sm font-semibold truncate mt-3">{c.name}</p>
@@ -315,7 +315,7 @@ export default function CreditCards() {
                     </button>
                   );
                 })}
-                <button onClick={openNewCard} className="shrink-0 w-40 rounded-xl border-2 border-dashed border-[hsl(var(--border))] text-muted hover:text-emerald-500 hover:border-emerald-500 flex flex-col items-center justify-center gap-1 transition"><Plus className="w-5 h-5" /><span className="text-xs font-medium">Novo cartão</span></button>
+                <button onClick={openNewCard} className="shrink-0 w-40 rounded-xl border-2 border-dashed border-[hsl(var(--border))] text-muted hover:text-emerald-500 hover:border-emerald-500 hover:-translate-y-px active:translate-y-0 active:scale-[.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg))] focus-visible:ring-emerald-400 flex flex-col items-center justify-center gap-1 transition-all duration-150 ease-out"><Plus className="w-5 h-5" /><span className="text-xs font-medium">Novo cartão</span></button>
               </div>
             )}
 
@@ -357,11 +357,11 @@ export default function CreditCards() {
               : (
                 <Card className="p-0 divide-y divide-[hsl(var(--border))]">
                   {monthTxs.map((t) => (
-                    <div key={t.id} className="group flex items-center gap-3 px-4 py-3">
+                    <div key={t.id} className="group flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-black/[0.025] dark:hover:bg-white/[0.03]">
                       <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: catMap[t.category_id]?.color || '#64748b' }}><CardIcon className="w-4 h-4" /></span>
                       <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description}</p><div className="flex items-center gap-2 text-xs text-muted">{catMap[t.category_id]?.name || 'Sem categoria'}{t.installments_total > 1 ? <Badge color="blue">{t.installment_current}/{t.installments_total}</Badge> : null}{t.imported_from_pdf ? <Badge color="violet">PDF</Badge> : null}</div></div>
                       <p className="font-semibold font-display text-rose-500">{formatCurrency(t.amount)}</p>
-                      <button onClick={() => delTx.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 sm:opacity-0 sm:group-hover:opacity-100 transition"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => delTx.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   ))}
                 </Card>

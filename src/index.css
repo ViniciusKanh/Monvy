@@ -91,8 +91,8 @@ body {
 .animate-fadeIn { animation: fadeIn .3s ease both; }
 .glass { background: hsl(var(--card) / .7); backdrop-filter: blur(10px); }
 .gradient-text { background: linear-gradient(90deg,#10b981,#3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hover-lift { transition: transform .2s ease, box-shadow .2s ease; }
-.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(16,24,40,.12); }
+.hover-lift { transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s cubic-bezier(.2,.8,.2,1); }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(16,24,40,.1); }
 .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.06) 1px, transparent 0); background-size: 22px 22px; }
 
 /* Impressao (Exportar PDF do Relatorio) */
