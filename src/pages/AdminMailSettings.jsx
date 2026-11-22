@@ -17,9 +17,9 @@ export default function AdminMailSettings() {
   const isAdmin = user?.role === 'admin';
 
   const { data: mail, isLoading } = useQuery({ queryKey: ['adminmail'], queryFn: () => Admin.getMail(), enabled: isAdmin });
-  const [mailForm, setMailForm] = useState({ from: '', password: '', enabled: false, notifyNewUser: true, notifyPassword: true, notifyAlerts: true, smtp_host: '', smtp_port: '587', smtp_user: '', smtp_pass: '', smtp_from: '', smtp_from_name: 'Monvy' });
+  const [mailForm, setMailForm] = useState({ from: '', password: '', enabled: false, notifyNewUser: true, notifyPassword: true, smtp_host: '', smtp_port: '587', smtp_user: '', smtp_pass: '', smtp_from: '', smtp_from_name: 'Monvy' });
   const [testTo, setTestTo] = useState('');
-  useEffect(() => { if (mail) setMailForm((f) => ({ ...f, from: mail.from || '', enabled: !!mail.enabled, notifyNewUser: !!mail.notifyNewUser, notifyPassword: !!mail.notifyPassword, notifyAlerts: !!mail.notifyAlerts, password: '', smtp_host: mail.smtp_host || '', smtp_port: String(mail.smtp_port || 587), smtp_user: mail.smtp_user || '', smtp_pass: '', smtp_from: mail.smtp_from || '', smtp_from_name: mail.smtp_from_name || 'Monvy' })); }, [mail]);
+  useEffect(() => { if (mail) setMailForm((f) => ({ ...f, from: mail.from || '', enabled: !!mail.enabled, notifyNewUser: !!mail.notifyNewUser, notifyPassword: !!mail.notifyPassword, password: '', smtp_host: mail.smtp_host || '', smtp_port: String(mail.smtp_port || 587), smtp_user: mail.smtp_user || '', smtp_pass: '', smtp_from: mail.smtp_from || '', smtp_from_name: mail.smtp_from_name || 'Monvy' })); }, [mail]);
   const saveMail = useMutation({ mutationFn: () => Admin.saveMail(mailForm), onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminmail'] }); toast.success('Configuração de e-mail salva'); setMailForm((f) => ({ ...f, password: '' })); } });
   const testMail = useMutation({ mutationFn: () => Admin.testMail(testTo || user?.email), onSuccess: (r) => toast.success(`E-mail de teste enviado para ${r.to || user?.email}${r.via ? ` (via ${r.via === 'gmail' ? 'Gmail' : 'provedor externo'})` : ''}`) });
 
@@ -80,7 +80,6 @@ export default function AdminMailSettings() {
               <p className="text-xs font-semibold text-muted">NOTIFICAR QUANDO:</p>
               <label className="flex items-center justify-between text-sm"><span>Novo usuário se cadastra</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyNewUser} onChange={(e) => setMailForm((f) => ({ ...f, notifyNewUser: e.target.checked }))} /></label>
               <label className="flex items-center justify-between text-sm"><span>Senha e alterada</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyPassword} onChange={(e) => setMailForm((f) => ({ ...f, notifyPassword: e.target.checked }))} /></label>
-              <label className="flex items-center justify-between text-sm"><span>Alertas do aplicativo</span><input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={mailForm.notifyAlerts} onChange={(e) => setMailForm((f) => ({ ...f, notifyAlerts: e.target.checked }))} /></label>
             </div>
             <div className="flex gap-2">
               <Button onClick={() => saveMail.mutate()} disabled={saveMail.isPending} className="flex-1">{saveMail.isPending ? <Spinner className="w-4 h-4" /> : 'Salvar'}</Button>
