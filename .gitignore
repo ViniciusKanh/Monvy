@@ -10,3 +10,5 @@ dist
 
 # credenciais locais de registro npm (nunca commitar token)
 .npmrc
+
+.env*

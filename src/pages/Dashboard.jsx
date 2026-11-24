@@ -246,29 +246,37 @@ export default function Dashboard() {
           <div className="absolute -bottom-28 right-0 w-96 h-72 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(139,92,246,.30), transparent 70%)' }} />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
 
-          <div className="relative grid grid-cols-1 md:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_auto] gap-5 p-5 items-center">
-            {/* Patrimônio */}
+          <div className="relative grid grid-cols-1 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-6 p-5 items-center">
+            {/* Patrimônio (prioridade visual) + variação + contas ativas */}
             <div className="min-w-0">
               <p className="text-xs text-slate-300 font-medium flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-emerald-400" /> Patrimônio total</p>
-              <p className="font-display text-4xl 2xl:text-[2.75rem] leading-none font-extrabold tracking-tight mt-2 truncate"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
-              <div className="flex items-center gap-2 mt-3 flex-wrap">
-                {isFinite(patrimonyPct) && Math.abs(patrimonyPct) >= 0.05
-                  ? <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${patrimonyPct >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>{patrimonyPct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{patrimonyPct >= 0 ? '+' : ''}{patrimonyPct.toFixed(1).replace('.', ',')}%</span>
-                  : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-slate-300">estável</span>}
-                <span className="text-xs text-slate-400">vs. 30 dias atrás</span>
+              <p className="font-display text-[clamp(2rem,2.7vw,3rem)] leading-none font-extrabold tracking-tight mt-2 whitespace-nowrap"><AnimatedValue value={totalBalance} hidden={hide} format={money} /></p>
+              <div className="flex items-center gap-x-3 gap-y-2 mt-3 flex-wrap">
+                <span className="flex items-center gap-2">
+                  {isFinite(patrimonyPct) && Math.abs(patrimonyPct) >= 0.05
+                    ? <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${patrimonyPct >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>{patrimonyPct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}{patrimonyPct >= 0 ? '+' : ''}{patrimonyPct.toFixed(1).replace('.', ',')}%</span>
+                    : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-slate-300">estável</span>}
+                  <span className="text-xs text-slate-400">vs. 30 dias atrás</span>
+                </span>
+                <button onClick={() => navigate('/contas')} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/10 text-xs font-semibold text-slate-200 hover:bg-white/10 transition" title="Ver contas">
+                  <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                  {accounts.length} conta{accounts.length === 1 ? '' : 's'} ativa{accounts.length === 1 ? '' : 's'}
+                  <span className="flex gap-1">{accounts.slice(0, 6).map((a, i) => <span key={a.id} className="w-1.5 h-1.5 rounded-full" style={{ background: a.color || colorAt(i) }} />)}</span>
+                </button>
               </div>
             </div>
 
-            {/* Poupança + tendência do patrimônio (30 dias) */}
-            <div className="min-w-0 flex items-center gap-4">
-              <div className="shrink-0 flex flex-col items-center"><Ring pct={rate} /></div>
+            {/* Poupança + tendência do patrimônio (30 dias), compacto */}
+            <div className="min-w-0 flex items-center gap-3 md:pl-6 md:border-l border-white/10">
+              <div className="shrink-0 flex flex-col items-center"><Ring pct={rate} /><span className="text-[10px] text-slate-400 mt-1">poupança</span></div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-300 font-medium">Taxa de poupança</p>
-                <div className="h-28">
+                <p className="text-[11px] text-slate-400 font-medium">Patrimônio · 30 dias</p>
+                <div className="h-20">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailyTrail} margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
+                    <AreaChart data={dailyTrail} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
                       <defs><linearGradient id="heroA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" stopOpacity={0.35} /><stop offset="100%" stopColor="#34d399" stopOpacity={0} /></linearGradient></defs>
-                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval={7} padding={{ left: 18, right: 8 }} />
+                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval={14} padding={{ left: 14, right: 14 }} />
+                      <YAxis hide domain={['dataMin', 'dataMax']} />
                       <Tooltip formatter={(v) => (hide ? '••••' : money(v))} labelFormatter={(l) => `Patrimônio · ${l}`} contentStyle={{ borderRadius: 10, border: 'none', background: '#0b1330', color: '#fff', fontSize: 12 }} />
                       <Area dataKey="v" stroke="#34d399" strokeWidth={2.5} fill="url(#heroA)" dot={false} activeDot={{ r: 4 }} />
                     </AreaChart>
@@ -276,13 +284,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
-            {/* Contas ativas */}
-            <button onClick={() => navigate('/contas')} className="hidden md:flex flex-col items-start gap-2 pl-5 border-l border-white/10 text-left min-w-[130px] group">
-              <span className="flex items-center gap-2 text-xs text-slate-300 font-medium"><span className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-300 flex items-center justify-center"><Wallet className="w-3.5 h-3.5" /></span>Contas ativas</span>
-              <span className="font-display text-2xl font-bold group-hover:text-emerald-300 transition">{accounts.length} conta{accounts.length === 1 ? '' : 's'}</span>
-              <span className="flex gap-1">{accounts.slice(0, 8).map((a, i) => <span key={a.id} className="w-2 h-2 rounded-full" style={{ background: a.color || colorAt(i) }} title={a.name} />)}</span>
-            </button>
           </div>
         </div>
 
