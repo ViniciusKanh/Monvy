@@ -10,7 +10,8 @@ import { formatCurrency, monthKey, monthLabel, todayIso } from '../lib/utils.js'
 import { colorAt } from '../lib/analytics.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 import { isStaleChunkError, reloadOnceForFreshVersion } from '../lib/staleChunk.js';
-import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock, ShieldCheck, KeyRound, Receipt, Gauge, CalendarDays, Target } from 'lucide-react';
+import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock, ShieldCheck, KeyRound, Receipt, Gauge, CalendarDays, Target, Layers, BarChart3, Settings2, PieChart as PieIcon, Tag, TrendingUp, ArrowRight, SlidersHorizontal } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const BRANDS = ['visa', 'mastercard', 'elo', 'amex', 'hipercard', 'other'];
 const emptyCard = { name: '', last_digits: '', brand: 'visa', closing_day: 1, due_day: 10, credit_limit: '', color: '#6d28d9', account_id: '' };
@@ -211,124 +212,146 @@ export default function CreditCards() {
 
   return (
     <div className="animate-fadeIn">
-      <PageHeader title="Cartões" subtitle="Gestao de cartões de crédito e faturas"
-        actions={<><Button variant="outline" onClick={() => genInvoices.mutate()} disabled={genInvoices.isPending}>{genInvoices.isPending ? <Spinner className="w-4 h-4" /> : <><FileText className="w-4 h-4" /> Gerar faturas</>}</Button><Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartao</Button></>} />
+      <PageHeader title="Cartões" subtitle="Gerencie seus cartões, faturas e limites de forma inteligente."
+        actions={<><Button variant="outline" onClick={() => genInvoices.mutate()} disabled={genInvoices.isPending}>{genInvoices.isPending ? <Spinner className="w-4 h-4" /> : <><FileText className="w-4 h-4" /> Gerar faturas</>}</Button>{selected && <Button variant="outline" onClick={() => openEditCard(selected)} title="Ajustar limite, fechamento e vencimento do cartão selecionado"><SlidersHorizontal className="w-4 h-4" /> Limites</Button>}<Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartão</Button></>} />
 
       {isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
         : cards.length === 0 ? <Card><EmptyState icon={CardIcon} title="Nenhum cartao" subtitle="Cadastre um cartao de crédito para controlar faturas e limites." action={<Button onClick={openNewCard}><Plus className="w-4 h-4" /> Novo cartao</Button>} /></Card>
-        : selected && (
+        : selected && (() => {
+          const idx = Math.max(0, cards.findIndex((c) => c.id === selected.id));
+          const go = (d) => setSelectedId(cards[(idx + d + cards.length) % cards.length].id);
+          const limit = Number(selected.credit_limit) || 0;
+          const status = !limit ? null : usage >= 100 ? { t: 'Acima do limite', c: 'rose' } : usage >= 90 ? { t: 'Limite quase no fim', c: 'rose' } : usage >= 70 ? { t: 'Perto do limite', c: 'amber' } : { t: 'Dentro do limite', c: 'emerald' };
+          const dueDate = selectedInvoice?.due_date ? new Date(selectedInvoice.due_date + 'T00:00') : stats?.due;
+          const ringColor = usage >= 90 ? '#fb7185' : usage >= 70 ? '#fbbf24' : '#2dd4bf';
+          const recentTx = [...monthTxs].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3);
+          return (
           <div className="space-y-5">
-            {/* Cartão em destaque + números da fatura */}
-            <div className="grid lg:grid-cols-[minmax(0,400px)_1fr] gap-5 items-start">
-              <div className="space-y-3">
-                {/* cartão realista grande */}
-                <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-card aspect-[1.6/1]" style={{ background: `linear-gradient(135deg, ${selected.color || '#6d28d9'}, #05070f 145%)` }}>
-                  <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-white/10" />
-                  <div className="absolute -left-10 -bottom-14 w-40 h-40 rounded-full bg-white/[0.06]" />
-                  <div className="relative flex justify-between items-start">
-                    <div className="w-12 h-9 rounded-md bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-inner" />
-                    <div className="flex items-center gap-2"><Nfc className="w-6 h-6 opacity-70" /><span className="uppercase text-sm font-bold tracking-[0.2em]">{selected.brand}</span></div>
+            {/* ===== Linha 1: carrossel do cartão | fatura do mês ===== */}
+            <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-6 items-start">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-3 w-full justify-center">
+                  {cards.length > 1 && <button onClick={() => go(-1)} aria-label="Cartão anterior" className="w-10 h-10 rounded-full card flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 shrink-0"><ChevronLeft className="w-5 h-5" /></button>}
+                  <div className="relative overflow-hidden rounded-3xl p-6 text-white w-full max-w-[470px] aspect-[1.75/1] ring-1 ring-white/25 shadow-[0_0_40px_rgba(139,92,246,.35)] flex flex-col"
+                    style={{ background: `linear-gradient(135deg, ${selected.color || '#6d28d9'} 0%, ${selected.color || '#6d28d9'}cc 45%, #1e0b3a 120%)` }}>
+                    <div className="absolute -right-16 -top-20 w-64 h-64 rounded-full bg-white/10 pointer-events-none" />
+                    <div className="absolute -left-10 -bottom-24 w-56 h-56 rounded-full bg-white/[0.06] pointer-events-none" />
+                    <div className="relative flex justify-between items-start">
+                      <BrandMark brand={selected.brand} />
+                      <div className="flex items-center gap-2"><Nfc className="w-6 h-6 opacity-80" /><span className="uppercase text-sm font-bold tracking-[0.2em]">{selected.brand === 'other' ? 'Crédito' : selected.brand}</span></div>
+                    </div>
+                    <p className="relative mt-auto tracking-[0.3em] text-xl sm:text-2xl font-display font-bold">•••• •••• •••• {selected.last_digits || '0000'}</p>
+                    <p className="relative font-semibold mt-2 truncate">{selected.name}</p>
+                    <div className="relative flex items-end justify-between gap-3 mt-3">
+                      <div className="flex gap-5 text-sm">
+                        <div><p className="text-[11px] text-white/60">Vence em</p><p className="font-semibold flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> dia {selected.due_day}</p></div>
+                        {limit > 0 && <div><p className="text-[11px] text-white/60">Limite</p><p className="font-semibold flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {formatCurrency(limit)}</p></div>}
+                      </div>
+                      {limit > 0 && <UsageRing pct={usage} size={64} stroke={6} color={ringColor} small />}
+                    </div>
                   </div>
-                  <p className="relative mt-7 tracking-[0.28em] text-xl sm:text-2xl font-display">•••• •••• •••• {selected.last_digits || '0000'}</p>
-                  <div className="relative flex justify-between items-end mt-6 gap-2">
-                    <div className="min-w-0"><p className="text-[10px] text-white/55 tracking-wide">Titular</p><p className="font-semibold truncate">{selected.name}</p></div>
-                    <div className="text-right shrink-0"><p className="text-[10px] text-white/55 tracking-wide">Vencimento</p><p className="font-semibold">dia {selected.due_day}</p></div>
-                    {selected.credit_limit > 0 && (
-                      <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
-                        <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="5" />
-                        <circle cx="26" cy="26" r="21" fill="none" stroke={usage >= 90 ? '#fb7185' : usage >= 70 ? '#fbbf24' : '#34d399'} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(usage / 100) * (2 * Math.PI * 21)} ${2 * Math.PI * 21}`} transform="rotate(-90 26 26)" />
-                        <text x="26" y="30" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff">{usage}%</text>
-                      </svg>
-                    )}
-                  </div>
+                  {cards.length > 1 && <button onClick={() => go(1)} aria-label="Próximo cartão" className="w-10 h-10 rounded-full card flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 shrink-0"><ChevronRight className="w-5 h-5" /></button>}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditCard(selected)}><Pencil className="w-4 h-4" /> Editar</Button>
-                  <Button size="sm" variant="outline" className="text-rose-500" onClick={() => { if (confirm('Excluir este cartão?')) delCard.mutate(selected.id); }}><Trash2 className="w-4 h-4" /></Button>
+                {cards.length > 1 && (
+                  <div className="flex gap-2 mt-3">{cards.map((c) => <button key={c.id} onClick={() => setSelectedId(c.id)} aria-label={`Selecionar ${c.name}`} className={`h-2 rounded-full transition-all ${c.id === selected.id ? 'w-6 bg-violet-500' : 'w-2 bg-black/20 dark:bg-white/25 hover:bg-violet-400'}`} />)}</div>
+                )}
+                <div className="flex flex-wrap gap-2 mt-4 justify-center">
+                  <Button variant="outline" onClick={() => openEditCard(selected)}><Pencil className="w-4 h-4" /> Editar</Button>
+                  <Button variant="outline" onClick={() => document.getElementById('fatura-lista')?.scrollIntoView({ behavior: 'smooth' })}><BarChart3 className="w-4 h-4" /> Extrato</Button>
+                  <Button variant="outline" onClick={() => navigate('/regras')}><Settings2 className="w-4 h-4" /> Regras</Button>
+                  <Button variant="outline" className="text-rose-500" title="Excluir cartão" aria-label="Excluir cartão" onClick={() => { if (confirm('Excluir este cartão?')) delCard.mutate(selected.id); }}><Trash2 className="w-4 h-4" /></Button>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => shiftMonth(-1)} className="p-2 rounded-lg card"><ChevronLeft className="w-4 h-4" /></button>
-                    <span className="font-semibold min-w-[130px] text-center capitalize">{monthLabel(mk)}</span>
-                    <button onClick={() => shiftMonth(1)} className="p-2 rounded-lg card"><ChevronRight className="w-4 h-4" /></button>
+              <div className="relative overflow-hidden rounded-3xl p-6 ring-1 ring-violet-400/30 bg-[hsl(var(--card))] shadow-soft">
+                <div className="absolute -top-20 -right-10 w-72 h-60 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(45,212,191,.12), transparent 70%)' }} />
+                <div className="relative flex items-center justify-between gap-3 flex-wrap">
+                  <h3 className="font-semibold text-lg flex items-center gap-2"><BarChart3 className="w-5 h-5 text-sky-400" /> <span>Fatura de <span className="capitalize">{monthLabel(mk)}</span></span></h3>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-4 h-4" /></button>
+                    <button onClick={() => shiftMonth(1)} aria-label="Próximo mês" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ChevronRight className="w-4 h-4" /></button>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><Receipt className="w-3.5 h-3.5" /><p className="text-xs">Fatura de {monthLabel(mk).split(' ')[0]}</p></div><p className="font-display text-lg font-bold"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p></Card>
-                  <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><Gauge className="w-3.5 h-3.5" /><p className="text-xs">Limite disponível</p></div><p className={`font-display text-lg font-bold ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '—'}</p></Card>
-                  {stats && <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><CalendarDays className="w-3.5 h-3.5" /><p className="text-xs">Vence em</p></div><p className={`font-display text-lg font-bold ${stats.daysToDue <= 3 ? 'text-rose-500' : stats.daysToDue <= 7 ? 'text-amber-500' : ''}`}>{stats.daysToDue === 0 ? 'hoje' : `${stats.daysToDue} dias`}</p></Card>}
-                  {stats && <Card className="py-3 hover-lift"><div className="flex items-center gap-1.5 text-muted mb-0.5"><Target className="w-3.5 h-3.5" /><p className="text-xs">Melhor dia de compra</p></div><p className="font-display text-lg font-bold">dia {stats.bestBuyDay}</p></Card>}
+                <div className="relative grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-5 items-center mt-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="font-display text-4xl font-extrabold tracking-tight whitespace-nowrap"><AnimatedValue value={invoiceTotal} format={formatCurrency} /></p>
+                      {status && <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ring-1 ${status.c === 'emerald' ? 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/40' : status.c === 'amber' ? 'bg-amber-500/10 text-amber-500 ring-amber-500/40' : 'bg-rose-500/10 text-rose-500 ring-rose-500/40'}`}>{status.c === 'emerald' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}{status.t}</span>}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5 pt-4 border-t border-[hsl(var(--border))]">
+                      <div><p className="text-xs text-muted flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Vence em</p><p className={`font-bold mt-0.5 ${stats && stats.daysToDue <= 3 ? 'text-rose-500' : ''}`}>{dueDate ? dueDate.toLocaleDateString('pt-BR') : '—'}</p>{stats && <p className="text-[11px] text-muted">{stats.daysToDue === 0 ? 'hoje' : `em ${stats.daysToDue} dias`}</p>}</div>
+                      <div><p className="text-xs text-muted flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> Limite total</p><p className="font-bold mt-0.5">{limit > 0 ? formatCurrency(limit) : '—'}</p></div>
+                      <div><p className="text-xs text-muted flex items-center gap-1.5"><Gauge className="w-3.5 h-3.5" /> Limite disponível</p><p className={`font-bold mt-0.5 ${available != null && available < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{available != null ? formatCurrency(available) : '—'}</p></div>
+                    </div>
+                  </div>
+                  {limit > 0 && <div className="justify-self-center"><UsageRing pct={usage} size={150} stroke={12} color={ringColor} label="Usado" /></div>}
                 </div>
 
-                {stats && stats.future > 0 && (
-                  <div className="flex items-start gap-2 rounded-xl p-3 text-sm bg-indigo-500/[0.07] text-indigo-700 dark:text-indigo-300">
-                    <CalendarClock className="w-4 h-4 mt-0.5 shrink-0" /> <span>Você já tem <b>{formatCurrency(stats.future)}</b> em parcelas caindo nas próximas faturas deste cartão.</span>
-                  </div>
-                )}
-
-                {selected.credit_limit > 0 && (
-                  <Card className="py-3">
-                    <div className="flex justify-between text-xs mb-1"><span className="text-muted">Uso do limite</span><span className="font-semibold">{usage}% de {formatCurrency(selected.credit_limit)}</span></div>
-                    <div className="h-2.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${usage}%`, background: usage >= 90 ? '#f43f5e' : usage >= 70 ? '#f59e0b' : '#10b981' }} /></div>
-                    {usage >= 80 && <p className="text-xs text-amber-500 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Você já usou {usage}% do limite deste cartão.</p>}
-                  </Card>
-                )}
-
-                {invoiceTotal > 0 && (() => {
-                  const isPaid = selectedInvoice?.status === 'paid';
-                  const totalDue = Number(selectedInvoice?.total_amount ?? invoiceTotal);
-                  const paidSoFar = Number(selectedInvoice?.paid_amount || 0);
-                  const remaining = totalDue - paidSoFar;
-                  return (
-                    <Card className="py-3 flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        {isPaid ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <FileText className="w-5 h-5 text-amber-500" />}
-                        <div>
-                          <p className="text-sm font-semibold">Fatura {monthLabel(mk)}</p>
-                          <p className="text-xs text-muted">{selectedInvoice?.due_date ? `Venc. ${new Date(selectedInvoice.due_date + 'T00:00').toLocaleDateString('pt-BR')} · ` : ''}{formatCurrency(totalDue)}{paidSoFar > 0 && !isPaid ? ` · em aberto ${formatCurrency(remaining)}` : ''}</p>
-                        </div>
-                      </div>
-                      {isPaid ? <Badge color="emerald">Paga</Badge>
-                        : <Button size="sm" onClick={() => { setPayModal({ invoiceId: selectedInvoice?.id || null, cardId: selected.id, competence_month: mk, total: totalDue, remaining }); setPayAccount(selected.account_id || accounts[0]?.id || ''); setPayMode('full'); setPayAmount(''); }}><Wallet className="w-4 h-4" /> Pagar fatura</Button>}
-                    </Card>
-                  );
-                })()}
+                <div className="relative flex flex-wrap items-center gap-2 mt-4 text-xs">
+                  {stats && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/5"><Target className="w-3.5 h-3.5 text-violet-400" /> Melhor dia de compra: <b>dia {stats.bestBuyDay}</b></span>}
+                  {stats && stats.future > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"><CalendarClock className="w-3.5 h-3.5" /> {formatCurrency(stats.future)} em parcelas futuras</span>}
+                  {invoiceTotal > 0 && (() => {
+                    const isPaid = selectedInvoice?.status === 'paid';
+                    const totalDue = Number(selectedInvoice?.total_amount ?? invoiceTotal);
+                    const paidSoFar = Number(selectedInvoice?.paid_amount || 0);
+                    const remaining = totalDue - paidSoFar;
+                    return isPaid ? <span className="ml-auto"><Badge color="emerald">Fatura paga</Badge></span>
+                      : <Button size="sm" className="ml-auto" onClick={() => { setPayModal({ invoiceId: selectedInvoice?.id || null, cardId: selected.id, competence_month: mk, total: totalDue, remaining }); setPayAccount(selected.account_id || accounts[0]?.id || ''); setPayMode('full'); setPayAmount(''); }}><Wallet className="w-4 h-4" /> Pagar fatura{paidSoFar > 0 ? ` (${formatCurrency(remaining)})` : ''}</Button>;
+                  })()}
+                </div>
               </div>
             </div>
 
-            {/* Strip para trocar de cartão */}
-            {cards.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-                {cards.map((c, i) => {
-                  const active = selected.id === c.id;
-                  return (
-                    <button key={c.id} onClick={() => setSelectedId(c.id)}
-                      className={`relative shrink-0 w-40 rounded-xl p-3 text-white text-left transition-all duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg))] focus-visible:ring-emerald-400 ${active ? 'ring-2 ring-emerald-400' : 'opacity-80 hover:opacity-100'}`}
-                      style={{ background: `linear-gradient(135deg, ${c.color || CARD_COLORS[i % CARD_COLORS.length]}, #05070f 150%)` }}>
-                      <div className="flex items-center justify-between"><span className="text-[10px] uppercase tracking-widest font-bold opacity-70">{c.brand}</span><CardIcon className="w-4 h-4 opacity-70" /></div>
-                      <p className="text-sm font-semibold truncate mt-3">{c.name}</p>
-                      <p className="text-[11px] tracking-wider opacity-70">•••• {c.last_digits || '0000'}</p>
-                    </button>
-                  );
-                })}
-                <button onClick={openNewCard} className="shrink-0 w-40 rounded-xl border-2 border-dashed border-[hsl(var(--border))] text-muted hover:text-emerald-500 hover:border-emerald-500 hover:-translate-y-px active:translate-y-0 active:scale-[.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg))] focus-visible:ring-emerald-400 flex flex-col items-center justify-center gap-1 transition-all duration-150 ease-out"><Plus className="w-5 h-5" /><span className="text-xs font-medium">Novo cartão</span></button>
-              </div>
-            )}
-
-            {topCats.length > 0 && (
-              <Card>
-                <h3 className="font-semibold mb-3 text-sm">Onde você gastou neste cartão</h3>
-                <div className="space-y-2.5">
-                  {topCats.slice(0, 6).map((c, i) => (
-                    <div key={i}><div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />{c.name}</span><span className="font-semibold">{formatCurrency(c.value)}</span></div><div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(c.value / maxCat) * 100}%`, background: c.color }} /></div></div>
-                  ))}
-                </div>
+            {/* ===== Linha 2: gastos por categoria | últimos lançamentos ===== */}
+            <div className="grid xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-5">
+              <Card className="!rounded-3xl ring-1 ring-sky-400/20">
+                <h3 className="font-semibold text-lg flex items-center gap-2"><PieIcon className="w-5 h-5 text-sky-400" /> Gastos por categoria</h3>
+                <p className="text-xs text-muted mb-3">Distribuição das despesas neste cartão</p>
+                {topCats.length === 0 ? <p className="text-sm text-muted py-8 text-center">Sem gastos neste cartão em {monthLabel(mk)}.</p> : (
+                  <div className="grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
+                    <div className="relative h-[220px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart><Pie data={topCats} dataKey="value" nameKey="name" innerRadius="66%" outerRadius="96%" paddingAngle={1.5} stroke="none">{topCats.map((e, i) => <Cell key={i} fill={e.color} />)}</Pie><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /></PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="text-xs text-muted">Total</span><span className="font-display font-bold text-lg">{formatCurrency(invoiceTotal)}</span></div>
+                    </div>
+                    <div>
+                      <div className="divide-y divide-[hsl(var(--border))]">
+                        {topCats.slice(0, 6).map((c, i) => (
+                          <div key={i} className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto_3.5rem] items-center gap-2.5 py-2 text-sm">
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white" style={{ background: c.color }}><Tag className="w-3.5 h-3.5" /></span>
+                            <span className="truncate">{c.name}</span>
+                            <span className="font-medium whitespace-nowrap">{formatCurrency(c.value)}</span>
+                            <span className="text-muted text-right">{invoiceTotal > 0 ? ((c.value / invoiceTotal) * 100).toFixed(1).replace('.', ',') : 0}%</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => navigate('/para-onde-vai')} className="mt-3 w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl ring-1 ring-sky-400/30 bg-sky-500/5 hover:bg-sky-500/10 text-sm font-semibold transition"><span className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-sky-400" /> Ver análise detalhada</span><ChevronRight className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                )}
               </Card>
-            )}
+
+              <Card className="!rounded-3xl ring-1 ring-violet-400/30">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-lg flex items-center gap-2"><CardIcon className="w-5 h-5 text-sky-400" /> Últimos lançamentos da fatura</h3>
+                  <button onClick={() => document.getElementById('fatura-lista')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-semibold text-sky-500 hover:underline flex items-center gap-1">Ver todos <ArrowRight className="w-4 h-4" /></button>
+                </div>
+                {recentTx.length === 0 ? <p className="text-sm text-muted py-8 text-center">Sem lançamentos nesta fatura.</p> : (
+                  <div className="divide-y divide-[hsl(var(--border))]">
+                    {recentTx.map((t) => (
+                      <div key={t.id} className="flex items-center gap-3 py-3">
+                        <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${catMap[t.category_id]?.color || '#6366f1'}26`, color: catMap[t.category_id]?.color || '#6366f1' }}><CardIcon className="w-5 h-5" /></span>
+                        <div className="min-w-0 flex-1"><p className="font-semibold truncate">{t.description}</p><p className="text-xs text-muted truncate">{catMap[t.category_id]?.name || 'Sem categoria'}{t.installments_total > 1 ? ` · ${t.installment_current}/${t.installments_total}` : ''}</p></div>
+                        {t.imported_from_pdf ? <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-500/15 text-indigo-500 dark:text-indigo-300 shrink-0">PDF</span> : null}
+                        <span className="text-xs text-muted w-14 text-right shrink-0">{new Date(String(t.date).slice(0, 10) + 'T00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').replace(' de ', ' ')}</span>
+                        <span className="font-bold text-rose-500 w-24 text-right shrink-0">-{formatCurrency(t.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
 
             {!settingsList[0]?.gemini_api_key_configured && (
               <Card className="border-amber-200 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/5">
@@ -343,8 +366,9 @@ export default function CreditCards() {
               </Card>
             )}
 
-            <div className="flex justify-between items-center flex-wrap gap-2">
-              <h3 className="font-semibold">Lançamentos da fatura</h3>
+            {/* ===== Extrato completo da fatura ===== */}
+            <div id="fatura-lista" className="flex justify-between items-center flex-wrap gap-2 scroll-mt-24">
+              <h3 className="font-semibold">Lançamentos da fatura · <span className="capitalize">{monthLabel(mk)}</span></h3>
               <div className="flex gap-2">
                 <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleInvoiceFile} />
                 <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>{importing ? <Spinner className="w-4 h-4" /> : <><Sparkles className="w-4 h-4 text-emerald-500" /> Importar fatura (PDF)</>}</Button>
@@ -355,19 +379,20 @@ export default function CreditCards() {
 
             {monthTxs.length === 0 ? <Card><EmptyState icon={CardIcon} title="Sem lançamentos" subtitle="Adicione compras ou importe a fatura em PDF." /></Card>
               : (
-                <Card className="p-0 divide-y divide-[hsl(var(--border))]">
+                <Card className="!p-0 divide-y divide-[hsl(var(--border))]">
                   {monthTxs.map((t) => (
                     <div key={t.id} className="group flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-black/[0.025] dark:hover:bg-white/[0.03]">
                       <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: catMap[t.category_id]?.color || '#64748b' }}><CardIcon className="w-4 h-4" /></span>
                       <div className="flex-1 min-w-0"><p className="font-medium truncate">{t.description}</p><div className="flex items-center gap-2 text-xs text-muted">{catMap[t.category_id]?.name || 'Sem categoria'}{t.installments_total > 1 ? <Badge color="blue">{t.installment_current}/{t.installments_total}</Badge> : null}{t.imported_from_pdf ? <Badge color="violet">PDF</Badge> : null}</div></div>
                       <p className="font-semibold font-display text-rose-500">{formatCurrency(t.amount)}</p>
-                      <button onClick={() => delTx.mutate(t.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => delTx.mutate(t.id)} aria-label="Excluir lançamento" className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   ))}
                 </Card>
               )}
           </div>
-        )}
+          );
+        })()}
 
       {/* Modal cartao */}
       <Modal open={cardModal} onClose={() => setCardModal(false)} title={editingCard ? 'Editar cartao' : 'Novo cartao'}
@@ -471,4 +496,27 @@ export default function CreditCards() {
       </Modal>
     </div>
   );
+}
+
+function UsageRing({ pct, size = 150, stroke = 12, color = '#2dd4bf', label, small }) {
+  const r = (size - stroke) / 2; const c = 2 * Math.PI * r; const v = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={small ? 'rgba(255,255,255,.2)' : 'hsl(var(--muted) / .18)'} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${(v / 100) * c} ${c}`} style={{ transition: 'stroke-dasharray .6s ease', filter: `drop-shadow(0 0 6px ${color}88)` }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className={`font-display font-extrabold ${small ? 'text-sm' : 'text-3xl'}`}>{Math.round(pct)}%</span>
+        <span className={`${small ? 'text-[9px] text-white/70 mt-0.5' : 'text-sm text-muted mt-1'}`}>{label || 'Usado'}</span>
+      </div>
+    </div>
+  );
+}
+
+// Marca da bandeira desenhada em CSS/texto (sem logotipo oficial)
+function BrandMark({ brand }) {
+  if (brand === 'mastercard') return <span className="flex"><span className="w-9 h-9 rounded-full bg-[#eb001b]" /><span className="w-9 h-9 rounded-full bg-[#f79e1b]/90 -ml-3.5" /></span>;
+  if (brand === 'visa') return <span className="font-display italic font-extrabold text-2xl tracking-tight">VISA</span>;
+  return <span className="w-12 h-9 rounded-md bg-gradient-to-br from-yellow-200 to-yellow-500 shadow-inner" />;
 }
