@@ -43,6 +43,8 @@ export function AppLayout() {
   const { t } = useLang();
   const location = useLocation();
   const navItem = currentNavKey(location.pathname);
+  // Dashboard usa a largura toda (layout em grid de sistema); demais telas mantem a coluna de leitura
+  const isWide = location.pathname === '/';
   const pageTitle = navItem ? t('nav.' + navItem.key, navItem.label) : 'Monvy';
   const qc = useQueryClient();
   const [onboarded, setOnboarded] = useState(() => { try { return localStorage.getItem('monvy_onboarded') === '1'; } catch { return false; } });
@@ -81,7 +83,9 @@ export function AppLayout() {
     try { if (localStorage.getItem(flag)) return; localStorage.setItem(flag, '1'); } catch { return; }
     UsageEvent.create({ screen_key: key, day }).catch(() => {});
   }, [location.pathname, user]);
-  const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const today = isWide
+    ? `Visão geral das suas finanças • ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
+    : new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen flex relative">
@@ -105,7 +109,7 @@ export function AppLayout() {
         </div>
       )}
 
-      <div className="flex-1 lg:ml-72 flex flex-col min-w-0 relative z-10">
+      <div className="flex-1 lg:ml-60 flex flex-col min-w-0 relative z-10">
         {/* Header desktop */}
         <header className="hidden lg:block sticky top-0 z-20">
           <div className="flex items-center justify-between px-8 py-3.5 bg-[hsl(var(--card))]/70 backdrop-blur-xl border-b border-[hsl(var(--border))]">
@@ -115,7 +119,7 @@ export function AppLayout() {
               </span>
               <div>
                 <h1 className="font-display font-bold text-xl leading-none">{pageTitle}</h1>
-                <p className="text-[11px] text-muted capitalize mt-1">{today}</p>
+                <p className={`text-[11px] text-muted mt-1 ${isWide ? '' : 'capitalize'}`}>{today}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -150,7 +154,7 @@ export function AppLayout() {
           <div className="h-[3px] bg-gradient-to-r from-emerald-500 via-indigo-500 to-violet-500" />
         </header>
 
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-32 lg:pb-8 max-w-[1400px] w-full mx-auto overflow-x-hidden">
+        <main className={`flex-1 p-3 sm:p-5 pb-32 lg:pb-6 w-full mx-auto overflow-x-hidden ${isWide ? 'lg:px-5 lg:pt-4 max-w-[2000px]' : 'lg:p-8 lg:pb-8 max-w-[1400px]'}`}>
           <ErrorBoundary routeKey={location.pathname}><Outlet /></ErrorBoundary>
         </main>
         <OnboardingWizard />

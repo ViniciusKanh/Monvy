@@ -16,7 +16,7 @@ const nnum = (v) => { const x = Number(String(v).replace(',', '.')); return isNa
 function loadCfg() { try { const r = localStorage.getItem(LS_KEY); if (r) return { ...DEFAULTS, ...JSON.parse(r) }; } catch { /* */ } return { ...DEFAULTS }; }
 
 // Card compacto da Carga Tributária para o Dashboard.
-export function TaxBurdenCard() {
+export function TaxBurdenCard({ variant = 'card' } = {}) {
   const nav = useNavigate();
   const cfg = loadCfg();
   const nowMk = monthKey(new Date());
@@ -48,6 +48,30 @@ export function TaxBurdenCard() {
   }, [txs, cardTxs, nowMk, ledger, notes]);
 
   if (!resumo.temDadoSuficiente) return null;
+
+  if (variant === 'banner') {
+    return (
+      <Reveal>
+        <button type="button" onClick={() => nav('/carga-tributaria')} className="card !rounded-xl w-full text-left hover-lift px-4 py-3 grid grid-cols-1 md:grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-5">
+          <div className="flex items-center gap-3 md:pr-5 md:border-r border-[hsl(var(--border))]">
+            <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow shrink-0" style={{ background: 'linear-gradient(135deg,#065f46,#0d9488)' }}><Landmark className="w-5 h-5" /></span>
+            <div>
+              <p className="text-xs text-muted">Carga tributária do mês</p>
+              <p className="font-display text-2xl font-bold leading-tight">{formatCurrency(resumo.totalCarga)}</p>
+            </div>
+          </div>
+          <div className="min-w-0">
+            {narrativa && <p className="text-xs text-muted leading-relaxed line-clamp-2">{narrativa}</p>}
+            <div className="flex flex-wrap gap-2 mt-1.5 text-[11px] font-semibold">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-300 ring-1 ring-sky-500/20"><CheckCircle2 className="w-3.5 h-3.5" /> Confirmado {formatCurrency(resumo.totalConfirmado)}</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-300 ring-1 ring-amber-500/20"><CircleDashed className="w-3.5 h-3.5" /> Estimado {formatCurrency(resumo.totalEstimado)}</span>
+            </div>
+          </div>
+          <ChevronRight className="hidden md:block w-5 h-5 text-muted" />
+        </button>
+      </Reveal>
+    );
+  }
 
   return (
     <Reveal>

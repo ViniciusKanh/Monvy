@@ -99,7 +99,7 @@ body {
 @page { margin: 12mm; size: A4 portrait; }
 @media print {
   aside, header, nav, .aurora, .print\:hidden { display: none !important; }
-  .lg\:ml-72 { margin-left: 0 !important; }
+  .lg\:ml-60 { margin-left: 0 !important; }
   main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; width: 100% !important; }
   html, body { background: #fff !important; width: 100% !important; }
   body { background-image: none !important; font-size: 12px !important; }

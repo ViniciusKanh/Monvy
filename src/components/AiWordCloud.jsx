@@ -31,7 +31,7 @@ function packCloud(words, W, H) {
   if (!W || !H) return [];
   const ranked = [...words].sort((a, b) => b.p - a.p);
   const cx = W / 2, cy = H / 2;
-  const scale = Math.min(1.4, Math.max(0.9, W / 620)); // telas maiores => palavras maiores
+  const scale = Math.min(1.4, Math.max(W < 320 ? 0.72 : 0.9, W / 620)); // telas maiores => palavras maiores; mini-card => menores
   const placed = [];
   const hit = (a, b) => !(a.x + a.bw < b.x - 2 || a.x > b.x + b.bw + 2 || a.y + a.bh < b.y - 1 || a.y > b.y + b.bh + 1);
   for (const word of ranked) {
@@ -53,7 +53,7 @@ function packCloud(words, W, H) {
   return placed;
 }
 
-export function AiWordCloud({ cardTxs = [], transactions = [], apiKey }) {
+export function AiWordCloud({ cardTxs = [], transactions = [], apiKey, compact = false }) {
   const local = useMemo(() => localCloud(cardTxs, transactions), [cardTxs, transactions]);
   const [cloud, setCloud] = useState(() => { try { return JSON.parse(localStorage.getItem(CLOUD_KEY)) || null; } catch { return null; } });
   const [busy, setBusy] = useState(false);
@@ -94,19 +94,19 @@ export function AiWordCloud({ cardTxs = [], transactions = [], apiKey }) {
   };
 
   return (
-    <Card>
-      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <h3 className="font-semibold flex items-center gap-2"><Cloud className="w-4 h-4 text-indigo-500" /> Nuvem de gastos da fatura
+    <Card className={compact ? '!rounded-xl !p-4 hover-lift flex flex-col' : ''}>
+      <div className={`flex items-center justify-between gap-2 flex-wrap ${compact ? 'mb-1' : 'mb-3'}`}>
+        <h3 className={`font-semibold flex items-center gap-2 ${compact ? 'text-sm' : ''}`}>{!compact && <Cloud className="w-4 h-4 text-indigo-500" />} {compact ? 'Nuvem de gastos' : 'Nuvem de gastos da fatura'}
           {via && <span className="text-[10px] font-normal text-muted inline-flex items-center gap-1 ml-1">{via === 'gemini' ? <><Sparkles className="w-3 h-3 text-emerald-500" /> IA</> : <><Cpu className="w-3 h-3" /> local</>}</span>}
         </h3>
-        <button onClick={gerar} disabled={busy} className="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1 disabled:opacity-50">
-          {busy ? <Spinner className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />} {cloud ? 'Atualizar' : (apiKey ? 'Gerar com IA' : 'Gerar')}
+        <button onClick={gerar} disabled={busy} title={cloud ? "Atualizar nuvem" : "Gerar nuvem"} aria-label={cloud ? "Atualizar nuvem" : "Gerar nuvem"} className="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1 disabled:opacity-50">
+          {busy ? <Spinner className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />} {compact ? '' : (cloud ? 'Atualizar' : (apiKey ? 'Gerar com IA' : 'Gerar'))}
         </button>
       </div>
       {words.length === 0 ? (
-        <p className="text-sm text-muted py-6 text-center">Sem gastos de cartão suficientes para montar a nuvem. Importe uma fatura ou lance compras no cartão.</p>
+        <p className={`${compact ? 'text-xs' : 'text-sm'} text-muted py-6 text-center`}>Sem gastos de cartão suficientes para montar a nuvem. Importe uma fatura ou lance compras no cartão.</p>
       ) : (
-        <div ref={boxRef} className="relative w-full h-44 sm:h-52 rounded-2xl overflow-hidden select-none"
+        <div ref={boxRef} className={`relative w-full overflow-hidden select-none ${compact ? 'flex-1 min-h-[150px] rounded-lg' : 'h-44 sm:h-52 rounded-2xl'}`}
           style={{ background: 'radial-gradient(120% 120% at 50% 45%, hsl(var(--muted)/0.08), transparent 72%)' }}>
           {placed.map((x, i) => (
             <span key={i} title={`peso ${x.p}`}
@@ -117,7 +117,7 @@ export function AiWordCloud({ cardTxs = [], transactions = [], apiKey }) {
           ))}
         </div>
       )}
-      {!cloud && apiKey && <p className="text-[11px] text-muted text-center mt-2">Toque em “Gerar com IA” para o Gemini organizar a nuvem a partir da sua fatura.</p>}
+      {!compact && !cloud && apiKey && <p className="text-[11px] text-muted text-center mt-2">Toque em “Gerar com IA” para o Gemini organizar a nuvem a partir da sua fatura.</p>}
     </Card>
   );
 }

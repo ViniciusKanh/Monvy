@@ -10,6 +10,10 @@ import { Toaster } from './components/Toaster.jsx';
 import { toast } from './lib/toast.js';
 import { isStaleChunkError, reloadOnceForFreshVersion } from './lib/staleChunk.js';
 import './index.css';
+import { installNoZoom } from './lib/noZoom.js';
+
+// Sistema com layout fixo em grid: sem zoom do navegador (Ctrl +/-, Ctrl+roda, pinca)
+installNoZoom();
 
 // Depois de um novo deploy, uma aba aberta antigamente pode tentar buscar um
 // chunk (JS dividido por rota/import dinamico) que ja nao existe mais no build

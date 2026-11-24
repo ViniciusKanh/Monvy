@@ -9,7 +9,7 @@ import { TaxLedger, FiscalNote } from '../api/entities.js';
 
 // Bloco do rodapé do Dashboard: tributos medidos por documento no ano
 // (IOF das faturas + notas fiscais + IR do informe). Link para a tela Impostos.
-export function TaxMeasuredBlock() {
+export function TaxMeasuredBlock({ variant = 'card' } = {}) {
   const nav = useNavigate();
   const year = new Date().getFullYear();
   const { data: ledger = [] } = useQuery({ queryKey: ['tax-ledger-all'], queryFn: () => TaxLedger.list() });
@@ -25,6 +25,25 @@ export function TaxMeasuredBlock() {
 
   if (d.total <= 0) return null;
   const pct = (v) => (d.total > 0 ? (v / d.total) * 100 : 0);
+
+  if (variant === 'compact') {
+    return (
+      <button type="button" onClick={() => nav('/impostos')} className="card !rounded-xl p-4 text-left hover-lift flex flex-col">
+        <div className="flex items-center justify-between w-full"><h3 className="font-semibold text-sm">Impostos medidos em {year}</h3><ChevronRight className="w-4 h-4 text-muted" /></div>
+        <p className="font-display text-2xl font-extrabold mt-3">{formatCurrency(d.total)}</p>
+        <div className="mt-3 h-2 w-full rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800">
+          <div style={{ width: `${pct(d.iof)}%`, background: '#6d28d9' }} />
+          <div style={{ width: `${pct(d.nfe)}%`, background: '#059669' }} />
+          <div style={{ width: `${pct(d.ir)}%`, background: '#2563eb' }} />
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px]">
+          <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-300"><CreditCard className="w-3 h-3" /> IOF {formatCurrency(d.iof)}</span>
+          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-300"><FileText className="w-3 h-3" /> Notas {formatCurrency(d.nfe)}</span>
+          <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-300"><PiggyBank className="w-3 h-3" /> IR {formatCurrency(d.ir)}</span>
+        </div>
+      </button>
+    );
+  }
 
   return (
     <Reveal>

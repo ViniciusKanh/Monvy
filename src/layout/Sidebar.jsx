@@ -11,13 +11,13 @@ export function Sidebar({ onNavigate }) {
   const { t } = useLang();
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-[#080d1f] to-[#0d1433] text-slate-300 w-72">
-      <div className="px-5 py-5">
+    <div className="h-full flex flex-col bg-gradient-to-b from-[#080d1f] to-[#0d1433] text-slate-300 w-60">
+      <div className="px-4 py-4">
         <Logo size="md" />
-        <p className="text-[10px] tracking-widest text-slate-500 mt-1 ml-11 -mt-1">{t('ui.tagline')}</p>
+        <p className="text-[10px] tracking-widest text-slate-500 ml-11 -mt-1">{t('ui.tagline')}</p>
       </div>
 
-      <div className="mx-4 mb-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">
+      <div className="mx-3 mb-3 p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">
         {user?.photo_url
           ? <img src={user.photo_url} alt="" className="w-10 h-10 rounded-full object-cover border border-emerald-500/40" />
           : <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-bold">{(user?.full_name || user?.email || '?').slice(0, 1).toUpperCase()}</div>}
@@ -41,7 +41,7 @@ export function Sidebar({ onNavigate }) {
                 {items.map((it) => (
                   <NavLink key={it.key} to={it.path} end={it.path === '/'} onClick={onNavigate}
                     className={({ isActive }) => cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
+                      'flex items-center gap-3 px-3 py-[7px] rounded-lg text-[13px] font-medium transition',
                       isActive ? 'bg-emerald-500/15 text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'
                     )}>
                     <it.icon className="w-[18px] h-[18px]" />
