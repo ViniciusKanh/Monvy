@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Wallet, Landmark, PiggyBank, CreditCard as CardIcon, MoreVertical, Pencil, Trash2, Star, TrendingUp, TrendingDown } from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { Wallet, Landmark, PiggyBank, CreditCard as CardIcon, MoreVertical, Pencil, Trash2, Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils.js';
 import { bankGradient } from '../../lib/bankColors.js';
 import { buildBalanceSeries } from '../../lib/accountBalanceSeries.js';
@@ -23,24 +23,35 @@ export function BankAccountCard({ account, transactions, consolidatedPositive, i
 
   const variation = series.length ? series[series.length - 1].value - series[0].value : 0;
   const variationPct = series.length && series[0].value !== 0 ? (variation / Math.abs(series[0].value)) * 100 : null;
+  const up = variation >= 0;
+
+  // detalhes reais da conta: tipo + agencia/conta (se cadastradas) ou banco/COMPE
+  const details = [TYPE_LABEL[account.account_type] || 'Conta'];
+  if (account.agency) details.push(`Ag. ${account.agency}`);
+  if (account.account_number) details.push(`Cc. ${account.account_number}`);
+  if (!account.agency && !account.account_number && bankInfo?.code) details.push(`COMPE ${bankInfo.code}`);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl p-5 text-white shadow-card hover-lift h-full"
-      style={{ background: bankGradient(account) }}>
-      <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-white/10" />
-      <div className="relative flex items-start justify-between">
-        <div className="relative w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center overflow-hidden"
+    <div className="relative overflow-hidden rounded-2xl px-5 py-4 text-white shadow-card hover-lift h-full ring-1 ring-white/20"
+      style={{ background: bankGradient(account) }} title="Arraste para reordenar">
+      <div className="absolute -right-10 -top-12 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+
+      {/* topo: logo + nome + detalhes | favorito + menu */}
+      <div className="relative flex items-start gap-3">
+        <div className="relative w-12 h-12 rounded-xl bg-white shadow flex items-center justify-center overflow-hidden shrink-0"
           title={bankInfo?.fullName ? `${bankInfo.fullName}${bankInfo.code ? ` · COMPE ${bankInfo.code}` : ''}` : undefined}>
           {showLogo
-            ? <img src={bankInfo.logoUrl} alt={bankInfo.fullName || account.bank || ''} className="w-7 h-7 object-contain" onError={() => setLogoBroken(true)} />
-            : <Icon className="w-5 h-5" />}
-          {showLogo && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-black/30 backdrop-blur flex items-center justify-center ring-1 ring-white/20">
-              <Icon className="w-2.5 h-2.5" />
-            </span>
-          )}
+            ? <img src={bankInfo.logoUrl} alt={bankInfo.fullName || account.bank || ''} className="w-8 h-8 object-contain" onError={() => setLogoBroken(true)} />
+            : <Icon className="w-6 h-6" style={{ color: account.color || '#0d1433' }} />}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-bold text-lg leading-tight truncate">{account.name}</p>
+          <span className="inline-block max-w-full truncate text-[11px] mt-1 px-2 py-0.5 rounded-md bg-black/20 ring-1 ring-white/15" title={bankInfo?.fullName || account.bank || undefined}>
+            {details.join(' • ')}
+          </span>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0 -mr-1.5 -mt-1">
           <button onClick={() => onToggleFavorite(account.id)} title={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} aria-label={isFavorite ? 'Remover dos favoritos' : 'Marcar como favorita'} aria-pressed={isFavorite} className="p-1.5 rounded-lg hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60 outline-none">
             <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-300 text-amber-300' : ''}`} />
           </button>
@@ -56,32 +67,30 @@ export function BankAccountCard({ account, transactions, consolidatedPositive, i
         </div>
       </div>
 
-      <p className="relative font-medium mt-4 text-white/90 truncate">{account.name}</p>
-      <span className="relative inline-flex items-center gap-1 text-[11px] mt-1 px-2 py-0.5 rounded-full bg-white/15" title={bankInfo?.fullName || undefined}>
-        {TYPE_LABEL[account.account_type] || 'Conta'}{account.bank ? ` · ${account.bank}` : ''}{bankInfo?.code ? ` · COMPE ${bankInfo.code}` : ''}
-      </span>
-      <p className={`relative font-display text-3xl font-extrabold mt-3 ${neg ? 'text-rose-200' : ''}`}>{formatCurrency(account.current_balance)}</p>
-
-      <div className="relative flex items-center justify-between mt-3">
-        <span className={`inline-flex items-center gap-1 text-xs font-medium ${variation >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>
-          {variation >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-          {variationPct != null ? `${variationPct >= 0 ? '+' : ''}${variationPct.toFixed(1)}%` : formatCurrency(variation)} em 30d
-        </span>
-        <span className="text-[11px] text-white/70">{pct}% do total</span>
-      </div>
-
-      <div className="relative h-10 -mx-1 mt-1 opacity-90">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={series}>
-            <defs>
-              <linearGradient id={`spark-${account.id}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#fff" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#fff" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="value" stroke="#fff" strokeWidth={1.5} fill={`url(#spark-${account.id})`} isAnimationActive={false} />
-          </AreaChart>
-        </ResponsiveContainer>
+      {/* base: saldo | sparkline | variação 30 dias */}
+      <div className="relative flex items-end gap-3 mt-4">
+        <p className={`font-display text-[1.7rem] leading-none font-extrabold whitespace-nowrap drop-shadow ${neg ? 'text-rose-100' : ''}`} title={`${pct}% do saldo consolidado`}>{formatCurrency(account.current_balance)}</p>
+        <div className="flex-1 min-w-[40px] h-9 opacity-90">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={series} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`spark-${account.id}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fff" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#fff" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <YAxis hide domain={['dataMin', 'dataMax']} />
+              <Area type="monotone" dataKey="value" stroke="rgba(255,255,255,.9)" strokeWidth={1.75} fill={`url(#spark-${account.id})`} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="text-right shrink-0 leading-tight">
+          <p className={`text-xs font-bold flex items-center justify-end gap-0.5 ${up ? 'text-emerald-200' : 'text-rose-200'}`}>
+            {up ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+            {variationPct != null ? `${variationPct >= 0 ? '+' : ''}${variationPct.toFixed(1).replace('.', ',')}%` : formatCurrency(variation)}
+          </p>
+          <p className="text-[11px] text-white/75">(30 dias)</p>
+        </div>
       </div>
     </div>
   );

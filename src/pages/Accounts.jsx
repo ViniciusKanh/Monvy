@@ -26,7 +26,7 @@ const TYPES = [
   { v: 'credit_card', label: 'Cartão' },
 ];
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#14b8a6', '#f43f5e'];
-const emptyForm = { name: '', account_type: 'checking', initial_balance: 0, color: '#10b981', bank: '', bank_ispb: '' };
+const emptyForm = { name: '', account_type: 'checking', initial_balance: 0, color: '#10b981', bank: '', bank_ispb: '', agency: '', account_number: '' };
 
 export default function Accounts() {
   const qc = useQueryClient();
@@ -54,7 +54,7 @@ export default function Accounts() {
   const del = useMutation({ mutationFn: (id) => Account.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }) });
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setModal(true); };
-  const openEdit = (a) => { setEditing(a); setForm({ name: a.name, account_type: a.account_type, initial_balance: a.initial_balance, color: a.color, bank: a.bank || '', bank_ispb: a.bank_ispb || '' }); setModal(true); };
+  const openEdit = (a) => { setEditing(a); setForm({ name: a.name, account_type: a.account_type, initial_balance: a.initial_balance, color: a.color, bank: a.bank || '', bank_ispb: a.bank_ispb || '', agency: a.agency || '', account_number: a.account_number || '' }); setModal(true); };
   const close = () => setModal(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   // ao digitar/selecionar o banco, tenta casar com o diretorio oficial pra
@@ -94,7 +94,7 @@ export default function Accounts() {
   const handleDragEnd = () => { setDraggingId(null); setDragOverId(null); };
 
   return (
-    <div className="animate-fadeIn space-y-5">
+    <div className="animate-fadeIn space-y-5 max-w-[1600px] mx-auto">
       <AccountsHeader onSync={sync} syncing={isFetching} onNew={openNew} />
       <AccountsNavigation active={tab} onChange={setTab} />
 
@@ -106,10 +106,11 @@ export default function Accounts() {
         <div className="space-y-5">
           <AccountsBalanceHero accounts={accounts} transactions={transactions} total={total} period={period} onPeriodChange={setPeriod} />
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted flex items-center gap-1"><GripVertical className="w-3.5 h-3.5" /> arraste os cartões para reordenar</p>
-            {hasCustomOrder && <button onClick={resetOrder} className="text-xs text-muted hover:text-rose-500">restaurar ordem padrão</button>}
-          </div>
+          {hasCustomOrder && (
+            <div className="flex justify-end -mb-2">
+              <button onClick={resetOrder} className="text-xs text-muted hover:text-rose-500 flex items-center gap-1"><GripVertical className="w-3.5 h-3.5" /> restaurar ordem padrão</button>
+            </div>
+          )}
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {orderedAccounts.map((a, i) => (
               <Reveal
@@ -130,7 +131,7 @@ export default function Accounts() {
             ))}
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-4">
+          <div className="grid lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4">
             <AccountsRecentTransactions transactions={transactions} accountsById={accountsById} />
             <AccountsDistributionChart accounts={accounts} />
           </div>
@@ -153,6 +154,10 @@ export default function Accounts() {
             <Input list="banks-list" value={form.bank} onChange={setBank} placeholder="Ex: Nubank, Itau, Bradesco" />
             <datalist id="banks-list">{banks.filter((b) => b.name).map((b) => <option key={b.ispb} value={b.name}>{b.code ? `${b.code} — ${b.name}` : b.name}</option>)}</datalist>
           </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Agência (opcional)"><Input value={form.agency} onChange={set('agency')} placeholder="Ex: 0001" inputMode="numeric" /></Field>
+            <Field label="Conta (opcional)"><Input value={form.account_number} onChange={set('account_number')} placeholder="Ex: 12345678-9" /></Field>
+          </div>
           <Field label="Tipo"><Select value={form.account_type} onChange={set('account_type')}>{TYPES.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}</Select></Field>
           <Field label="Saldo inicial"><Input type="number" step="0.01" value={form.initial_balance} onChange={set('initial_balance')} /></Field>
           <Field label="Cor">

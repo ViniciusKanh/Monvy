@@ -44,7 +44,8 @@ export function AppLayout() {
   const location = useLocation();
   const navItem = currentNavKey(location.pathname);
   // Dashboard usa a largura toda (layout em grid de sistema); demais telas mantem a coluna de leitura
-  const isWide = location.pathname === '/';
+  const isWide = ['/', '/contas'].includes(location.pathname);
+  const isDash = location.pathname === '/';
   const pageTitle = navItem ? t('nav.' + navItem.key, navItem.label) : 'Monvy';
   const qc = useQueryClient();
   const [onboarded, setOnboarded] = useState(() => { try { return localStorage.getItem('monvy_onboarded') === '1'; } catch { return false; } });
@@ -83,9 +84,9 @@ export function AppLayout() {
     try { if (localStorage.getItem(flag)) return; localStorage.setItem(flag, '1'); } catch { return; }
     UsageEvent.create({ screen_key: key, day }).catch(() => {});
   }, [location.pathname, user]);
-  const today = isWide
+  const today = isDash
     ? `Visão geral das suas finanças • ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
-    : new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    : (() => { const d = new Date(); const wd = d.toLocaleDateString('pt-BR', { weekday: 'long' }); const mo = d.toLocaleDateString('pt-BR', { month: 'long' }); return `${wd[0].toUpperCase()}${wd.slice(1)}, ${d.getDate()} de ${mo[0].toUpperCase()}${mo.slice(1)} de ${d.getFullYear()}`; })();
 
   return (
     <div className="min-h-screen flex relative">
@@ -119,7 +120,7 @@ export function AppLayout() {
               </span>
               <div>
                 <h1 className="font-display font-bold text-xl leading-none">{pageTitle}</h1>
-                <p className={`text-[11px] text-muted mt-1 ${isWide ? '' : 'capitalize'}`}>{today}</p>
+                <p className={`text-[11px] text-muted mt-1 `}>{today}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

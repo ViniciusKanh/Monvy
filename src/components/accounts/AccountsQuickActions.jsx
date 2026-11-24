@@ -11,11 +11,11 @@ const ACTIONS = [
 export function AccountsQuickActions() {
   const navigate = useNavigate();
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {ACTIONS.map((a) => (
         <button key={a.key} onClick={() => navigate(a.path)}
-          className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2.5 text-sm font-medium text-white transition">
-          <a.icon className="w-4 h-4" /> {a.label}
+          className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/10 hover:border-teal-300/40 px-5 py-3 text-[15px] font-semibold text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/60">
+          <a.icon className="w-5 h-5 text-slate-200" /> {a.label}
         </button>
       ))}
     </div>

@@ -9,9 +9,34 @@ export function db() {
     const url = process.env.TURSO_DATABASE_URL;
     const authToken = process.env.TURSO_AUTH_TOKEN;
     if (!url) throw new Error('TURSO_DATABASE_URL nao configurada');
-    _client = createClient({ url, authToken });
+    _client = withRetry(createClient({ url, authToken }));
   }
   return _client;
+}
+
+// O Turso as vezes responde 502/503/504 por alguns instantes (ex.: banco "acordando"
+// ou troca de no). Sem retry, qualquer tela que abre nesse momento mostra
+// "SERVER_ERROR: Server returned HTTP status 502". Repetimos ate 3x com espera curta
+// apenas para erros transitorios de servidor/rede; erros de SQL sobem na hora.
+const TRANSIENT = /HTTP status 50[234]|SERVER_ERROR|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up/i;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function withRetry(client) {
+  const wrap = (fn) => async (...args) => {
+    let lastErr;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { return await fn(...args); }
+      catch (e) {
+        lastErr = e;
+        const msg = `${e?.code || ''} ${e?.message || ''} ${e?.cause?.message || ''}`;
+        if (!TRANSIENT.test(msg) || attempt === 2) break;
+        await sleep(250 * (attempt + 1) ** 2);
+      }
+    }
+    throw lastErr;
+  };
+  client.execute = wrap(client.execute.bind(client));
+  if (typeof client.batch === 'function') client.batch = wrap(client.batch.bind(client));
+  return client;
 }
 
 // Garante que todas as tabelas existam (idempotente). Roda 1x por cold start.

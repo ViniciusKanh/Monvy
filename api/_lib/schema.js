@@ -489,6 +489,10 @@ export const MIGRATIONS = [
   { id: '025_account_bank_ispb', statements: [
     `ALTER TABLE Account ADD COLUMN bank_ispb TEXT`,
   ] },
+  { id: '026_account_agency_number', statements: [
+    `ALTER TABLE Account ADD COLUMN agency TEXT`,
+    `ALTER TABLE Account ADD COLUMN account_number TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);
