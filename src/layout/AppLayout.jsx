@@ -44,7 +44,7 @@ export function AppLayout() {
   const location = useLocation();
   const navItem = currentNavKey(location.pathname);
   // Dashboard usa a largura toda (layout em grid de sistema); demais telas mantem a coluna de leitura
-  const isWide = ['/', '/contas', '/lancamentos', '/cartoes'].includes(location.pathname);
+  const isWide = ['/', '/contas', '/lancamentos', '/cartoes', '/impostos', '/carga-tributaria'].includes(location.pathname);
   const isDash = location.pathname === '/';
   const pageTitle = navItem ? t('nav.' + navItem.key, navItem.label) : 'Monvy';
   const qc = useQueryClient();

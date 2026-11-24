@@ -4,7 +4,10 @@ import {
   Landmark, ShieldCheck, Calculator, Info, HelpCircle, Plug, PlusCircle,
   Receipt, Car, Home, TrendingDown, CheckCircle2, CircleDashed, PencilLine, Wallet,
   ChevronLeft, ChevronRight, CalendarDays, ShieldQuestion, Check, Loader2, Sparkles, Trash2,
+  Database, Upload, Coins, Contact, Gauge, Clock, BarChart3, ShoppingBasket, Layers, Percent, PieChart as PieIcon,
+  TrendingUp, Lightbulb, ArrowUp, ArrowDown,
 } from 'lucide-react';
+import { TaxIllustration, RobotIllustration } from '../components/tax/TaxArt.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
@@ -19,7 +22,7 @@ import { BankConnections } from '../components/BankConnections.jsx';
 import { AiInsight } from '../components/AiInsight.jsx';
 import { Integrations } from '../api/entities.js';
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area, ReferenceDot,
 } from 'recharts';
 
 const LS_KEY = 'monvy:taxBurden:v1';
@@ -55,6 +58,7 @@ export default function TaxBurden() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [recOpen, setRecOpen] = useState(false);
   const [informe, setInforme] = useState({ origin_label: '', ir: '', outros: '' });
   const [informeReview, setInformeReview] = useState(null); // linhas extraidas do PDF
   const [importingInforme, setImportingInforme] = useState(false);
@@ -186,24 +190,29 @@ export default function TaxBurden() {
     return { records: recs, resumo: aggregate(recs, rb), rendaBruta: rb };
   }, [cfg, gastosSel, ano, mes, iofConfirmado, nfeConfirmado]);
 
-  // Histórico de 6 meses (carga total por mês) — usa consumo real de cada mês
+  // Histórico (6 ou 12 meses) — consumo real de cada mês + IOF/notas confirmados do mês
+  const [range, setRange] = useState(6);
+  const ledgerAllQ = useQuery({ queryKey: ['tax-ledger-all'], queryFn: () => TaxLedger.list() });
   const historico = useMemo(() => {
     const arr = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = range - 1; i >= 0; i--) {
       const d = new Date(ano, mes - 1 - i, 1);
       const mk = monthKey(d);
+      const iofMk = (ledgerAllQ.data || []).filter((r) => r.kind === 'IOF' && r.reference_month === mk).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const nfeMk = (notesQ.data || []).filter((r) => String(r.reference_month || '') === mk).reduce((s, r) => s + Number(r.total_tax || 0), 0);
       const recs = buildTaxRecords({
         ano: d.getFullYear(), mes: d.getMonth() + 1,
         salarioBruto: n(cfg.salarioBruto), dependentes: n(cfg.dependentes), deducoes: n(cfg.deducoes),
         inssConfirmado: cfg.inssConfirmado === '' ? undefined : n(cfg.inssConfirmado),
         irrfConfirmado: cfg.irrfConfirmado === '' ? undefined : n(cfg.irrfConfirmado),
-        gastos: gastosPorMes[mk] || [], ipvaAnual: n(cfg.ipvaAnual), iptuAnual: n(cfg.iptuAnual),
+        gastos: mk === nowMk ? gastosSel : (gastosPorMes[mk] || []), ipvaAnual: n(cfg.ipvaAnual), iptuAnual: n(cfg.iptuAnual),
+        iofLancado: iofMk, nfeConfirmado: nfeMk,
       });
       const ag = aggregate(recs, n(cfg.salarioBruto));
-      arr.push({ mk, label: monthLabel(mk).split(' ')[0].slice(0, 3), total: ag.totalCarga, confirmado: ag.totalConfirmado, estimado: ag.totalEstimado });
+      arr.push({ mk, label: monthLabel(mk).split(' ')[0].slice(0, 3), total: ag.totalCarga, pct: ag.percentualCarga, confirmado: ag.totalConfirmado, estimado: ag.totalEstimado });
     }
     return arr;
-  }, [cfg, gastosPorMes, ano, mes]);
+  }, [cfg, gastosPorMes, gastosSel, ano, mes, range, nowMk, ledgerAllQ.data, notesQ.data]);
 
   const pieData = resumo.componentes.filter((c) => c.amount > 0).map((c) => ({ name: c.name, value: c.amount }));
 
@@ -229,152 +238,176 @@ export default function TaxBurden() {
   if (loading) return <div className="flex items-center justify-center py-24"><Spinner className="w-8 h-8" /></div>;
 
   const cpfLabel = user?.cpf_set ? user.cpf_masked : 'CPF não cadastrado';
+  const comp = [...resumo.componentes].filter((c) => c.amount > 0 || c.key === 'inss' || c.key === 'irrf').sort((a, b) => b.amount - a.amount).map((c) => ({ ...c, color: COMP_COLORS[c.key] || '#64748b' }));
+  const prevH = historico.length > 1 ? historico[historico.length - 2] : null;
+  const deltaPrev = prevH && prevH.total > 0 ? ((resumo.totalCarga - prevH.total) / prevH.total) * 100 : null;
+  const biggestComp = comp[0];
+  const lastH = historico[historico.length - 1];
+  const pct1 = (v) => `${Number(v || 0).toFixed(1).replace('.', ',')}%`;
+  const recByKey = Object.fromEntries(records.map((r) => [r.key, r]));
 
   return (
     <div className="space-y-5 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><Landmark className="w-6 h-6 text-emerald-500" /> Minha Carga Tributária</span>}
-        subtitle="Quanto você paga (e estima pagar) em tributos por mês e por ano" />
-
-      {/* Cabeçalho: mês, renda, CPF mascarado */}
-      <Card className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4 text-sm">
-          <div>
-            <span className="text-muted flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> Mês</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <button onClick={() => stepMonth(-1)} className="w-6 h-6 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center" title="Mês anterior"><ChevronLeft className="w-4 h-4" /></button>
-              <span className="font-semibold min-w-[130px] text-center">{monthLabel(nowMk)}</span>
-              <button onClick={() => stepMonth(1)} disabled={isCurrent} className="w-6 h-6 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center disabled:opacity-30" title="Próximo mês"><ChevronRight className="w-4 h-4" /></button>
-              {!isCurrent && <button onClick={() => setSelMk(currentMk)} className="text-xs text-emerald-600 hover:underline ml-1">hoje</button>}
-            </div>
+      {/* Cabeçalho com ilustração e ações */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start gap-4 min-w-0">
+          <Landmark className="w-12 h-12 text-teal-400 shrink-0 mt-1" strokeWidth={1.6} />
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl sm:text-4xl font-bold leading-tight">Minha Carga Tributária</h1>
+            <p className="text-sm text-muted mt-1">Quanto você paga (e estima pagar) em tributos por mês e por ano.</p>
+            <div className="h-1 w-14 rounded-full mt-2.5 bg-gradient-to-r from-teal-400 to-sky-500" />
           </div>
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
-          <div><span className="text-muted">Renda bruta</span><div className="font-semibold">{formatCurrency(rendaBruta)}</div></div>
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
-          <div><span className="text-muted flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> CPF</span><div className="font-semibold font-mono">{cpfLabel}</div></div>
+          <TaxIllustration label="IMPOSTOS" className="hidden 2xl:block w-56 h-36 shrink-0 -my-6 ml-4" />
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setSourcesOpen(true)}><Plug className="w-4 h-4" /> Fontes{usandoBanco && <span className="w-2 h-2 rounded-full bg-emerald-500 ml-1" title="Banco conectado alimentando a análise" />}</Button>
-          {isAdmin && <Button variant="ghost" size="sm" onClick={() => setAdminOpen(true)}><ShieldCheck className="w-4 h-4" /> Tributos importados</Button>}
-          <Button size="sm" onClick={() => setEditOpen(true)}><PencilLine className="w-4 h-4" /> Meus dados</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="!px-4 !py-2.5" onClick={() => setSourcesOpen(true)}><Database className="w-4 h-4" /> Fontes{usandoBanco && <span className="w-2 h-2 rounded-full bg-emerald-500" title="Banco conectado alimentando a análise" />}</Button>
+          {isAdmin && <Button variant="outline" className="!px-4 !py-2.5" onClick={() => setAdminOpen(true)} title="IOF das faturas e informe de rendimentos (admin)"><Upload className="w-4 h-4" /> Importar</Button>}
+          <button onClick={() => setEditOpen(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm ring-1 ring-violet-300/40 shadow-[0_0_20px_rgba(139,92,246,.4)] transition"><PencilLine className="w-4 h-4" /> Meus dados</button>
         </div>
-      </Card>
+      </div>
+
+      {/* Barra: mês, renda, CPF */}
+      <div className="card !rounded-2xl px-5 py-3 flex flex-wrap items-center gap-x-8 gap-y-3">
+        <div>
+          <p className="text-xs text-muted flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Mês</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <button onClick={() => stepMonth(-1)} className="p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10" aria-label="Mês anterior"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="font-semibold min-w-[124px] text-center capitalize">{monthLabel(nowMk)}</span>
+            <button onClick={() => stepMonth(1)} disabled={isCurrent} className="p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30" aria-label="Próximo mês"><ChevronRight className="w-4 h-4" /></button>
+            {!isCurrent && <button onClick={() => setSelMk(currentMk)} className="text-xs text-emerald-600 hover:underline">hoje</button>}
+          </div>
+        </div>
+        <div className="h-9 w-px bg-[hsl(var(--border))] hidden sm:block" />
+        <div><p className="text-xs text-muted flex items-center gap-1.5"><Coins className="w-3.5 h-3.5" /> Renda bruta</p><p className="font-semibold mt-0.5">{formatCurrency(rendaBruta)}</p></div>
+        <div className="h-9 w-px bg-[hsl(var(--border))] hidden sm:block" />
+        <div><p className="text-xs text-muted flex items-center gap-1.5"><Contact className="w-3.5 h-3.5" /> CPF</p><p className="font-semibold tabular-nums tracking-wide mt-0.5">{cpfLabel}</p></div>
+      </div>
 
       {erro && <Card className="border-red-300 text-red-600 text-sm">Não consegui carregar seus lançamentos agora. Os tributos diretos ainda aparecem; o consumo pode ficar incompleto.</Card>}
 
-      {/* Card principal — só quando há dado suficiente */}
-      {resumo.temDadoSuficiente ? (
-        <div className="rounded-2xl p-6 text-white shadow-lg" style={{ background: 'linear-gradient(135deg,#065f46,#0d9488)' }}>
-          <p className="text-sm opacity-90">Carga tributária estimada do mês</p>
-          <p className="font-display text-4xl font-extrabold mt-1"><AnimatedValue value={resumo.totalCarga} format={formatCurrency} /></p>
-          <p className="text-sm opacity-90 mt-1">
-            {resumo.percentualCarga.toFixed(1)}% da sua renda bruta · confirmado {formatCurrency(resumo.totalConfirmado)} + estimado {formatCurrency(resumo.totalEstimado)}
-          </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 text-sm bg-white/15 rounded-lg px-3 py-1.5" title="Equivalência financeira: quantos dias do ano de trabalho, proporcionalmente, custeiam esses tributos. Não é um pagamento literal diário.">
-            <Info className="w-4 h-4" /> equivale a aproximadamente <b>{Math.round(resumo.diasEquivalentes)} dias</b> de trabalho no ano
-          </div>
-          {resumo.categoriasSemDado.length > 0 && (
-            <p className="text-xs opacity-80 mt-3">Carga conhecida até agora. Ainda existem categorias sem dados: {resumo.categoriasSemDado.map((k) => k.toUpperCase()).join(', ')}.</p>
-          )}
-        </div>
-      ) : (
+      {!resumo.temDadoSuficiente ? (
         <Card className="text-center py-8">
           <p className="font-semibold">Carga conhecida até agora</p>
           <p className="text-sm text-muted mt-1">Ainda existem categorias sem dados. Adicione seu salário para começar a medir INSS e IRRF.</p>
           <Button className="mt-4" onClick={() => setEditOpen(true)}><Wallet className="w-4 h-4" /> Adicionar salário</Button>
         </Card>
-      )}
+      ) : (<>
+      {/* Linha 1: hero + resumo do mês */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="relative overflow-hidden rounded-3xl text-white ring-1 ring-teal-300/40 shadow-[0_0_40px_rgba(45,212,191,.12)]" style={{ background: 'linear-gradient(120deg,#0b4440 0%,#0b3b3a 35%,#0b2a33 70%,#0d1f33 100%)' }}>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 220" preserveAspectRatio="none" aria-hidden><path d="M480 220 C560 210 600 160 660 110 C710 70 750 60 800 40 L800 220 Z" fill="rgba(45,212,191,.22)" /><path d="M560 220 C620 200 660 170 710 140 C750 115 780 110 800 105 L800 220 Z" fill="rgba(94,234,212,.16)" /></svg>
+          <div className="relative p-6">
+            <p className="font-semibold text-slate-100 flex items-center gap-2"><Gauge className="w-5 h-5 text-teal-300" /> Carga tributária estimada do mês</p>
+            <div className="flex items-center gap-4 flex-wrap mt-3">
+              <p className="font-display text-[clamp(2.4rem,3.6vw,3.8rem)] font-extrabold leading-none whitespace-nowrap"><AnimatedValue value={resumo.totalCarga} format={formatCurrency} /></p>
+              <span className="inline-flex items-baseline gap-1.5 px-4 py-1.5 rounded-full ring-1 ring-white/50 bg-white/5"><b className="text-xl">{pct1(resumo.percentualCarga)}</b><span className="text-sm text-slate-200">da renda bruta</span></span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-sm">
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-300" /> Confirmado: <b>{formatCurrency(resumo.totalConfirmado)}</b></span>
+              <span className="w-px h-4 bg-white/25 hidden sm:block" />
+              <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-teal-200" /> Estimado: <b>{formatCurrency(resumo.totalEstimado + resumo.totalManual)}</b></span>
+            </div>
+            <div className="mt-4 inline-flex items-center gap-2 text-sm bg-white/10 ring-1 ring-white/15 rounded-xl px-3 py-2" title="Equivalência financeira: quantos dias do ano de trabalho, proporcionalmente, custeiam esses tributos. Não é um pagamento literal diário.">
+              <CalendarDays className="w-4 h-4" /> Equivale a aproximadamente <b>{Math.round(resumo.diasEquivalentes)} dias</b> de trabalho no ano.
+            </div>
+            {resumo.categoriasSemDado.length > 0 && <p className="text-[11px] text-slate-300/80 mt-3">Carga conhecida até agora — ainda sem dados: {resumo.categoriasSemDado.map((k) => k.toUpperCase()).join(', ')}.</p>}
+          </div>
+        </div>
 
-      {/* Análise do mês — narrativa + composição gasto vs imposto */}
-      {resumo.temDadoSuficiente && (
-        <Card>
-          <h3 className="font-semibold text-sm flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-emerald-500" /> Análise do mês</h3>
-          <p className="text-sm leading-relaxed">{analise.narrativa}</p>
-          <div className="grid sm:grid-cols-4 gap-2 mt-4">
+        <div className="rounded-3xl bg-[hsl(var(--card))] ring-1 ring-violet-400/40 shadow-[0_0_30px_rgba(139,92,246,.2)] p-6 flex flex-col">
+          <h3 className="font-semibold text-lg flex items-center gap-2 mb-3"><BarChart3 className="w-5 h-5 text-sky-400" /> Resumo do mês</h3>
+          <div className="flex-1 flex flex-col justify-center divide-y divide-[hsl(var(--border))]">
+            <SumRow icon={ShoppingBasket} tone="#f59e0b" label="Gasto no mês" value={formatCurrency(analise.gastoTotal)} />
+            <SumRow icon={Layers} tone="#38bdf8" label="Tributos (total)" value={formatCurrency(resumo.totalCarga)} />
+            <SumRow icon={Percent} tone="#8b5cf6" label="Carga tributária" value={<span className="px-3 py-0.5 rounded-full bg-teal-400/15 text-teal-600 dark:text-teal-300 ring-1 ring-teal-400/40 font-bold">{pct1(resumo.percentualCarga)}</span>} />
+          </div>
+        </div>
+      </div>
+
+      {/* Linha 2: composição + evolução */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="rounded-3xl bg-[hsl(var(--card))] ring-1 ring-violet-400/25 shadow-soft p-5">
+          <div className="flex items-center justify-between mb-3"><h3 className="font-semibold text-lg flex items-center gap-2"><PieIcon className="w-5 h-5 text-violet-400" /> Composição dos tributos</h3><button onClick={() => setDetailsOpen(true)} className="text-xs font-semibold text-sky-500 hover:underline">Ver detalhes</button></div>
+          {comp.every((c) => !(c.amount > 0)) ? <EmptyState icon={Receipt} title="Sem dados" subtitle="Adicione salário e lançamentos para ver a composição." /> : (
+            <div className="grid grid-cols-1 sm:grid-cols-[190px_minmax(0,1fr)] gap-6 items-center">
+              <div className="relative h-[190px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart><Pie data={comp.filter((c) => c.amount > 0)} dataKey="amount" nameKey="name" innerRadius="70%" outerRadius="100%" paddingAngle={1.5} stroke="none" startAngle={90} endAngle={-270}>{comp.filter((c) => c.amount > 0).map((c) => <Cell key={c.key} fill={c.color} />)}</Pie><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={TIP} /></PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="font-display font-bold text-lg leading-tight">{formatCurrency(resumo.totalCarga)}</span><span className="text-[11px] text-muted">Total de tributos</span></div>
+              </div>
+              <div className="divide-y divide-[hsl(var(--border))]">
+                {comp.map((c) => { const st = STATUS_UI[c.status]; return (
+                  <button key={c.key} onClick={() => recByKey[c.key] && setExplainRec(recByKey[c.key])} title={`${st?.label || ''} — clique para ver como calculamos`} className="w-full grid grid-cols-[minmax(0,1fr)_auto_3.4rem] gap-3 items-center py-2.5 text-sm text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.03] rounded-md px-1">
+                    <span className="flex items-center gap-2 min-w-0"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} /><span className="truncate font-medium">{COMP_LABEL[c.key] || c.name}</span>{st && <st.icon className={`w-3.5 h-3.5 shrink-0 ${st.color === 'emerald' ? 'text-emerald-500' : st.color === 'amber' ? 'text-amber-500' : 'text-violet-400'}`} />}</span>
+                    <b className="whitespace-nowrap">{formatCurrency(c.amount)}</b>
+                    <span className="text-muted text-right">{pct1(resumo.totalCarga > 0 ? (c.amount / resumo.totalCarga) * 100 : 0)}</span>
+                  </button>
+                ); })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl bg-[hsl(var(--card))] ring-1 ring-sky-400/25 shadow-soft p-5 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-lg flex items-center gap-2"><TrendingUp className="w-5 h-5 text-sky-400" /> Evolução da carga tributária</h3>
+            <select value={range} onChange={(e) => setRange(Number(e.target.value))} aria-label="Período" className="text-xs font-semibold bg-black/5 dark:bg-white/5 rounded-lg px-2.5 py-1.5 outline-none ring-1 ring-[hsl(var(--border))] cursor-pointer [&>option]:text-slate-800"><option value={6}>6 meses</option><option value={12}>12 meses</option></select>
+          </div>
+          <div className="flex-1 min-h-[200px] -ml-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={historico} margin={{ top: 26, right: 18, left: 0, bottom: 0 }}>
+                <defs><linearGradient id="tbEvo" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.5} /><stop offset="100%" stopColor="#2dd4bf" stopOpacity={0.02} /></linearGradient></defs>
+                <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} />
+                <YAxis width={40} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Math.round(v)}%`} domain={[(min) => Math.max(0, Math.floor(min - 5)), (max) => Math.ceil(max + 5)]} />
+                <Tooltip formatter={(v, k, p) => [`${pct1(v)} · ${formatCurrency(p.payload.total)}`, 'Carga']} contentStyle={TIP} />
+                <Area type="monotone" dataKey="pct" stroke="#2dd4bf" strokeWidth={3} fill="url(#tbEvo)" dot={{ r: 3.5, fill: '#0f172a', stroke: '#2dd4bf', strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                {lastH && <ReferenceDot x={lastH.label} y={lastH.pct} r={6} fill="#2dd4bf" stroke="#ccfbf1" strokeWidth={2} label={{ value: pct1(lastH.pct), position: 'top', fill: '#5eead4', fontSize: 11, fontWeight: 700 }} />}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Linha 3: análise IA + insights */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+        <div className="relative overflow-hidden rounded-3xl ring-1 ring-violet-400/40 p-5 flex items-center gap-4 bg-[hsl(var(--card))]" style={{ backgroundImage: 'radial-gradient(120% 140% at 0% 100%, rgba(139,92,246,.28), transparent 60%)' }}>
+          <RobotIllustration className="w-24 h-24 shrink-0 hidden sm:block" />
+          <div className="min-w-0">
+            <h3 className="font-semibold text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-violet-400" /> Análise inteligente (IA)</h3>
+            <p className="text-sm text-muted mt-1.5 line-clamp-3">{analise.narrativa}</p>
+            <button onClick={() => setRecOpen(true)} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm shadow-[0_0_18px_rgba(139,92,246,.45)] transition">Ver recomendações <ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-[hsl(var(--card))] ring-1 ring-sky-400/25 shadow-soft p-5">
+          <h3 className="font-semibold text-lg flex items-center gap-2 mb-3"><Lightbulb className="w-5 h-5 text-sky-400" /> Insights do mês</h3>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
+            <InsightTile tone="emerald" icon={deltaPrev != null && deltaPrev > 0 ? ArrowUp : ArrowDown} big={deltaPrev == null ? '—' : `${deltaPrev > 0 ? '+' : ''}${deltaPrev.toFixed(1).replace('.', ',')}%`} sub={deltaPrev == null ? 'sem mês anterior' : 'vs. mês anterior'} bad={deltaPrev != null && deltaPrev > 0} />
+            <InsightTile tone="sky" icon={CalendarDays} big={`${Math.round(resumo.diasEquivalentes)} dias`} sub="de trabalho no ano" />
+            <InsightTile tone="violet" icon={Layers} big={biggestComp ? formatCurrency(biggestComp.amount) : '—'} sub={biggestComp ? `são de ${COMP_SHORT[biggestComp.key] || biggestComp.name} (${pct1((biggestComp.amount / resumo.totalCarga) * 100)})` : ''} />
+          </div>
+        </div>
+      </div>
+      </>)}
+
+      {/* Modal: recomendações (análise local + IA) */}
+      <Modal open={recOpen} onClose={() => setRecOpen(false)} title={`Análise de ${monthLabel(nowMk)}`} maxWidth="max-w-2xl">
+        <div className="space-y-4 text-sm">
+          <p className="leading-relaxed">{analise.narrativa}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <MiniStat label="Gastou no mês" value={formatCurrency(analise.gastoTotal)} tone="slate" />
             <MiniStat label="Só de imposto" value={formatCurrency(analise.impostoTotal)} tone="emerald" hint={`${analise.pctRenda}% da renda`} />
             <MiniStat label="Sobre o salário" value={formatCurrency(analise.impostoSalario)} tone="blue" hint="INSS + IRRF" />
             <MiniStat label="No consumo" value={formatCurrency(analise.impostoConsumo)} tone="amber" hint={`${analise.pctConsumoDoGasto}% dos gastos`} />
           </div>
           {analise.top.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs text-muted mb-1">Onde o imposto embutido mais pesa:</p>
-              <div className="flex flex-wrap gap-2">
-                {analise.top.map((t) => <Badge key={t.label} color="amber">{t.label} · {formatCurrency(t.tributo)}</Badge>)}
-              </div>
-            </div>
+            <div><p className="text-xs text-muted mb-1">Onde o imposto embutido mais pesa:</p><div className="flex flex-wrap gap-2">{analise.top.map((t) => <Badge key={t.label} color="amber">{t.label} · {formatCurrency(t.tributo)}</Badge>)}</div></div>
           )}
-        </Card>
-      )}
-
-      {/* Aprofundar com IA (Gemini, com fallback no motor local) */}
-      {resumo.temDadoSuficiente && (
-        <AiInsight prompt={aiPrompt} storageKey={`taxburden_${nowMk}`} title="Análise inteligente (IA)" agentName="Consultor Tributário" agentFocus="impostos" />
-      )}
-
-      {/* Cards por categoria */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {records.map((r, i) => {
-          const ui = STATUS_UI[r.status];
-          const Icon = CARD_ICON[r.key] || Calculator;
-          const StatusIcon = ui.icon;
-          return (
-            <Reveal key={r.id} delay={i * 40}>
-              <Card className={`h-full ${!r.available ? 'opacity-60' : ''}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${ICON_BG[ui.color]}`}><Icon className="w-4.5 h-4.5" /></span>
-                    <div>
-                      <p className="font-semibold text-sm">{r.name}</p>
-                      <Badge color={ui.color} className="mt-0.5"><StatusIcon className="w-3 h-3" /> {r.available ? ui.label : 'Indisponível'}</Badge>
-                    </div>
-                  </div>
-                  <button className="text-muted hover:text-emerald-500" title="Como calculamos" onClick={() => setExplainRec(r)}><HelpCircle className="w-4 h-4" /></button>
-                </div>
-                <p className="font-display text-2xl font-bold mt-3">{r.available ? formatCurrency(r.amount) : '—'}</p>
-                {r.available && r.meta?.mensalizado && <p className="text-xs text-muted">equivalência mensal ({formatCurrency(r.meta.anual)}/ano ÷ 12)</p>}
-                {r.available && r.key === 'consumo' && <p className="text-xs text-muted">sobre {formatCurrency(r.meta.totalGasto)} de gastos · média {r.meta.percentualMedio.toFixed(0)}%</p>}
-                {!r.available && r.key === 'consumo' && <p className="text-xs text-muted">sem lançamentos no mês</p>}
-                {!r.available && (r.key === 'ipva' || r.key === 'iptu') && <p className="text-xs text-muted">informe em "Meus dados"</p>}
-                {r.available && r.key === 'irrf' && r.meta?.isento && <p className="text-xs text-emerald-600">isento nesta faixa</p>}
-              </Card>
-            </Reveal>
-          );
-        })}
-      </div>
-
-      {/* Gráficos — valores idênticos aos cards */}
-      <div className="grid lg:grid-cols-2 gap-3">
-        <Card>
-          <h3 className="font-semibold mb-3 text-sm flex items-center gap-2"><Receipt className="w-4 h-4 text-emerald-500" /> Distribuição do mês</h3>
-          {pieData.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={50} paddingAngle={2}>
-                  {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v) => formatCurrency(v)} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : <EmptyState icon={Receipt} title="Sem dados" subtitle="Adicione salário e lançamentos para ver a distribuição." />}
-        </Card>
-        <Card>
-          <h3 className="font-semibold mb-3 text-sm flex items-center gap-2"><TrendingDown className="w-4 h-4 text-emerald-500" /> Histórico (6 meses)</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={historico}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="label" fontSize={12} />
-              <YAxis fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v) => formatCurrency(v)} />
-              <Bar dataKey="confirmado" stackId="a" fill="#059669" name="Confirmado" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="estimado" stackId="a" fill="#f59e0b" name="Estimado" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-
-      <div className="flex gap-2">
-        <Button variant="ghost" onClick={() => setDetailsOpen(true)}><Info className="w-4 h-4" /> Ver detalhes</Button>
-      </div>
+          <AiInsight prompt={aiPrompt} storageKey={`taxburden_${nowMk}`} title="Recomendações da IA" agentName="Consultor Tributário" agentFocus="impostos" />
+        </div>
+      </Modal>
 
       {/* Modal: Meus dados (entradas manuais) */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Meus dados tributários"
@@ -578,6 +611,36 @@ function SourceRow({ icon: Icon, name, desc, connected, onToggle, mock, disabled
       ) : (
         <Badge color={connected ? 'emerald' : 'slate'}>{disabled ? 'requer contrato' : connected ? 'ativo' : 'inativo'}</Badge>
       )}
+    </div>
+  );
+}
+
+const TIP = { borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', fontSize: 12 };
+const COMP_COLORS = { inss: '#8b5cf6', irrf: '#3b82f6', consumo: '#f59e0b', nfe: '#2dd4bf', iof: '#ec4899', ipva: '#22c55e', iptu: '#f43f5e' };
+const COMP_LABEL = { consumo: 'Tributos sobre consumo', nfe: 'Tributos em notas fiscais' };
+const COMP_SHORT = { inss: 'INSS', irrf: 'IRRF', consumo: 'consumo', nfe: 'notas fiscais', iof: 'IOF', ipva: 'IPVA', iptu: 'IPTU' };
+
+function SumRow({ icon: Icon, tone, label, value }) {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${tone}22`, color: tone }}><Icon className="w-5 h-5" /></span>
+      <span className="flex-1">{label}</span>
+      <b className="whitespace-nowrap">{value}</b>
+    </div>
+  );
+}
+
+const TILE = {
+  emerald: { ring: 'ring-emerald-400/30', icon: 'bg-emerald-500/15 text-emerald-400', big: 'text-emerald-500 dark:text-emerald-300' },
+  sky: { ring: 'ring-sky-400/30', icon: 'bg-sky-500/15 text-sky-400', big: '' },
+  violet: { ring: 'ring-violet-400/30', icon: 'bg-violet-500/15 text-violet-400', big: '' },
+};
+function InsightTile({ tone, icon: Icon, big, sub, bad }) {
+  const T = TILE[tone];
+  return (
+    <div className={`rounded-2xl ring-1 ${bad ? 'ring-rose-400/30' : T.ring} bg-black/[0.02] dark:bg-white/[0.03] p-3.5 flex items-center gap-3`}>
+      <span className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${bad ? 'bg-rose-500/15 text-rose-400' : T.icon}`}><Icon className="w-6 h-6" /></span>
+      <div className="min-w-0"><p className={`font-display text-lg 2xl:text-xl font-bold leading-tight whitespace-nowrap ${bad ? 'text-rose-500 dark:text-rose-300' : T.big}`}>{big}</p><p className="text-xs text-muted leading-snug">{sub}</p></div>
     </div>
   );
 }
