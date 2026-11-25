@@ -62,3 +62,27 @@ export function RobotIllustration({ className = 'w-24 h-24' }) {
     </svg>
   );
 }
+
+// Documento NF-e inclinado com selo de conferido e órbita luminosa (cabeçalho de Notas Fiscais)
+export function NfeIllustration({ className = 'w-72 h-36' }) {
+  return (
+    <svg viewBox="0 0 320 150" className={className} aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="nfDoc" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#1e3a8a" /></linearGradient>
+        <linearGradient id="nfOrbit" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#2dd4bf" stopOpacity="0" /><stop offset="35%" stopColor="#2dd4bf" /><stop offset="70%" stopColor="#8b5cf6" /><stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" /></linearGradient>
+        <linearGradient id="nfCheck" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#5eead4" /><stop offset="100%" stopColor="#0d9488" /></linearGradient>
+        <filter id="nfGlow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
+      </defs>
+      <ellipse cx="170" cy="96" rx="140" ry="34" fill="none" stroke="url(#nfOrbit)" strokeWidth="4" filter="url(#nfGlow)" opacity=".8" />
+      <g transform="rotate(-14 170 70)">
+        <rect x="112" y="8" width="118" height="112" rx="12" fill="url(#nfDoc)" opacity=".95" />
+        <rect x="112" y="8" width="118" height="112" rx="12" fill="none" stroke="#bfdbfe" strokeOpacity=".5" />
+        <text x="128" y="38" fontFamily="Syne, Inter, sans-serif" fontWeight="800" fontSize="20" fontStyle="italic" fill="#eff6ff">NF-e</text>
+        {[54, 68, 82, 96].map((y, i) => <rect key={y} x="128" y={y} width={i === 3 ? 48 : 84} height="6" rx="3" fill="#dbeafe" opacity={0.75 - i * 0.1} />)}
+      </g>
+      <ellipse cx="170" cy="96" rx="140" ry="34" fill="none" stroke="url(#nfOrbit)" strokeWidth="2.5" strokeDasharray="230 600" strokeDashoffset="-40" />
+      <circle cx="236" cy="34" r="22" fill="url(#nfCheck)" stroke="#ccfbf1" strokeWidth="2" />
+      <path d="M226 34 l7 7 l13 -14" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

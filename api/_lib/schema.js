@@ -493,6 +493,9 @@ export const MIGRATIONS = [
     `ALTER TABLE Account ADD COLUMN agency TEXT`,
     `ALTER TABLE Account ADD COLUMN account_number TEXT`,
   ] },
+  { id: '027_fiscalnote_consult_url', statements: [
+    `ALTER TABLE FiscalNote ADD COLUMN consult_url TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);

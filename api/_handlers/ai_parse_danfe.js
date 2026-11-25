@@ -31,11 +31,13 @@ export default async function handler(req, res) {
   if (!auth) return sendJson(res, 401, { error: 'Nao autenticado' });
 
   try {
-    const { pdfBase64, apiKey } = await readBody(req);
+    const { pdfBase64, apiKey, mimeType } = await readBody(req);
+    // aceita também foto da nota/cupom (JPEG/PNG/WebP), além do PDF
+    const mime = /^image\/(jpeg|png|webp)$/.test(String(mimeType || '')) ? mimeType : 'application/pdf';
     if (!apiKey) return sendJson(res, 400, { error: 'Chave da API Gemini nao configurada. Adicione em Configuracoes.' });
     if (!pdfBase64) return sendJson(res, 400, { error: 'Envie o PDF da DANFE.' });
 
-    const prompt = `Voce le notas fiscais brasileiras em PDF e extrai os dados fiscais. Pode ser:
+    const prompt = `Voce le notas fiscais brasileiras (PDF ou foto da nota/cupom fiscal NFC-e) e extrai os dados fiscais. Pode ser:
 (A) NF-e de PRODUTOS (DANFE) — tributos: ICMS, IPI, PIS, COFINS, II.
 (B) NFS-e de SERVICOS (nota de servico municipal) — tributo principal: ISS (Valor do ISS); e retencoes: IRRF, CSLL, COFINS, PIS/PASEP, INSS/Contribuicao Previdenciaria Retida.
 
@@ -60,7 +62,7 @@ Regras: valores em reais com ponto decimal; se um campo nao existir na nota, use
 Responda SO JSON: {"note_type":"produto","emitter":"","emitter_cnpj":"","number":"","issued_date":"","total_value":0,"icms":0,"ipi":0,"ii":0,"iss":0,"pis":0,"cofins":0,"irrf":0,"csll":0,"inss":0,"ibs":0,"cbs":0,"aproximado":0}`;
 
     const payload = {
-      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }] }],
+      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: pdfBase64 } }] }],
       generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
     };
 
