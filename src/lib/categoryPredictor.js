@@ -30,7 +30,11 @@ export function predictCategory(desc, idx) {
 export function matchRule(description, rules, type = 'expense') {
   const d = String(description || '').toLowerCase();
   if (!d) return null;
-  const applicable = (rules || []).filter((r) => !r.tx_type || r.tx_type === type).sort((a, b) => (b.priority || 0) - (a.priority || 0));
-  for (const r of applicable) { const p = String(r.pattern || '').toLowerCase().trim(); if (p && d.includes(p)) return r.category_id; }
+  const applicable = (rules || []).filter((r) => r.is_active !== false && (!r.tx_type || r.tx_type === type)).sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  for (const r of applicable) { if (ruleMatches(d, r)) return r.category_id; }
   return null;
 }
+
+// Palavras-chave da regra: aceita várias separadas por vírgula ("mercado, supermercado")
+export function rulePatterns(rule) { return String(rule?.pattern || '').toLowerCase().split(',').map((p) => p.trim()).filter(Boolean); }
+export function ruleMatches(descLower, rule) { const d = String(descLower || '').toLowerCase(); return !!d && rulePatterns(rule).some((p) => d.includes(p)); }

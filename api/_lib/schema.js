@@ -496,6 +496,12 @@ export const MIGRATIONS = [
   { id: '027_fiscalnote_consult_url', statements: [
     `ALTER TABLE FiscalNote ADD COLUMN consult_url TEXT`,
   ] },
+  { id: '028_history_rules_active', statements: [
+    `ALTER TABLE Goal ADD COLUMN history TEXT`,
+    `ALTER TABLE CategoryRule ADD COLUMN is_active INTEGER DEFAULT 1`,
+    `ALTER TABLE AppSettings ADD COLUMN inv_history TEXT`,
+    `ALTER TABLE AppSettings ADD COLUMN rules_last_run TEXT`,
+  ] },
 ];
 // compat
 export const SAFE_ALTERS = MIGRATIONS.flatMap((m) => m.statements);
@@ -532,11 +538,14 @@ export const JSON_FIELDS = {
   Trigger: ['config'],
   TaxLedger: ['meta'],
   FiscalNote: ['taxes'],
+  Goal: ['history'],
+  AppSettings: ['inv_history', 'rules_last_run'],
 };
 
 // Colunas boolean (armazenadas como 0/1)
 export const BOOL_FIELDS = {
   Account: ['is_active'],
+  CategoryRule: ['is_active'],
   Category: ['is_active'],
   Transaction: ['is_fixed', 'reconciled'],
   CreditCard: ['is_active'],
