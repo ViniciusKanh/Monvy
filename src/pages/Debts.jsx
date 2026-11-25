@@ -156,7 +156,7 @@ export default function Debts() {
   if (active.length > 1) insights.push({ tone: 'violet', icon: Layers, title: 'Consolide suas dívidas', text: `${active.length} contratos ativos com taxa média de ${avgRate.toFixed(2).replace('.', ',')}% a.m. Unificar só compensa se a nova taxa for menor.`, onClick: () => setTab('sim') });
   const topRate = [...active].sort((a, b) => b.rate - a.rate)[0];
   if (topRate && topRate.rate > 0) insights.push({ tone: 'pink', icon: Handshake, title: 'Negocie melhores condições', text: `${topRate.name} tem os maiores juros (${topRate.rate.toFixed(2).replace('.', ',')}% a.m.). Pergunte sobre portabilidade ou amortização antecipada.`, onClick: () => nav('/quitacao') });
-  if (!active.length) insights.push({ tone: 'emerald', icon: ShieldCheck, title: 'Você não possui dívidas ativas', text: 'Um bom momento para reforçar a reserva de emergência.', onClick: () => nav('/reserva') });
+  if (!active.length) insights.push({ tone: 'emerald', icon: ShieldCheck, title: 'Você não possui dívidas ativas', text: 'Um bom momento para reforçar a reserva de emergência.', onClick: () => nav('/metas') });
   insights.push({ tone: 'sky', icon: BarChart3, title: 'Impacto no orçamento', text: qImpact != null ? `Uma nova dívida de ${formatCurrency(Number(q.valor || 0))} pode comprometer ~${pct1(qImpact)} da sua renda mensal por ${q.prazo} meses.` : `A parcela simulada seria ${formatCurrency(qParcela)}. Registre receitas para ver o peso na sua renda.`, onClick: simular });
   if (!active.length) insights.push({ tone: 'amber', icon: Target, title: 'Planeje antes de contratar', text: 'Use o simulador para comparar prazo, juros e custo total antes de assinar.', onClick: () => setTab('sim') });
 

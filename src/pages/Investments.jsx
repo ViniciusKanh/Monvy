@@ -345,7 +345,7 @@ export default function Investments() {
             <Reveal i={6} className="xl:col-span-5">
               <Panel title="Ferramentas de planejamento" icon={Rocket} iconClass="text-violet-400" subtitle="Simule cenários com seus próprios números">
                 <div className="grid grid-cols-2 gap-2.5">
-                  {[[Calculator, 'Simulador', 'Aportes e prazos', '/simulador', '#a855f7'], [TrendingUp, 'Juros compostos', 'Crescimento no tempo', '/juros-compostos', '#2dd4bf'], [PiggyBank, 'Poupança x CDB', 'Compare rendimentos', '/poupanca-cdb', '#f59e0b'], [Home, 'Independência (FIRE)', 'Quanto preciso', '/fire', '#38bdf8']].map(([Ic, t, s, to, c]) => (
+                  {[[Calculator, 'Simulador', 'Aportes e prazos', '/simulador', '#a855f7'], [TrendingUp, 'Juros compostos', 'Crescimento no tempo', '/juros-compostos', '#2dd4bf'], [PiggyBank, 'Poupança x CDB', 'Compare rendimentos', '/poupanca-cdb', '#f59e0b'], [Home, 'Planejador de Objetivo', 'Quanto guardar', '/objetivo', '#38bdf8']].map(([Ic, t, s, to, c]) => (
                     <button key={to} onClick={() => nav(to)} className="text-left rounded-2xl ring-1 ring-[hsl(var(--border))] p-3 hover:ring-violet-400/50 transition flex items-center gap-2.5">
                       <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0" style={{ background: `${c}22`, color: c }}><Ic className="w-[18px] h-[18px]" /></span>
                       <span className="min-w-0"><span className="block text-sm font-semibold truncate">{t}</span><span className="block text-[11px] text-muted truncate">{s}</span></span>

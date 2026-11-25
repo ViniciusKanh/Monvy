@@ -99,7 +99,7 @@ export default function DebtPayoff() {
   const focus = chosen.order.length ? open.find((d) => d.id === chosen.order[0]) : null;
   const insights = !open.length ? [
     { tone: 'violet', icon: Rocket, title: 'Você já está livre de dívidas!', text: 'Mantenha esse resultado e direcione o valor que antes ia para dívidas às suas metas.', onClick: () => nav('/metas') },
-    { tone: 'sky', icon: BarChart3, title: 'Fortaleça sua reserva de emergência', text: 'Conquiste mais segurança financeira para imprevistos.', onClick: () => nav('/reserva') },
+    { tone: 'sky', icon: BarChart3, title: 'Fortaleça sua reserva de emergência', text: 'Conquiste mais segurança financeira para imprevistos.', onClick: () => nav('/metas') },
     { tone: 'pink', icon: Target, title: 'Defina um próximo objetivo', text: 'Use o valor livre mensal para acelerar um sonho (viagem, casa, investimento etc.).', onClick: () => nav('/objetivo') },
   ] : [
     focus && { tone: 'violet', icon: Target, title: `Foco agora: ${focus.name}`, text: `${strategy === 'avalanche' ? 'Maior juro' : 'Menor saldo'} (${formatCurrency(focus.balance)} a ${focus.rate.toFixed(2).replace('.', ',')}% a.m.). Quitada em ~${chosen.payoff[focus.id] || '—'} meses.` },

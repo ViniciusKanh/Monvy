@@ -94,7 +94,7 @@ export default function Dashboard() {
     const out = [];
     if (top) out.push({ icon: Flame, color: '#f43f5e', title: 'Maior categoria', value: money(top.value), sub: top.name, to: '/para-onde-vai' });
     if (subs.length) out.push({ icon: Zap, color: '#6366f1', title: 'Assinaturas detectadas', value: `${money(subTotal)}/mês`, sub: `${subs.length} cobrança(s) recorrente(s)`, to: '/recorrencias' });
-    out.push({ icon: PiggyBank, color: reserveMonths >= 3 ? '#10b981' : '#f59e0b', title: 'Reserva de emergência', value: `${reserveMonths.toFixed(1)} meses`, sub: reserveMonths >= 6 ? 'blindado' : reserveMonths >= 3 ? 'no caminho' : 'abaixo do ideal', to: '/reserva' });
+    out.push({ icon: PiggyBank, color: reserveMonths >= 3 ? '#10b981' : '#f59e0b', title: 'Reserva de emergência', value: `${reserveMonths.toFixed(1)} meses`, sub: reserveMonths >= 6 ? 'blindado' : reserveMonths >= 3 ? 'no caminho' : 'abaixo do ideal', to: '/saude' });
     if (hikes.length) out.push({ icon: AlertTriangle, color: '#f59e0b', title: 'Subiram de preço', value: `${hikes.length} cobrança(s)`, sub: `ex.: ${hikes[0].name}`, to: '/recorrencias' });
     if (prev.exp > 0) { const d = ((cur.exp - prev.exp) / prev.exp) * 100; out.push({ icon: ArrowLeftRight, color: d <= 0 ? '#10b981' : '#f43f5e', title: 'Variação das despesas', value: `${d > 0 ? '+' : ''}${d.toFixed(0)}%`, sub: 'vs. mês anterior', to: '/comparador' }); }
     return out;

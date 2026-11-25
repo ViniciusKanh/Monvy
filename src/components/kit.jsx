@@ -53,10 +53,10 @@ export function StatCard({ tone = 'teal', icon: Icon, label, value, sub, chip, o
   );
 }
 
-export function Panel({ title, icon: Icon, iconClass = 'text-sky-400', action, tone, glow, className = '', children, subtitle }) {
+export function Panel({ title, icon: Icon, iconClass = 'text-sky-400', action, tone, glow, className = '', children, subtitle, id }) {
   const ring = tone ? TONES[tone].ring : 'ring-[hsl(var(--border))]';
   return (
-    <section className={`rounded-3xl bg-[hsl(var(--card))] ring-1 ${ring} ${glow && tone ? TONES[tone].glow : 'shadow-soft'} p-5 ${className}`}>
+    <section id={id} className={`rounded-3xl bg-[hsl(var(--card))] ring-1 ${ring} ${glow && tone ? TONES[tone].glow : 'shadow-soft'} p-5 ${className}`}>
       {(title || action) && (
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">

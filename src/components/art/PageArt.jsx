@@ -306,3 +306,71 @@ export function HabitsArt({ className = 'w-96 h-44' }) {
     </svg>
   );
 }
+
+export function WaveBarsArt({ className = 'w-96 h-28' }) {
+  return (
+    <svg viewBox="0 0 380 110" className={className}>
+      <Defs id="wb" />
+      <path d="M0 90 C60 60 110 100 170 70 S290 20 380 40" stroke="#22d3ee" strokeOpacity=".7" strokeWidth="3" fill="none" />
+      <path d="M0 100 C70 80 120 104 190 84 S300 50 380 64" stroke="#a855f7" strokeOpacity=".7" strokeWidth="3" fill="none" />
+      {[0, 1, 2, 3, 4].map((i) => <rect key={i} x={240 + i * 24} y={100 - (24 + i * 16)} width="16" height={24 + i * 16} rx="3" fill={i % 2 ? '#22d3ee' : '#6366f1'} opacity={0.5 + i * 0.1} />)}
+      <rect x="336" y="4" width="16" height="96" rx="3" fill="url(#wba)" />
+      <Sparkle x={210} y={20} s={4} /><Sparkle x={60} y={40} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+export function CardFlowArt({ className = 'w-56 h-32' }) {
+  return (
+    <svg viewBox="0 0 220 130" className={className}>
+      <Defs id="cf" />
+      <Orbit id="cf" cx={120} cy={110} rx={90} ry={16} />
+      <path d="M0 110 C40 80 70 112 110 90" stroke="#a855f7" strokeWidth="3" fill="none" opacity=".6" />
+      <g transform="rotate(-16 130 64)">
+        <rect x="74" y="34" width="116" height="72" rx="11" fill="url(#cfa)" stroke="#fff" strokeOpacity=".35" />
+        <rect x="88" y="58" width="20" height="15" rx="3" fill="#fde68a" />
+        <path d="M160 52a8 8 0 0 1 0 12M165 48a14 14 0 0 1 0 20" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <text x="168" y="46" fontSize="14" fontWeight="900" fill="#fff" fontFamily="system-ui">M</text>
+      </g>
+      <Sparkle x={30} y={30} s={4} /><Sparkle x={200} y={24} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+export function AntArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="an" />
+      <Orbit id="an" cx={170} cy={140} rx={150} ry={16} />
+      <g transform="translate(110 92)">
+        {[[-30, 30], [0, 34], [30, 30]].map(([x, y], i) => <path key={i} d={`M${x} 0 L${x - 14} ${y}`} stroke="#a78bfa" strokeWidth="4" strokeLinecap="round" />)}
+        {[[-30, 30], [0, 34], [30, 30]].map(([x, y], i) => <path key={`b${i}`} d={`M${x} 0 L${x + 14} ${y}`} stroke="#a78bfa" strokeWidth="4" strokeLinecap="round" />)}
+        <ellipse cx="-44" cy="-4" rx="30" ry="22" fill="url(#ana)" />
+        <ellipse cx="0" cy="-6" rx="16" ry="13" fill="#6366f1" />
+        <circle cx="38" cy="-14" r="20" fill="url(#ana)" />
+        <rect x="34" y="-22" width="22" height="10" rx="5" fill="#0f172a" /><rect x="38" y="-20" width="14" height="6" rx="3" fill="#67e8f9" />
+        <path d="M46 -32 Q60 -64 84 -60 M38 -32 Q40 -66 62 -74" stroke="#a78bfa" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <circle cx="84" cy="-60" r="4" fill="#67e8f9" /><circle cx="62" cy="-74" r="4" fill="#67e8f9" />
+      </g>
+      {[0, 1, 2, 3].map((i) => <ellipse key={i} cx="232" cy={120 - i * 10} rx="24" ry="8" fill={i % 2 ? '#d97706' : '#f59e0b'} stroke="#fde68a" strokeOpacity=".7" />)}
+      <g transform="rotate(-14 272 68)"><circle cx="272" cy="68" r="30" fill="#d97706" stroke="#fde68a" strokeWidth="3" /><text x="272" y="76" textAnchor="middle" fontSize="20" fontWeight="900" fill="#fff7ed" fontFamily="system-ui">R$</text></g>
+      <circle cx="334" cy="44" r="26" fill="#0f172a" fillOpacity=".4" stroke="#c4b5fd" strokeWidth="6" />
+      <line x1="352" y1="64" x2="372" y2="90" stroke="#c4b5fd" strokeWidth="9" strokeLinecap="round" />
+      {[0, 1, 2].map((i) => <rect key={i} x={322 + i * 9} y={54 - (6 + i * 7)} width="6" height={6 + i * 7} rx="1.5" fill="#e879f9" />)}
+      <Sparkle x={40} y={30} /><Sparkle x={200} y={24} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+export function ShieldArt({ className = 'w-60 h-40' }) {
+  return (
+    <svg viewBox="0 0 240 160" className={className}>
+      <Defs id="sh" />
+      <Orbit id="sh" cx={120} cy={140} rx={100} ry={16} />
+      <path d="M120 10 L180 30 L180 78 C180 112 150 132 120 146 C90 132 60 112 60 78 L60 30 Z" fill="url(#sha)" opacity=".9" stroke="#e0f2fe" strokeOpacity=".6" strokeWidth="3" />
+      <path d="M120 26 L166 42 L166 78 C166 104 144 120 120 132 C96 120 74 104 74 78 L74 42 Z" fill="#0f172a" fillOpacity=".35" />
+      <path d="M96 80 L114 98 L148 60" stroke="#5eead4" strokeWidth="11" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Sparkle x={30} y={40} /><Sparkle x={214} y={30} s={4} c="#67e8f9" />
+    </svg>
+  );
+}

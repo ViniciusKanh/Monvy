@@ -27,16 +27,11 @@ import BehavioralAnalysis from './pages/BehavioralAnalysis.jsx';
 import Simulator from './pages/Simulator.jsx';
 import Market from './pages/Market.jsx';
 import Converter from './pages/Converter.jsx';
-import Holidays from './pages/Holidays.jsx';
-import Cnpj from './pages/Cnpj.jsx';
 import Help from './pages/Help.jsx';
 import OnboardingConfig from './pages/OnboardingConfig.jsx';
 import CompoundInterest from './pages/CompoundInterest.jsx';
 import Recurrences from './pages/Recurrences.jsx';
-import CepLookup from './pages/CepLookup.jsx';
-import EmergencyFund from './pages/EmergencyFund.jsx';
 import PeriodCompare from './pages/PeriodCompare.jsx';
-import BanksLookup from './pages/BanksLookup.jsx';
 import DebtPayoff from './pages/DebtPayoff.jsx';
 import SalaryNet from './pages/SalaryNet.jsx';
 import TaxBurden from './pages/TaxBurden.jsx';
@@ -48,14 +43,12 @@ import AdminCampaign from './pages/AdminCampaign.jsx';
 import Fipe from './pages/Fipe.jsx';
 import GoalPlanner from './pages/GoalPlanner.jsx';
 import PriceSac from './pages/PriceSac.jsx';
-import BillSplit from './pages/BillSplit.jsx';
 import SpendHeatmap from './pages/SpendHeatmap.jsx';
 import MoneyMap from './pages/MoneyMap.jsx';
 import CreditScore from './pages/CreditScore.jsx';
 import SmallSpends from './pages/SmallSpends.jsx';
 import EconIndicators from './pages/EconIndicators.jsx';
 import Stocks from './pages/Stocks.jsx';
-import CurrencyHistory from './pages/CurrencyHistory.jsx';
 import SavingsVsCdb from './pages/SavingsVsCdb.jsx';
 import HouseholdSplit from './pages/HouseholdSplit.jsx';
 import Envelopes from './pages/Envelopes.jsx';
@@ -64,7 +57,6 @@ import Investments from './pages/Investments.jsx';
 import Debts from './pages/Debts.jsx';
 import CashFlow from './pages/CashFlow.jsx';
 import CategoryRules from './pages/CategoryRules.jsx';
-import Fire from './pages/Fire.jsx';
 import IncomeTax from './pages/IncomeTax.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
@@ -116,7 +108,6 @@ export default function App() {
         <Route path="/dividas" element={<Protected screenKey="debts"><Debts /></Protected>} />
         <Route path="/fluxo" element={<Protected screenKey="cashflow"><CashFlow /></Protected>} />
         <Route path="/regras" element={<Protected screenKey="catrules"><CategoryRules /></Protected>} />
-        <Route path="/fire" element={<Protected screenKey="fire"><Fire /></Protected>} />
         <Route path="/imposto-de-renda" element={<Protected screenKey="tax"><IncomeTax /></Protected>} />
         <Route path="/carga-tributaria" element={<Protected screenKey="taxburden"><TaxBurden /></Protected>} />
         <Route path="/impostos" element={<Protected screenKey="taxes"><Impostos /></Protected>} />
@@ -134,29 +125,22 @@ export default function App() {
         <Route path="/simulador" element={<Protected screenKey="simulator"><Simulator /></Protected>} />
         <Route path="/mercado" element={<Protected screenKey="market"><Market /></Protected>} />
         <Route path="/conversor" element={<Protected screenKey="converter"><Converter /></Protected>} />
-        <Route path="/feriados" element={<Protected screenKey="holidays"><Holidays /></Protected>} />
-        <Route path="/cnpj" element={<Protected screenKey="cnpj"><Cnpj /></Protected>} />
         <Route path="/ajuda" element={<Protected screenKey="help"><Help /></Protected>} />
         <Route path="/config-novos-usuarios" element={<Protected screenKey="newusers"><OnboardingConfig /></Protected>} />
         <Route path="/juros-compostos" element={<Protected screenKey="compound"><CompoundInterest /></Protected>} />
         <Route path="/recorrencias" element={<Protected screenKey="recurrences"><Recurrences /></Protected>} />
-        <Route path="/cep" element={<Protected screenKey="cep"><CepLookup /></Protected>} />
-        <Route path="/reserva" element={<Protected screenKey="emergency"><EmergencyFund /></Protected>} />
         <Route path="/comparador" element={<Protected screenKey="compare"><PeriodCompare /></Protected>} />
-        <Route path="/bancos" element={<Protected screenKey="banks"><BanksLookup /></Protected>} />
         <Route path="/quitacao" element={<Protected screenKey="payoff"><DebtPayoff /></Protected>} />
         <Route path="/salario-liquido" element={<Protected screenKey="salary"><SalaryNet /></Protected>} />
         <Route path="/fipe" element={<Protected screenKey="fipe"><Fipe /></Protected>} />
         <Route path="/objetivo" element={<Protected screenKey="goalplan"><GoalPlanner /></Protected>} />
         <Route path="/price-sac" element={<Protected screenKey="pricesac"><PriceSac /></Protected>} />
-        <Route path="/racha" element={<Protected screenKey="billsplit"><BillSplit /></Protected>} />
         <Route path="/mapa-de-calor" element={<Protected screenKey="heatmap"><SpendHeatmap /></Protected>} />
         <Route path="/para-onde-vai" element={<Protected screenKey="moneymap"><MoneyMap /></Protected>} />
         <Route path="/score" element={<Protected screenKey="creditscore"><CreditScore /></Protected>} />
         <Route path="/gastos-formiga" element={<Protected screenKey="antspend"><SmallSpends /></Protected>} />
         <Route path="/indicadores" element={<Protected screenKey="indicators"><EconIndicators /></Protected>} />
         <Route path="/acoes" element={<Protected screenKey="stocks"><Stocks /></Protected>} />
-        <Route path="/cambio-historico" element={<Protected screenKey="fxhistory"><CurrencyHistory /></Protected>} />
         <Route path="/poupanca-cdb" element={<Protected screenKey="savingscdb"><SavingsVsCdb /></Protected>} />
         <Route path="/rateio" element={<Protected screenKey="household"><HouseholdSplit /></Protected>} />
         <Route path="/envelopes" element={<Protected screenKey="envelopes"><Envelopes /></Protected>} />
@@ -169,6 +153,8 @@ export default function App() {
         <Route path="/usuarios" element={<Protected screenKey="users"><Users /></Protected>} />
       </Route>
 
+      <Route path="/reserva" element={<Navigate to="/saude" replace />} />
+      <Route path="/fire" element={<Navigate to="/objetivo" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
