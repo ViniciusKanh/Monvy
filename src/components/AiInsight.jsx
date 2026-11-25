@@ -12,10 +12,14 @@ import { Sparkles, Cpu, Brain } from 'lucide-react';
 // Bloco reutilizável de "análise inteligente" com Gemini (quando configurado) e
 // fallback no motor local. Prompt curto = baixo consumo de tokens. Resultado
 // persistido por tela (storageKey) até o usuário gerar de novo.
-export function AiInsight({ prompt, storageKey, title = 'Análise inteligente', agentName = 'Analista', agentFocus = 'geral' }) {
+// Hook reutilizável: gera e guarda a análise (Gemini quando configurado, senão motor local).
+// Mantém também um histórico curto (últimas 10) para telas que mostram diagnósticos anteriores.
+export function useAiAnalysis({ prompt, storageKey, agentName = 'Analista', agentFocus = 'geral' }) {
   const { user } = useAuth();
   const KEY = `monvy_ai_${storageKey}`;
+  const HKEY = `${KEY}_hist`;
   const [data, setData] = useState(() => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } });
+  const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem(HKEY)) || []; } catch { return []; } });
   const [busy, setBusy] = useState(false);
 
   const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => Transaction.list() });
@@ -34,16 +38,23 @@ export function AiInsight({ prompt, storageKey, title = 'Análise inteligente', 
   const ctx = useMemo(() => ({ user, transactions: combineExpenses(transactions, cardTxs), accounts, categories, catMap, investments, debts, goals, subs, invoices }),
     [user, transactions, cardTxs, accounts, categories, catMap, investments, debts, goals, subs, invoices]);
 
-  const gerar = async () => {
+  const gerar = async (customPrompt) => {
     setBusy(true);
     try {
-      const { text, via } = await answerHybrid({ question: prompt, ctx, agent: { name: agentName, focusLabel: agentFocus }, apiKey, history: [] });
+      const { text, via } = await answerHybrid({ question: typeof customPrompt === 'string' ? customPrompt : prompt, ctx, agent: { name: agentName, focusLabel: agentFocus }, apiKey, history: [] });
       const payload = { text, via, at: Date.now() };
       setData(payload);
-      try { localStorage.setItem(KEY, JSON.stringify(payload)); } catch { /* ignore */ }
-    } catch (e) { toast.error(e.message || 'Não consegui analisar agora.'); } finally { setBusy(false); }
+      const nextHist = [payload, ...history].slice(0, 10);
+      setHistory(nextHist);
+      try { localStorage.setItem(KEY, JSON.stringify(payload)); localStorage.setItem(HKEY, JSON.stringify(nextHist)); } catch { /* ignore */ }
+      return payload;
+    } catch (e) { toast.error(e.message || 'Não consegui analisar agora.'); return null; } finally { setBusy(false); }
   };
+  return { data, history, busy, gerar, apiKey };
+}
 
+export function AiInsight({ prompt, storageKey, title = 'Análise inteligente', agentName = 'Analista', agentFocus = 'geral' }) {
+  const { data, busy, gerar, apiKey } = useAiAnalysis({ prompt, storageKey, agentName, agentFocus });
   return (
     <Card>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">

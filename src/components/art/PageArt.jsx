@@ -188,3 +188,121 @@ export function TargetArt({ className = 'w-32 h-28' }) {
     </svg>
   );
 }
+
+// Blocos de "app" flutuantes com ícones genéricos (sem marcas)
+const Tile = ({ x, y, r = 0, s = 1, from, to, children }) => (
+  <g transform={`translate(${x} ${y}) rotate(${r}) scale(${s})`}>
+    <rect x="-26" y="-22" width="52" height="52" rx="13" fill="#0f172a" opacity=".55" />
+    <rect x="-26" y="-26" width="52" height="52" rx="13" fill={`url(#${from}${to})`} stroke="#fff" strokeOpacity=".25" />
+    <defs><linearGradient id={`${from}${to}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={from} /><stop offset="100%" stopColor={to} /></linearGradient></defs>
+    {children}
+  </g>
+);
+
+export function AppsArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="ap" />
+      <ellipse cx="190" cy="96" rx="170" ry="40" fill="none" stroke="url(#apb)" strokeWidth="3" transform="rotate(-8 190 96)" />
+      <ellipse cx="190" cy="96" rx="120" ry="30" fill="url(#apg)" filter="url(#apf)" />
+      <Tile x={92} y={62} r={-12} from="#be123c" to="#7f1d1d"><path d="M-8 -12 L12 0 L-8 12 Z" fill="#fff" /></Tile>
+      <Tile x={160} y={50} r={-4} s={1.1} from="#059669" to="#065f46"><path d="M-10 -6 Q0 -12 10 -6 M-8 1 Q0 -4 8 1 M-6 8 Q0 4 6 8" stroke="#fff" strokeWidth="3.5" fill="none" strokeLinecap="round" /></Tile>
+      <Tile x={232} y={42} r={10} from="#0ea5e9" to="#1e3a8a"><path d="M-12 -2 L0 -12 L12 -2 L12 10 L-12 10 Z" fill="none" stroke="#fff" strokeWidth="3" strokeLinejoin="round" /></Tile>
+      <Tile x={292} y={84} r={12} from="#2563eb" to="#4c1d95"><path d="M-12 4 L-4 -8 L4 2 L12 -6" stroke="#fff" strokeWidth="3.5" fill="none" strokeLinecap="round" /></Tile>
+      <Tile x={196} y={112} r={-6} s={0.95} from="#7c3aed" to="#3b0764"><text x="0" y="8" textAnchor="middle" fontSize="20" fontWeight="900" fill="#fff" fontFamily="system-ui">+</text></Tile>
+      <Tile x={128} y={118} r={6} s={0.9} from="#ec4899" to="#9d174d"><rect x="-12" y="-9" width="24" height="18" rx="4" fill="#fff" /><path d="M-4 -4 L5 0 L-4 4 Z" fill="#be185d" /></Tile>
+      <Tile x={348} y={118} r={-8} s={0.75} from="#38bdf8" to="#0369a1"><path d="M-12 6 a8 8 0 0 1 4 -14 a10 10 0 0 1 18 4 a6 6 0 0 1 2 10 Z" fill="#fff" /></Tile>
+      <Sparkle x={40} y={40} /><Sparkle x={360} y={30} s={4} c="#67e8f9" /><Sparkle x={60} y={120} s={4} c="#f0abfc" />
+    </svg>
+  );
+}
+
+export function VaultArt({ className = 'w-96 h-44' }) {
+  return (
+    <svg viewBox="0 0 380 180" className={className}>
+      <Defs id="va" />
+      <Orbit id="va" cx={200} cy={152} rx={160} ry={22} />
+      {[0, 1, 2, 3, 4].map((i) => <ellipse key={i} cx="70" cy={150 - i * 10} rx="22" ry="7" fill={i % 2 ? '#d97706' : '#f59e0b'} stroke="#fde68a" strokeOpacity=".7" />)}
+      {[0, 1, 2].map((i) => <ellipse key={i} cx="104" cy={154 - i * 10} rx="18" ry="6" fill={i % 2 ? '#d97706' : '#fbbf24'} stroke="#fde68a" strokeOpacity=".7" />)}
+      <rect x="128" y="22" width="132" height="128" rx="18" fill="#1e1b4b" />
+      <rect x="122" y="16" width="132" height="128" rx="18" fill="url(#vaa)" />
+      <rect x="134" y="28" width="108" height="104" rx="12" fill="#0f172a" opacity=".55" stroke="#c4b5fd" strokeOpacity=".5" />
+      <circle cx="188" cy="80" r="34" fill="none" stroke="#67e8f9" strokeWidth="4" />
+      <circle cx="188" cy="80" r="24" fill="#1e293b" stroke="#a78bfa" strokeWidth="3" />
+      {Array.from({ length: 12 }).map((_, i) => { const a = (i / 12) * Math.PI * 2; return <line key={i} x1={188 + Math.cos(a) * 28} y1={80 + Math.sin(a) * 28} x2={188 + Math.cos(a) * 33} y2={80 + Math.sin(a) * 33} stroke="#67e8f9" strokeWidth="2" />; })}
+      <text x="188" y="88" textAnchor="middle" fontSize="22" fontWeight="900" fill="#5eead4" fontFamily="system-ui">M</text>
+      <rect x="244" y="56" width="10" height="34" rx="4" fill="#67e8f9" />
+      <g transform="translate(300 118)">
+        <ellipse cx="0" cy="0" rx="40" ry="28" fill="url(#vaa)" opacity=".95" />
+        <circle cx="34" cy="-4" r="10" fill="#e879f9" /><circle cx="14" cy="-10" r="2.5" fill="#1e1b4b" />
+        <path d="M-16 -26 L-10 -38 L-2 -27 Z" fill="#c084fc" />
+        <rect x="-10" y="-30" width="18" height="4" rx="2" fill="#1e1b4b" />
+        <rect x="-24" y="20" width="9" height="12" rx="3" fill="#7c3aed" /><rect x="12" y="20" width="9" height="12" rx="3" fill="#7c3aed" />
+      </g>
+      <ellipse cx="300" cy="78" rx="14" ry="5" fill="#fbbf24" stroke="#fde68a" />
+      <Sparkle x={70} y={40} /><Sparkle x={356} y={36} s={4} c="#67e8f9" /><Sparkle x={278} y={22} s={4} />
+    </svg>
+  );
+}
+
+export function BrainArt({ className = 'w-96 h-40' }) {
+  const nodes = [[60, 40], [110, 20], [300, 24], [340, 60], [40, 110], [330, 120], [90, 140], [280, 150]];
+  return (
+    <svg viewBox="0 0 380 170" className={className}>
+      <Defs id="br" />
+      {nodes.map(([x, y], i) => <g key={i}><line x1={x} y1={y} x2="190" y2="82" stroke="#a78bfa" strokeOpacity=".35" /><circle cx={x} cy={y} r="4" fill={i % 2 ? '#67e8f9' : '#f0abfc'} /></g>)}
+      <ellipse cx="190" cy="140" rx="150" ry="16" fill="none" stroke="url(#brb)" strokeWidth="3" />
+      <ellipse cx="190" cy="140" rx="110" ry="10" fill="url(#brg)" filter="url(#brf)" />
+      <path d="M190 22 C150 18 128 40 132 62 C112 70 114 100 134 108 C136 128 164 136 190 128 C216 136 244 128 246 108 C266 100 268 70 248 62 C252 40 230 18 190 22 Z" fill="url(#bra)" opacity=".85" stroke="#e9d5ff" strokeOpacity=".6" strokeWidth="2" />
+      {[[150, 50, 176, 62], [160, 88, 184, 98], [204, 50, 230, 66], [198, 96, 230, 92], [190, 24, 190, 128]].map(([a, b, c, d], i) => <path key={i} d={`M${a} ${b} Q${(a + c) / 2} ${b - 14} ${c} ${d}`} stroke="#fff" strokeOpacity=".45" strokeWidth="2.5" fill="none" />)}
+      <rect x="160" y="62" width="60" height="38" rx="10" fill="#0f172a" stroke="#67e8f9" strokeWidth="2.5" />
+      <text x="190" y="89" textAnchor="middle" fontSize="20" fontWeight="900" fill="#e0f2fe" fontFamily="system-ui">IA</text>
+      <Sparkle x={250} y={18} /><Sparkle x={120} y={150} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+export function ChipArt({ className = 'w-44 h-36' }) {
+  return (
+    <svg viewBox="0 0 180 140" className={className}>
+      <Defs id="cp" />
+      <path d="M90 70 L160 100 L90 130 L20 100 Z" fill="#1e1b4b" stroke="#67e8f9" strokeOpacity=".7" strokeWidth="2" />
+      <path d="M90 58 L150 86 L90 114 L30 86 Z" fill="url(#cpa)" opacity=".9" />
+      {Array.from({ length: 8 }).map((_, i) => <line key={i} x1={44 + i * 13} y1={20 + (i % 3) * 8} x2={44 + i * 13} y2={78} stroke="#67e8f9" strokeOpacity=".6" />)}
+      <rect x="62" y="42" width="56" height="40" rx="10" fill="#0f172a" stroke="#a78bfa" strokeWidth="2.5" />
+      <text x="90" y="69" textAnchor="middle" fontSize="18" fontWeight="900" fill="#e0f2fe" fontFamily="system-ui">IA</text>
+    </svg>
+  );
+}
+
+export function HeartArt({ className = 'w-96 h-44' }) {
+  return (
+    <svg viewBox="0 0 380 180" className={className}>
+      <Defs id="ht" />
+      <Orbit id="ht" cx={190} cy={150} rx={150} ry={22} />
+      {[0, 1, 2, 3].map((i) => <ellipse key={i} cx="110" cy={150 - i * 10} rx="30" ry="9" fill={i % 2 ? '#0e7490' : '#22d3ee'} stroke="#cffafe" strokeOpacity=".6" />)}
+      {[0, 1, 2, 3].map((i) => <rect key={i} x={230 + i * 20} y={140 - (14 + i * 14)} width="14" height={14 + i * 14} rx="3" fill={i % 2 ? '#a855f7' : '#22d3ee'} opacity=".85" />)}
+      <path d="M190 132 C120 92 118 42 152 34 C170 30 184 42 190 54 C196 42 210 30 228 34 C262 42 260 92 190 132 Z" fill="url(#hta)" opacity=".85" stroke="#f5d0fe" strokeWidth="2" />
+      <path d="M128 78 L160 78 L172 58 L186 100 L200 70 L210 82 L252 82" stroke="#fff" strokeWidth="4" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+      <path d="M262 64 L286 56 L310 64 L310 92 C310 108 286 120 286 120 C286 120 262 108 262 92 Z" fill="#0e7490" stroke="#67e8f9" strokeWidth="2.5" />
+      <path d="M274 88 L284 98 L300 78" stroke="#fff" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <Sparkle x={80} y={40} /><Sparkle x={320} y={30} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+export function HabitsArt({ className = 'w-96 h-44' }) {
+  return (
+    <svg viewBox="0 0 380 180" className={className}>
+      <Defs id="hb" />
+      <path d="M10 150 C90 120 140 170 230 120 S340 80 380 100" stroke="url(#hbb)" strokeWidth="4" fill="none" />
+      <Tile x={120} y={60} r={-10} s={1.2} from="#6366f1" to="#1e1b4b"><path d="M-12 12 V2 M-4 12 V-6 M4 12 V-12 M12 12 V-2" stroke="#67e8f9" strokeWidth="4" strokeLinecap="round" /></Tile>
+      <Tile x={300} y={46} r={8} from="#db2777" to="#701a75"><path d="M-10 -4 H10 L8 12 H-8 Z M-5 -4 V-9 A5 5 0 0 1 5 -9 V-4" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinejoin="round" /></Tile>
+      <Tile x={318} y={128} r={-8} from="#0891b2" to="#164e63"><rect x="-14" y="-7" width="28" height="16" rx="8" fill="none" stroke="#fff" strokeWidth="2.5" /><circle cx="-6" cy="1" r="2" fill="#fff" /><circle cx="7" cy="1" r="2" fill="#fff" /></Tile>
+      <Tile x={60} y={130} r={10} s={0.9} from="#f59e0b" to="#7c2d12"><path d="M-8 -10 H8 L6 12 H-6 Z" fill="#fff" /><path d="M8 -4 H12 V4 H7" stroke="#fff" strokeWidth="2.5" fill="none" /></Tile>
+      <Tile x={210} y={110} r={-14} s={1.05} from="#0ea5e9" to="#312e81"><rect x="-15" y="-10" width="30" height="20" rx="4" fill="none" stroke="#fff" strokeWidth="2.5" /><line x1="-15" y1="-3" x2="15" y2="-3" stroke="#fff" strokeWidth="3" /></Tile>
+      <Tile x={210} y={36} r={6} s={0.85} from="#a855f7" to="#4c1d95"><path d="M0 -12 L3 -3 L12 -3 L5 3 L8 12 L0 6 L-8 12 L-5 3 L-12 -3 L-3 -3 Z" fill="#fde68a" /></Tile>
+      <Sparkle x={30} y={40} /><Sparkle x={360} y={30} s={4} c="#67e8f9" /><Sparkle x={160} y={150} s={4} c="#f0abfc" />
+    </svg>
+  );
+}
