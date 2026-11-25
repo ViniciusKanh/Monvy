@@ -2,7 +2,7 @@
 // KPIs em gradiente, rosca com total no centro, paginação, menu de ações).
 import { useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronLeft, ChevronRight, MoreVertical, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreVertical, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
 import { formatCurrency } from '../lib/utils.js';
 
 export const TIP = { borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', fontSize: 12 };
@@ -178,6 +178,71 @@ export function InsightRow({ tone = 'teal', icon: Icon, kicker, title, text, onC
 
 // Botão primário em gradiente (independe da cor de destaque escolhida pelo usuário)
 export function GlowButton({ children, onClick, tone = 'sky', className = '', ...rest }) {
-  const g = { sky: 'from-sky-500 to-blue-600 shadow-[0_0_20px_rgba(56,189,248,.4)]', violet: 'from-violet-600 to-fuchsia-600 shadow-[0_0_20px_rgba(139,92,246,.45)]', emerald: 'from-emerald-500 to-teal-600 shadow-[0_0_20px_rgba(16,185,129,.4)]' }[tone];
+  const g = { sky: 'from-sky-500 to-blue-600 shadow-[0_0_20px_rgba(56,189,248,.4)]', violet: 'from-violet-600 to-fuchsia-600 shadow-[0_0_20px_rgba(139,92,246,.45)]', emerald: 'from-emerald-500 to-teal-600 shadow-[0_0_20px_rgba(16,185,129,.4)]', pink: 'from-fuchsia-600 to-pink-500 shadow-[0_0_22px_rgba(217,70,239,.45)]', aurora: 'from-cyan-400 via-sky-500 to-fuchsia-500 shadow-[0_0_24px_rgba(34,211,238,.35)]' }[tone];
   return <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${g} hover:brightness-110 transition disabled:opacity-60 ${className}`} {...rest}>{children}</button>;
+}
+
+
+// Título com a segunda parte em destaque (ex.: "Dívidas &" + "Crédito"), ilustração opcional à direita
+export function HeroTitle({ icon: Icon, lead, accent, subtitle, art, actions, iconClass = 'text-fuchsia-400' }) {
+  return (
+    <div className="relative flex flex-col xl:flex-row xl:items-start justify-between gap-4 min-h-[88px]">
+      <div className="min-w-0 relative z-[1]">
+        <h1 className="font-display text-3xl sm:text-[2.6rem] font-extrabold leading-tight flex items-center gap-3 flex-wrap">
+          {Icon && <Icon className={`w-10 h-10 shrink-0 ${iconClass}`} strokeWidth={1.8} />}
+          <span>{lead} <span className="bg-gradient-to-r from-cyan-500 to-teal-400 dark:from-cyan-300 dark:to-teal-300 bg-clip-text text-transparent">{accent}</span></span>
+        </h1>
+        {subtitle && <p className="text-sm sm:text-base text-muted mt-1">{subtitle}</p>}
+        <div className="h-1 w-16 rounded-full mt-2.5 bg-gradient-to-r from-cyan-400 to-fuchsia-500" />
+      </div>
+      {art && <div className="hidden lg:block absolute right-0 xl:right-[var(--art-right,0px)] -top-4 pointer-events-none select-none" aria-hidden="true">{art}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 xl:justify-end relative z-[1]">{actions}</div>}
+    </div>
+  );
+}
+
+// Medidor em semicírculo (0–100) com gradiente vermelho→amarelo→verde
+export function Gauge({ value, size = 150, label, sub, stroke = 12 }) {
+  const v = value == null || !Number.isFinite(value) ? null : Math.max(0, Math.min(100, value));
+  const r = (size - stroke) / 2; const c = Math.PI * r; const h = size / 2 + stroke;
+  const id = `gg${size}`;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: h }}>
+      <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`}>
+        <defs><linearGradient id={id} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#f43f5e" /><stop offset="45%" stopColor="#f59e0b" /><stop offset="75%" stopColor="#22d3ee" /><stop offset="100%" stopColor="#a855f7" /></linearGradient></defs>
+        <path d={`M ${stroke / 2} ${size / 2} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${size / 2}`} fill="none" stroke="hsl(var(--muted) / .18)" strokeWidth={stroke} strokeLinecap="round" />
+        {v != null && <path d={`M ${stroke / 2} ${size / 2} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${size / 2}`} fill="none" stroke={`url(#${id})`} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${(v / 100) * c} ${c}`} style={{ transition: 'stroke-dasharray .8s ease', filter: 'drop-shadow(0 0 6px rgba(34,211,238,.45))' }} />}
+      </svg>
+      <div className="absolute inset-x-0 bottom-0 text-center leading-none">
+        <span className="font-display text-3xl font-extrabold">{v == null ? '—' : Math.round(v)}</span>{label && <span className="text-xs text-muted">{label}</span>}
+        {sub && <div className="text-xs font-bold mt-1">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Faixa de métricas em um único painel, separadas por divisórias (como nos cabeçalhos das telas)
+export function MetricStrip({ children, className = '' }) {
+  return <section className={`rounded-3xl bg-[hsl(var(--card))] ring-1 ring-violet-400/30 shadow-[0_0_32px_-12px_rgba(168,85,247,.45)] p-4 sm:p-5 grid gap-4 sm:gap-0 sm:divide-x divide-[hsl(var(--border))] ${className}`}>{children}</section>;
+}
+export function Metric({ icon: Icon, color = '#a855f7', label, value, sub, valueClass = '' }) {
+  return (
+    <div className="flex items-start gap-3 sm:px-5 first:sm:pl-1 min-w-0">
+      {Icon && <Icon className="w-9 h-9 shrink-0 mt-0.5" style={{ color }} strokeWidth={1.6} />}
+      <div className="min-w-0">
+        <p className="text-sm text-muted">{label}</p>
+        <p className={`font-display text-2xl font-bold leading-tight truncate ${valueClass}`}>{value}</p>
+        {sub && <div className="text-xs text-muted mt-0.5">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Painel "Insights" padrão com selo
+export function InsightsPanel({ title = 'Insights automáticos', subtitle, items, badge = 'Auto', className = '' }) {
+  return (
+    <Panel className={className} title={title} subtitle={subtitle} icon={Sparkles} iconClass="text-fuchsia-400" action={<span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-300 ring-1 ring-violet-400/40">{badge}</span>}>
+      <div className="space-y-2.5">{items.filter(Boolean).map((x, k) => <InsightRow key={k} {...x} />)}</div>
+    </Panel>
+  );
 }
