@@ -33,7 +33,7 @@ async function fetchSefaz(rawUrl) {
     let charset = (ct.match(/charset=([\w-]+)/i) || [])[1];
     if (!charset) charset = (buf.toString('latin1').match(/<meta[^>]+charset=["']?([\w-]+)/i) || [])[1] || 'utf-8';
     let html; try { html = new TextDecoder(charset.toLowerCase()).decode(buf); } catch { html = buf.toString('utf8'); }
-    return { html, finalUrl: u.toString() };
+    return { html, finalUrl: u.toString(), status: r.status };
   }
   throw Object.assign(new Error('Redirecionamentos demais na SEFAZ.'), { code: 'redirects' });
 }
@@ -107,7 +107,17 @@ ${text.slice(0, 40000)}`;
     const total = nOr(p.total, ai?.total_value);
     const printed = nOr(p.trib, ai?.printed_tax);
     const estimated = printed > 0 ? 0 : brNum(ai?.estimated_tax);
-    if (!total && !printed && !ai) return sendJson(res, 200, { ok: false, reason: 'parse', error: 'Abri a página da SEFAZ, mas não reconheci os dados da nota neste layout.' + (apiKey ? '' : ' Configure a chave do Gemini para a IA ler a página.') });
+    const aiItems = Array.isArray(ai?.items) ? ai.items.length : 0;
+    // só é sucesso se a página trouxe dados da nota de verdade (valor, tributos ou itens);
+    // portais que bloqueiam acesso de fora do Brasil costumam devolver uma página "200" vazia
+    if (!total && !printed && !aiItems) {
+      const blocked = /acesso negado|access denied|forbidden|request unsuccessful|incapsula|bloquead|n[aã]o autorizado|indispon[ií]vel/i.test(text);
+      return sendJson(res, 200, {
+        ok: false, reason: blocked ? 'blocked' : 'parse',
+        error: blocked ? 'O portal da SEFAZ recusou o acesso a partir do servidor do Monvy.' : 'Abri a página da SEFAZ, mas ela não trouxe os dados da nota (valor e tributos).',
+        debug: { status: page.status, url: page.finalUrl, chars: text.length, sample: text.slice(0, 280) },
+      });
+    }
 
     const items = Array.isArray(ai?.items) ? ai.items.slice(0, 200).map((i) => ({ name: String(i.name || '').slice(0, 120), qty: brNum(i.qty) || 1, unit_value: brNum(i.unit_value), total: brNum(i.total) })) : [];
     return sendJson(res, 200, {

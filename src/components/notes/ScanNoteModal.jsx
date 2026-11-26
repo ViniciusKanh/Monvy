@@ -10,6 +10,18 @@ import { toast } from '../../lib/toast.js';
 
 const TABS = [['camera', 'Câmera', Camera], ['foto', 'Foto / imagem', ImageUp], ['chave', 'Digitar chave', Keyboard]];
 const MAX_FILE_B64 = 1_800_000;
+// fotos de celular passam de 4 MB (limite do servidor): reduz para ~1600 px em JPEG antes de enviar
+async function shrinkImage(file, max = 1600) {
+  if (!/^image\//.test(file.type)) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
+    return blob ? new File([blob], (file.name || 'cupom').replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
+  } catch { return file; }
+}
 const toB64 = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
 
 // Modal "Escanear nota": lê o QR Code (NFC-e/NFS-e) ou o código de barras (DANFE)
@@ -25,15 +37,17 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
   const [typed, setTyped] = useState('');
   const [sefaz, setSefaz] = useState(null); // { status: loading|ok|fail, note, error, reason, via }
   const [showItems, setShowItems] = useState(false);
+  const [cupom, setCupom] = useState(null); // foto do cupom lida pela IA: { status, key, note, error, file }
+  const cupomRef = useRef(null);
   const videoRef = useRef(null);
   const stopRef = useRef(null);
   const chainRef = useRef(Promise.resolve());
   const fileRef = useRef(null);
 
   const stopCam = () => { try { stopRef.current?.(); } catch { /* */ } stopRef.current = null; };
-  const reset = () => { setScan(null); setError(''); setSefaz(null); setShowItems(false); };
+  const reset = () => { setScan(null); setError(''); setSefaz(null); setShowItems(false); setCupom(null); };
 
-  useEffect(() => { if (!open) { stopCam(); setScan(null); setError(''); setPhoto(null); setTyped(''); setCamState('idle'); setTab('camera'); setSefaz(null); setShowItems(false); } }, [open]);
+  useEffect(() => { if (!open) { stopCam(); setScan(null); setError(''); setPhoto(null); setTyped(''); setCamState('idle'); setTab('camera'); setSefaz(null); setShowItems(false); setCupom(null); } }, [open]);
   // trava a rolagem da página por trás enquanto o leitor está aberto (no celular a câmera ocupa a tela)
   useEffect(() => { if (!open) return; const o = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = o; }; }, [open]);
   useEffect(() => () => stopCam(), []);
@@ -49,12 +63,45 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
     if (r.info?.cnpj) { const name = await lookupCnpjName(r.info.cnpj); if (name) setScan((s) => (s && s.key === r.key ? { ...s, emitterName: name } : s)); }
   };
 
+  // Plano B garantido: foto (ou PDF) do próprio cupom lida pelo Gemini — o mesmo
+  // leitor da importação de PDF, que acha os "Tributos totais incidentes" impressos
+  const onCupom = async (e) => {
+    const raw = e.target.files?.[0]; if (e.target) e.target.value = '';
+    if (!raw || !scan?.key) return;
+    const file = await shrinkImage(raw);
+    const key = scan.key;
+    setCupom({ status: 'loading', key });
+    try {
+      const b64 = await toB64(file);
+      const mime = file.type === 'application/pdf' ? 'application/pdf' : (file.type || 'image/jpeg');
+      const { note } = await Ai.parseDanfe(b64, geminiKey, mime);
+      if (!note) throw new Error('A IA não encontrou dados no cupom.');
+      const tax = Number(note.total_tax) || 0;
+      setCupom({ status: tax > 0 || Number(note.total_value) > 0 ? 'ok' : 'fail', key, note, error: tax > 0 ? '' : 'A IA leu o cupom, mas não achou o valor dos tributos impresso. Confira se a foto pegou a parte "Tributos totais incidentes".', file: { b64: b64.length <= MAX_FILE_B64 ? b64 : null, name: file.name, type: mime } });
+    } catch (err) { setCupom({ status: 'fail', key, error: err.message || 'Falha ao ler a foto do cupom.' }); }
+  };
+
+  function mergedNote() {
+    const base = sefaz?.status === 'ok' && sefaz.key === scan?.key ? sefaz.note : null;
+    const c = cupom?.status === 'ok' && cupom.key === scan?.key ? cupom.note : null;
+    if (!c) return base;
+    const taxes = Object.fromEntries(Object.entries(c.taxes || {}).filter(([, v]) => Number(v) > 0));
+    const hasTax = Object.keys(taxes).length > 0;
+    return {
+      ...(base || {}),
+      emitter: base?.emitter || c.emitter, emitter_cnpj: base?.emitter_cnpj || c.emitter_cnpj, number: base?.number || c.number,
+      issued_date: base?.issued_date || c.issued_date, total_value: Number(c.total_value) || base?.total_value || 0,
+      taxes: hasTax ? taxes : (base?.taxes || {}), tax_origin: hasTax ? 'foto_ia' : base?.tax_origin, tax_basis: hasTax ? 'Lido da foto do cupom pela IA (Gemini) — confira com o impresso.' : base?.tax_basis,
+      items: base?.items || [], items_count: base?.items_count ?? null, tax_split: base?.tax_split,
+    };
+  }
+
   const runSefaz = async (url, key) => {
     setSefaz({ status: 'loading', key });
     try {
       const r = await Ai.nfceSefaz(url, geminiKey || undefined);
       if (r?.ok) setSefaz({ status: 'ok', key, note: r.note, via: r.via, aiError: r.aiError });
-      else setSefaz({ status: 'fail', key, error: r?.error || 'Não consegui ler a nota na SEFAZ.', reason: r?.reason });
+      else setSefaz({ status: 'fail', key, error: r?.error || 'Não consegui ler a nota na SEFAZ.', reason: r?.reason, debug: r?.debug });
     } catch (e) { setSefaz({ status: 'fail', key, error: e.message || 'Falha ao consultar a SEFAZ.', reason: 'network' }); }
   };
 
@@ -94,8 +141,9 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
     if (!photo?.file || !geminiKey) return;
     setBusy(true);
     try {
-      const b64 = await toB64(photo.file);
-      const { note } = await Ai.parseDanfe(b64, geminiKey, photo.file.type || 'image/jpeg');
+      const small = await shrinkImage(photo.file);
+      const b64 = await toB64(small);
+      const { note } = await Ai.parseDanfe(b64, geminiKey, small.type || 'image/jpeg');
       if (!note) throw new Error('A IA não encontrou dados na foto.');
       const fromKey = scan?.key ? toReview(scan) : {};
       onUse({
@@ -103,19 +151,20 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
         taxes: { ...(note.taxes || {}) },
         total_value: fromKey.total_value || note.total_value,
         source: scan?.key ? (scan.format === 'barcode' ? 'barcode' : 'qrcode') : 'foto',
-        file_data: b64.length <= MAX_FILE_B64 ? b64 : null, file_name: photo.file.name, file_type: photo.file.type || 'image/jpeg',
+        file_data: b64.length <= MAX_FILE_B64 ? b64 : null, file_name: small.name, file_type: small.type || 'image/jpeg',
       });
       toast.success('Foto lida pela IA. Confira os valores antes de salvar.');
     } catch (err) { toast.error(err.message || 'Falha ao ler a foto.'); }
     finally { setBusy(false); }
   };
 
-  const useScan = () => { if (scan?.key) onUse(toReview(scan, sefaz?.status === 'ok' && sefaz.key === scan.key ? sefaz.note : null)); };
+  const withFile = (r) => (cupom?.status === 'ok' && cupom.key === scan?.key && cupom.file ? { ...r, file_data: cupom.file.b64, file_name: cupom.file.name, file_type: cupom.file.type } : r);
+  const useScan = () => { if (scan?.key) onUse(withFile(toReview(scan, mergedNote()))); };
 
   if (!open) return null;
   const info = scan?.info;
 
-  const sn = sefaz?.status === 'ok' && sefaz.key === scan?.key ? sefaz.note : null;
+  const sn = mergedNote();
   // Portal no <body>: a página usa animação com transform, o que fazia o "fixed" do
   // modal se prender à página (no celular a câmera aparecia lá embaixo).
   return createPortal(
@@ -220,13 +269,13 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
                   <ol className="space-y-1.5 text-sm">
                     <Step done label="QR Code lido" />
                     <Step done={sefaz.status === 'ok'} fail={sefaz.status === 'fail'} loading={sefaz.status === 'loading'} label={sefaz.status === 'fail' ? 'Não consegui abrir a nota na SEFAZ' : sefaz.status === 'ok' ? 'Nota encontrada na SEFAZ' : 'Buscando a nota na SEFAZ…'} />
-                    <Step done={sefaz.status === 'ok' && !!sn?.taxes?.aproximado} fail={sefaz.status === 'ok' && !sn?.taxes?.aproximado} loading={sefaz.status === 'loading'} label={sefaz.status === 'ok' ? (sn?.tax_origin === 'impresso' ? 'Tributos lidos do cupom (Lei 12.741)' : sn?.tax_origin === 'estimado_ia' ? 'Tributos estimados pela IA (Gemini)' : geminiKey ? 'O cupom não traz os tributos e a IA não conseguiu estimar' : 'O cupom não traz os tributos — configure o Gemini para estimar') : geminiKey ? 'Lendo itens e tributos com o Gemini' : 'Lendo tributos'} />
+                    <Step done={!!sn && taxTotal(sn.taxes) > 0} fail={(sefaz.status !== 'loading' && !(sn && taxTotal(sn.taxes) > 0)) && cupom?.status !== 'loading'} loading={sefaz.status === 'loading' || cupom?.status === 'loading'} label={cupom?.status === 'loading' ? 'Lendo a foto do cupom com a IA…' : sn?.tax_origin === 'foto_ia' ? 'Tributos lidos da foto do cupom (IA)' : sefaz.status === 'fail' ? 'Tributos: fotografe o cupom para a IA ler' : sefaz.status === 'ok' ? (sn?.tax_origin === 'impresso' ? 'Tributos lidos do cupom (Lei 12.741)' : sn?.tax_origin === 'estimado_ia' ? 'Tributos estimados pela IA (Gemini)' : geminiKey ? 'A página da SEFAZ não trouxe os tributos — fotografe o cupom' : 'A página da SEFAZ não trouxe os tributos — configure o Gemini') : geminiKey ? 'Lendo itens e tributos com o Gemini' : 'Lendo tributos'} />
                   </ol>
-                  {sefaz.status === 'ok' && sn && (
+                  {sn && (
                     <>
                       <div className="grid grid-cols-2 gap-2">
-                        <Kpi icon={Landmark} k={sn.tax_origin === 'estimado_ia' ? 'Tributos (estimativa)' : 'Tributos aprox.'} v={sn.taxes?.aproximado ? formatCurrency(sn.taxes.aproximado) : '—'} accent={sn.tax_origin === 'estimado_ia' ? 'text-violet-500 dark:text-violet-300' : 'text-emerald-600 dark:text-emerald-300'} sub={sn.total_value && sn.taxes?.aproximado ? `${((sn.taxes.aproximado / sn.total_value) * 100).toFixed(1).replace('.', ',')}% da compra` : null} />
-                        <Kpi icon={ShoppingBag} k="Itens" v={sn.items_count ?? (sn.items?.length || '—')} />
+                        <Kpi icon={Landmark} k={sn.tax_origin === 'estimado_ia' ? 'Tributos (estimativa)' : 'Tributos aprox.'} v={taxTotal(sn.taxes) ? formatCurrency(taxTotal(sn.taxes)) : '—'} accent={sn.tax_origin === 'estimado_ia' ? 'text-violet-500 dark:text-violet-300' : 'text-emerald-600 dark:text-emerald-300'} sub={sn.total_value && taxTotal(sn.taxes) ? `${((taxTotal(sn.taxes) / sn.total_value) * 100).toFixed(1).replace('.', ',')}% da compra` : null} />
+                        <Kpi icon={ShoppingBag} k={sn.total_value ? 'Valor da nota' : 'Itens'} v={sn.total_value ? formatCurrency(sn.total_value) : (sn.items_count ?? (sn.items?.length || '—'))} />
                       </div>
                       {(sn.tax_split?.federal || sn.tax_split?.estadual || sn.tax_split?.municipal) ? <p className="text-xs text-muted">Federal {formatCurrency(sn.tax_split.federal || 0)} · Estadual {formatCurrency(sn.tax_split.estadual || 0)} · Municipal {formatCurrency(sn.tax_split.municipal || 0)}</p> : null}
                       {sn.tax_origin === 'estimado_ia' && <p className="text-[11px] rounded-lg bg-violet-500/10 ring-1 ring-violet-400/30 px-2.5 py-1.5 flex gap-1.5"><Sparkles className="w-3.5 h-3.5 text-violet-500 shrink-0 mt-0.5" /><span><b>Estimativa da IA</b>, não é o valor oficial. {sn.tax_basis}</span></p>}
@@ -243,6 +292,20 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
                     <div className="text-xs text-muted space-y-2">
                       <p className="flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />{sefaz.error} {sefaz.reason === 'captcha' ? 'Abra a consulta, confirme o captcha e tire uma foto do cupom para a IA ler.' : 'Você pode tentar de novo, abrir a consulta ou ler a foto do cupom com IA.'}</p>
                       <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => runSefaz(scan.consultUrl, scan.key)}><RefreshCw className="w-3.5 h-3.5" /> Tentar de novo</Button></div>
+                      {sefaz.debug && <details className="text-[10px]"><summary className="cursor-pointer">Detalhes técnicos</summary><p className="mt-1 break-all">HTTP {sefaz.debug.status} · {sefaz.debug.chars} caracteres · {sefaz.debug.url}</p><p className="mt-1 break-all opacity-80">{sefaz.debug.sample}</p></details>}
+                    </div>
+                  )}
+                  {sefaz.status !== 'loading' && !(sn && taxTotal(sn.taxes) > 0) && (
+                    <div className="rounded-xl ring-1 ring-violet-400/40 bg-violet-500/10 p-3 space-y-2">
+                      <p className="text-sm font-semibold flex items-center gap-2"><Camera className="w-4 h-4 text-violet-400" />Ler os tributos pela foto do cupom</p>
+                      <p className="text-xs text-muted">Fotografe o cupom inteiro (ou envie o PDF): a IA lê o valor e os "Tributos totais incidentes" impressos — o mesmo leitor da importação de PDF.</p>
+                      {geminiKey ? (
+                        <>
+                          <input ref={cupomRef} type="file" accept="image/*,application/pdf" capture="environment" className="hidden" onChange={onCupom} />
+                          <Button size="sm" onClick={() => cupomRef.current?.click()} disabled={cupom?.status === 'loading'}>{cupom?.status === 'loading' ? <><Spinner className="w-3.5 h-3.5" /> Lendo com a IA…</> : <><Camera className="w-3.5 h-3.5" /> Fotografar o cupom</>}</Button>
+                          {cupom?.error && cupom.key === scan.key && <p className="text-xs text-amber-600 dark:text-amber-300">{cupom.error}</p>}
+                        </>
+                      ) : <p className="text-xs text-amber-600 dark:text-amber-300">Configure a chave do Gemini em Configurações para usar a leitura por foto.</p>}
                     </div>
                   )}
                 </div>
@@ -251,7 +314,7 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
               )}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button onClick={useScan} disabled={sefaz?.status === 'loading' && sefaz.key === scan.key}>{sefaz?.status === 'loading' && sefaz.key === scan.key ? <><Spinner className="w-4 h-4" /> Buscando na SEFAZ…</> : <><CheckCircle2 className="w-4 h-4" /> {sn ? 'Revisar e salvar' : 'Continuar e revisar'}</>}</Button>
-                {sn && !scan.duplicate && (sn.total_value > 0) && <Button variant="outline" onClick={() => onUse(toReview(scan, sn), { save: true })}><Sparkles className="w-4 h-4 text-emerald-500" /> Salvar agora</Button>}
+                {sn && !scan.duplicate && (sn.total_value > 0) && <Button variant="outline" onClick={() => onUse(withFile(toReview(scan, sn)), { save: true })}><Sparkles className="w-4 h-4 text-emerald-500" /> Salvar agora</Button>}
                 {tab === 'foto' && photo && geminiKey && <Button variant="outline" onClick={readPhotoWithAi} disabled={busy}><Sparkles className="w-4 h-4 text-violet-500" /> Completar com IA (foto)</Button>}
                 {scan.consultUrl && <Button variant="outline" onClick={() => window.open(scan.consultUrl, '_blank', 'noopener')}><ExternalLink className="w-4 h-4" /> Consultar na SEFAZ</Button>}
                 <Button variant="ghost" onClick={() => { reset(); setPhoto(null); }}><RefreshCw className="w-4 h-4" /> Ler outra</Button>
@@ -264,6 +327,8 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
     document.body,
   );
 }
+
+const taxTotal = (t = {}) => { const soma = ['icms', 'ipi', 'ii', 'iss', 'pis', 'cofins', 'irrf', 'csll', 'inss', 'ibs', 'cbs'].reduce((a, k) => a + (Number(t[k]) || 0), 0); return soma > 0 ? soma : Number(t.aproximado) || 0; };
 
 function Step({ done, fail, loading, label }) {
   return (
