@@ -99,6 +99,7 @@ export const Ai = {
   ask: (question, context, apiKey, history, persona) => api.post('/api/ai/assistant', { question, context, apiKey, history, persona }),
   parseInforme: (pdfBase64, apiKey, year) => api.post('/api/ai/parse-informe', { pdfBase64, apiKey, year }),
   parseDanfe: (pdfBase64, apiKey, mimeType) => api.post('/api/ai/parse-danfe', { pdfBase64, apiKey, mimeType }),
+  nfceSefaz: (url, apiKey) => api.post('/api/ai/nfce-sefaz', { url, apiKey }),
 };
 
 export const Admin = {

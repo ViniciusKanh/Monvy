@@ -60,6 +60,8 @@ export default function NotasFiscais() {
   const pdfRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState(null);
+  const reviewRef = useRef(null);
+  reviewRef.current = review;
   const [details, setDetails] = useState(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [importMenu, setImportMenu] = useState(false);
@@ -164,8 +166,12 @@ export default function NotasFiscais() {
   }, [review]);
 
   const saveNote = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (arg) => {
+      // aceita a nota direto (ex.: "Salvar agora" do leitor) ou usa a que está em revisão
+      const review = arg && typeof arg === 'object' && !arg.nativeEvent ? arg : reviewRef.current;
       const t = review.taxes || {};
+      const soma = n(t.iss) + n(t.icms) + n(t.ipi) + n(t.ii) + n(t.pis) + n(t.cofins) + n(t.irrf) + n(t.csll) + n(t.inss) + n(t.ibs) + n(t.cbs) + n(t.issqn);
+      const reviewTotalTax = soma > 0 ? soma : n(t.aproximado);
       const taxes = Object.fromEntries(Object.keys(TAX_LABELS).map((k) => [k, n(t[k])]));
       const total_tax = Math.round(reviewTotalTax * 100) / 100;
       if (!(total_tax > 0) && !(n(review.total_value) > 0)) throw new Error('Informe ao menos o valor da nota ou um tributo.');
@@ -180,7 +186,7 @@ export default function NotasFiscais() {
       if (review.id) return FiscalNote.update(review.id, payload);
       return FiscalNote.create({ ...payload, xml: review.xml || null, file_data: review.file_data || null, file_name: review.file_name || null, file_type: review.file_type || null });
     },
-    onSuccess: () => { toast.success(review?.id ? 'Nota atualizada.' : 'Nota fiscal salva.'); setReview(null); qc.invalidateQueries({ queryKey: ['fiscal-notes'] }); },
+    onSuccess: (_d, arg) => { const rv = arg && typeof arg === 'object' && !arg.nativeEvent ? arg : review; toast.success(rv?.id ? 'Nota atualizada.' : 'Nota fiscal salva.'); setReview(null); qc.invalidateQueries({ queryKey: ['fiscal-notes'] }); },
     onError: (e) => toast.error(e.message || 'Falha ao salvar.'),
   });
   const removeNote = useMutation({ mutationFn: (id) => FiscalNote.remove(id), onSuccess: () => { toast.success('Nota removida.'); setDetails(null); qc.invalidateQueries({ queryKey: ['fiscal-notes'] }); } });
@@ -367,7 +373,7 @@ export default function NotasFiscais() {
 
       {/* Modal: escanear */}
       <ScanNoteModal open={scanOpen} onClose={() => setScanOpen(false)} geminiKey={geminiKey} existingKeys={existingKeys}
-        onUse={(r) => { setScanOpen(false); setReview({ ...blankReview, ...r, taxes: { ...(r.taxes || {}) } }); }} />
+        onUse={(r, opt) => { setScanOpen(false); const rv = { ...blankReview, ...r, taxes: { ...(r.taxes || {}) } }; if (opt?.save) saveNote.mutate(rv); else setReview(rv); }} />
 
       {/* Modal: revisar antes de salvar (também edição) */}
       <Modal open={!!review} onClose={() => setReview(null)} title={review?.id ? 'Editar nota fiscal' : 'Revisar nota fiscal'} maxWidth="max-w-3xl"
@@ -377,6 +383,8 @@ export default function NotasFiscais() {
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {(() => { const s = srcOf(review.source); return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10"><s.icon className="w-3.5 h-3.5" /> {s.label}</span>; })()}
               <div className="inline-flex p-0.5 rounded-lg bg-black/5 dark:bg-white/5">{[['produto', 'Produto'], ['servico', 'Serviço']].map(([v, l]) => <button key={v} type="button" onClick={() => setReview({ ...review, note_type: v })} className={`px-2.5 py-0.5 rounded-md font-semibold ${(review.note_type || 'produto') === v ? 'bg-[hsl(var(--card))] shadow' : 'text-muted'}`}>{l}</button>)}</div>
+              {review.tax_origin === 'impresso' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-semibold"><CheckCircle2 className="w-3.5 h-3.5" /> Tributos lidos na SEFAZ</span>}
+              {review.tax_origin === 'estimado_ia' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold" title={review.tax_basis || ''}><Sparkles className="w-3.5 h-3.5" /> Tributos estimados pela IA — confira</span>}
               {review.consult_url && <a href={review.consult_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sky-500 hover:underline"><ExternalLink className="w-3.5 h-3.5" /> Consultar na SEFAZ</a>}
             </div>
             {review.access_key && <p className="text-[11px] text-muted">Chave: <code className="tracking-wide">{formatKey(review.access_key)}</code></p>}
