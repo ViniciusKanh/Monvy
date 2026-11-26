@@ -13,7 +13,10 @@ import { Card, Button, Input, Field, Modal, Badge, EmptyState, Spinner } from '.
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { formatCurrency, monthKey, monthLabel } from '../lib/utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Transaction, CreditCardTransaction, Category, TaxLedger, FiscalNote, Ai, AppSettings } from '../api/entities.js';
+import { useNavigate } from 'react-router-dom';
+import { Transaction, CreditCardTransaction, Category, TaxLedger, FiscalNote, Ai, AppSettings, Payslip } from '../api/entities.js';
+import { iofForMonth, isIofText } from '../lib/cardTaxes.js';
+import { salaryFromPayslips } from '../lib/payslips.js';
 import { toast } from '../lib/toast.js';
 import { combineExpenses } from '../lib/analytics.js';
 import { buildTaxRecords, aggregate, explain, buildTaxAnalysis } from '../lib/taxBurden.js';
@@ -52,6 +55,7 @@ const PIE_COLORS = ['#059669', '#0d9488', '#f59e0b', '#8b5cf6', '#3b82f6', '#ef4
 
 export default function TaxBurden() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [cfg, setCfg] = useState(loadCfg);
   const [editOpen, setEditOpen] = useState(false);
   const [explainRec, setExplainRec] = useState(null);
@@ -136,7 +140,11 @@ export default function TaxBurden() {
   // Tributos importados/informados (IOF das faturas, informe de rendimento)
   const ledgerMonthQ = useQuery({ queryKey: ['tax-ledger', selMk], queryFn: () => TaxLedger.list({ reference_month: selMk }) });
   const ledgerYearQ = useQuery({ queryKey: ['tax-ledger-year', ano], queryFn: () => TaxLedger.list({ year: ano }) });
-  const iofConfirmado = useMemo(() => (ledgerMonthQ.data || []).filter((r) => r.kind === 'IOF').reduce((s, r) => s + Number(r.amount || 0), 0), [ledgerMonthQ.data]);
+  // IOF do mês: fatura importada (ledger) × linhas de IOF do cartão — sem dupla contagem
+  const iofConfirmado = useMemo(() => iofForMonth(selMk, ledgerMonthQ.data || [], ccQ.data || []), [ledgerMonthQ.data, ccQ.data, selMk]);
+  // Holerites: quando houver no mês, salário/INSS/IRRF vêm confirmados pelo documento
+  const payslipQ = useQuery({ queryKey: ['payslips'], queryFn: () => Payslip.list() });
+  const cfgMes = useMemo(() => salaryFromPayslips(cfg, payslipQ.data || [], selMk), [cfg, payslipQ.data, selMk]);
   const informeEntries = useMemo(() => (ledgerYearQ.data || []).filter((r) => r.source === 'informe'), [ledgerYearQ.data]);
   // Tributos das notas fiscais do mês (medidos por documento)
   const notesQ = useQuery({ queryKey: ['fiscal-notes'], queryFn: () => FiscalNote.list() });
@@ -150,7 +158,7 @@ export default function TaxBurden() {
   const gastosPorMes = useMemo(() => {
     const all = combineExpenses(txQ.data || [], ccQ.data || [])
       .filter((t) => t.type === 'expense' && Number(t.amount) > 0)
-      .filter((t) => !/\biof\b/i.test(t.description || '')); // IOF é tributo, não consumo (evita dupla contagem)
+      .filter((t) => !isIofText(t.description)); // IOF é tributo, não consumo (evita dupla contagem)
     const byMonth = {};
     for (const t of all) {
       const mk = String(t.date).slice(0, 7);
@@ -174,11 +182,12 @@ export default function TaxBurden() {
   const { records, resumo, rendaBruta } = useMemo(() => {
     const entrada = {
       ano, mes,
-      salarioBruto: n(cfg.salarioBruto),
+      salarioBruto: n(cfgMes.salarioBruto),
       dependentes: n(cfg.dependentes),
       deducoes: n(cfg.deducoes),
-      inssConfirmado: cfg.inssConfirmado === '' ? undefined : n(cfg.inssConfirmado),
-      irrfConfirmado: cfg.irrfConfirmado === '' ? undefined : n(cfg.irrfConfirmado),
+      inssConfirmado: cfgMes.inssConfirmado === '' ? undefined : n(cfgMes.inssConfirmado),
+      irrfConfirmado: cfgMes.irrfConfirmado === '' ? undefined : n(cfgMes.irrfConfirmado),
+      fonteSalario: cfgMes._fromPayslip ? `Holerite · ${cfgMes._payslip.companies.join(', ')}` : undefined,
       gastos: gastosSel,
       ipvaAnual: n(cfg.ipvaAnual),
       iptuAnual: n(cfg.iptuAnual),
@@ -186,9 +195,9 @@ export default function TaxBurden() {
       nfeConfirmado, // tributos das notas fiscais do mês
     };
     const recs = buildTaxRecords(entrada);
-    const rb = n(cfg.salarioBruto);
+    const rb = n(cfgMes.salarioBruto);
     return { records: recs, resumo: aggregate(recs, rb), rendaBruta: rb };
-  }, [cfg, gastosSel, ano, mes, iofConfirmado, nfeConfirmado]);
+  }, [cfg, cfgMes, gastosSel, ano, mes, iofConfirmado, nfeConfirmado]);
 
   // Histórico (6 ou 12 meses) — consumo real de cada mês + IOF/notas confirmados do mês
   const [range, setRange] = useState(6);
@@ -198,21 +207,22 @@ export default function TaxBurden() {
     for (let i = range - 1; i >= 0; i--) {
       const d = new Date(ano, mes - 1 - i, 1);
       const mk = monthKey(d);
-      const iofMk = (ledgerAllQ.data || []).filter((r) => r.kind === 'IOF' && r.reference_month === mk).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const iofMk = iofForMonth(mk, ledgerAllQ.data || [], ccQ.data || []);
+      const cm = salaryFromPayslips(cfg, payslipQ.data || [], mk);
       const nfeMk = (notesQ.data || []).filter((r) => String(r.reference_month || '') === mk).reduce((s, r) => s + Number(r.total_tax || 0), 0);
       const recs = buildTaxRecords({
         ano: d.getFullYear(), mes: d.getMonth() + 1,
-        salarioBruto: n(cfg.salarioBruto), dependentes: n(cfg.dependentes), deducoes: n(cfg.deducoes),
-        inssConfirmado: cfg.inssConfirmado === '' ? undefined : n(cfg.inssConfirmado),
-        irrfConfirmado: cfg.irrfConfirmado === '' ? undefined : n(cfg.irrfConfirmado),
+        salarioBruto: n(cm.salarioBruto), dependentes: n(cfg.dependentes), deducoes: n(cfg.deducoes),
+        inssConfirmado: cm.inssConfirmado === '' ? undefined : n(cm.inssConfirmado),
+        irrfConfirmado: cm.irrfConfirmado === '' ? undefined : n(cm.irrfConfirmado),
         gastos: mk === nowMk ? gastosSel : (gastosPorMes[mk] || []), ipvaAnual: n(cfg.ipvaAnual), iptuAnual: n(cfg.iptuAnual),
         iofLancado: iofMk, nfeConfirmado: nfeMk,
       });
-      const ag = aggregate(recs, n(cfg.salarioBruto));
+      const ag = aggregate(recs, n(cm.salarioBruto));
       arr.push({ mk, label: monthLabel(mk).split(' ')[0].slice(0, 3), total: ag.totalCarga, pct: ag.percentualCarga, confirmado: ag.totalConfirmado, estimado: ag.totalEstimado });
     }
     return arr;
-  }, [cfg, gastosPorMes, gastosSel, ano, mes, range, nowMk, ledgerAllQ.data, notesQ.data]);
+  }, [cfg, gastosPorMes, gastosSel, ano, mes, range, nowMk, ledgerAllQ.data, notesQ.data, ccQ.data, payslipQ.data]);
 
   const pieData = resumo.componentes.filter((c) => c.amount > 0).map((c) => ({ name: c.name, value: c.amount }));
 
@@ -279,6 +289,13 @@ export default function TaxBurden() {
         </div>
         <div className="h-9 w-px bg-[hsl(var(--border))] hidden sm:block" />
         <div><p className="text-xs text-muted flex items-center gap-1.5"><Coins className="w-3.5 h-3.5" /> Renda bruta</p><p className="font-semibold mt-0.5">{formatCurrency(rendaBruta)}</p></div>
+        <div className="h-9 w-px bg-[hsl(var(--border))] hidden sm:block" />
+        <button onClick={() => navigate('/salario-liquido#holerites')} className="text-left group" title="Abrir o banco de holerites em Salário Líquido">
+          <p className="text-xs text-muted flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5" /> Salário · fonte</p>
+          {cfgMes._fromPayslip
+            ? <p className="font-semibold mt-0.5 flex items-center gap-1.5 text-emerald-600 dark:text-emerald-300"><CheckCircle2 className="w-4 h-4" /> Holerite{cfgMes._payslip.count > 1 ? `s (${cfgMes._payslip.count})` : ''} · {cfgMes._payslip.companies.join(', ')}</p>
+            : <p className="font-semibold mt-0.5 text-muted group-hover:text-[hsl(var(--text))]">Meus dados · sem holerite no mês <span className="text-violet-500 text-xs">enviar →</span></p>}
+        </button>
         <div className="h-9 w-px bg-[hsl(var(--border))] hidden sm:block" />
         <div><p className="text-xs text-muted flex items-center gap-1.5"><Contact className="w-3.5 h-3.5" /> CPF</p><p className="font-semibold tabular-nums tracking-wide mt-0.5">{cpfLabel}</p></div>
       </div>
@@ -414,6 +431,11 @@ export default function TaxBurden() {
         footer={<Button onClick={() => setEditOpen(false)} className="w-full">Concluir</Button>}>
         <div className="space-y-3">
           <p className="text-xs text-muted">O cálculo é feito no seu dispositivo. INSS e IRRF são calculados pelas tabelas oficiais; se você tem o holerite, informe os valores descontados para marcá-los como <b>confirmados</b>.</p>
+          <p className={`text-xs rounded-xl px-3 py-2 ring-1 ${cfgMes._fromPayslip ? 'bg-emerald-500/10 ring-emerald-400/40' : 'bg-violet-500/10 ring-violet-400/40'}`}>
+            {cfgMes._fromPayslip
+              ? <>Em <b>{monthLabel(selMk)}</b> o salário ({formatCurrency(cfgMes._payslip.gross)}), o INSS ({formatCurrency(cfgMes._payslip.inss)}) e o IRRF ({formatCurrency(cfgMes._payslip.irrf)}) vêm do <b>holerite</b> — os campos abaixo valem para os meses sem holerite.</>
+              : <>Dica: guarde seus holerites em <button className="underline font-semibold" onClick={() => navigate('/salario-liquido#holerites')}>Salário Líquido</button> — a IA lê o PDF e os meses com holerite passam a usar os valores reais.</>}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Salário bruto (R$)"><Input inputMode="decimal" value={cfg.salarioBruto} onChange={(e) => save({ ...cfg, salarioBruto: e.target.value })} /></Field>
             <Field label="Dependentes"><Input inputMode="numeric" value={cfg.dependentes} onChange={(e) => save({ ...cfg, dependentes: e.target.value })} /></Field>
@@ -486,7 +508,7 @@ export default function TaxBurden() {
           </div>
 
           <SourceRow icon={Landmark} name="Receita Federal / SERPRO" desc="Integra Contador / Compartilha RFB — requer contrato e certificado." connected={false} disabled />
-          <SourceRow icon={Wallet} name="Folha de pagamento" desc="Você informa os valores do holerite em 'Meus dados'." connected={n(cfg.inssConfirmado) > 0} manual />
+          <SourceRow icon={Wallet} name="Folha de pagamento (holerites)" desc={(payslipQ.data || []).length ? `${(payslipQ.data || []).length} holerite(s) guardado(s) em Salário Líquido — INSS/IRRF confirmados nos meses com holerite.` : "Guarde seus holerites em Salário Líquido (a IA lê o PDF) ou informe os valores em 'Meus dados'."} connected={(payslipQ.data || []).length > 0 || n(cfg.inssConfirmado) > 0} manual />
           <SourceRow icon={Receipt} name="IBPT (consumo)" desc="Médias de referência para tributos embutidos em compras." connected manual />
         </div>
       </Modal>

@@ -40,6 +40,7 @@ export const BankRate = makeEntity('BankRate');
 export const TaxLedger = makeEntity('TaxLedger');
 export const FiscalNote = makeEntity('FiscalNote');
 export const UsageEvent = makeEntity('UsageEvent');
+export const Payslip = makeEntity('Payslip');
 
 export const Auth = {
   login: (email, password, code) => api.post('/api/auth/login', { email, password, code }),
@@ -100,6 +101,7 @@ export const Ai = {
   parseInforme: (pdfBase64, apiKey, year) => api.post('/api/ai/parse-informe', { pdfBase64, apiKey, year }),
   parseDanfe: (pdfBase64, apiKey, mimeType) => api.post('/api/ai/parse-danfe', { pdfBase64, apiKey, mimeType }),
   nfceSefaz: (url, apiKey) => api.post('/api/ai/nfce-sefaz', { url, apiKey }),
+  parsePayslip: (fileBase64, apiKey, mimeType) => api.post('/api/ai/parse-payslip', { fileBase64, apiKey, mimeType }),
 };
 
 export const Admin = {

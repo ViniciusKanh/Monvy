@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Landmark, CreditCard, FileText, PiggyBank, ChevronRight } from 'lucide-react';
+import { Landmark, CreditCard, FileText, PiggyBank, ChevronRight, Wallet } from 'lucide-react';
 import { Card } from './ui';
 import { Reveal } from './Animated.jsx';
 import { formatCurrency } from '../lib/utils.js';
-import { TaxLedger, FiscalNote } from '../api/entities.js';
+import { TaxLedger, FiscalNote, CreditCardTransaction, Payslip } from '../api/entities.js';
+import { iofForYear } from '../lib/cardTaxes.js';
 
 // Bloco do rodapé do Dashboard: tributos medidos por documento no ano
 // (IOF das faturas + notas fiscais + IR do informe). Link para a tela Impostos.
@@ -14,14 +15,18 @@ export function TaxMeasuredBlock({ variant = 'card' } = {}) {
   const year = new Date().getFullYear();
   const { data: ledger = [] } = useQuery({ queryKey: ['tax-ledger-all'], queryFn: () => TaxLedger.list() });
   const { data: notes = [] } = useQuery({ queryKey: ['fiscal-notes'], queryFn: () => FiscalNote.list() });
+  const { data: cardTxs = [] } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: payslips = [] } = useQuery({ queryKey: ['payslips'], queryFn: () => Payslip.list() });
 
   const d = useMemo(() => {
     const ys = String(year);
-    const iof = ledger.filter((r) => r.source === 'invoice' && r.kind === 'IOF' && String(r.reference_month || '').startsWith(ys)).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const iof = iofForYear(year, ledger, cardTxs);
     const ir = ledger.filter((r) => r.source === 'informe' && Number(r.year) === year).reduce((s, r) => s + Number(r.amount || 0), 0);
     const nfe = notes.filter((r) => String(r.reference_month || '').startsWith(ys)).reduce((s, r) => s + Number(r.total_tax || 0), 0);
-    return { iof, ir, nfe, total: iof + ir + nfe };
-  }, [ledger, notes, year]);
+    // INSS + IRRF dos holerites guardados (Salário Líquido)
+    const folha = payslips.filter((p) => String(p.competence || '').startsWith(ys)).reduce((s, p) => s + Number(p.inss || 0) + Number(p.irrf || 0), 0);
+    return { iof, ir, nfe, folha, total: iof + ir + nfe + folha };
+  }, [ledger, notes, year, cardTxs, payslips]);
 
   if (d.total <= 0) return null;
   const pct = (v) => (d.total > 0 ? (v / d.total) * 100 : 0);
@@ -35,11 +40,13 @@ export function TaxMeasuredBlock({ variant = 'card' } = {}) {
           <div style={{ width: `${pct(d.iof)}%`, background: '#6d28d9' }} />
           <div style={{ width: `${pct(d.nfe)}%`, background: '#059669' }} />
           <div style={{ width: `${pct(d.ir)}%`, background: '#2563eb' }} />
+          <div style={{ width: `${pct(d.folha)}%`, background: '#ec4899' }} />
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px]">
           <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-300"><CreditCard className="w-3 h-3" /> IOF {formatCurrency(d.iof)}</span>
           <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-300"><FileText className="w-3 h-3" /> Notas {formatCurrency(d.nfe)}</span>
           <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-300"><PiggyBank className="w-3 h-3" /> IR {formatCurrency(d.ir)}</span>
+          {d.folha > 0 && <span className="inline-flex items-center gap-1 text-pink-600 dark:text-pink-300"><Wallet className="w-3 h-3" /> Holerites {formatCurrency(d.folha)}</span>}
         </div>
       </button>
     );
@@ -57,11 +64,13 @@ export function TaxMeasuredBlock({ variant = 'card' } = {}) {
           <div style={{ width: `${pct(d.iof)}%`, background: '#6d28d9' }} />
           <div style={{ width: `${pct(d.nfe)}%`, background: '#059669' }} />
           <div style={{ width: `${pct(d.ir)}%`, background: '#2563eb' }} />
+          <div style={{ width: `${pct(d.folha)}%`, background: '#ec4899' }} />
         </div>
         <div className="flex flex-wrap gap-4 mt-3 text-sm">
           <span className="inline-flex items-center gap-1.5 text-violet-600"><CreditCard className="w-4 h-4" /> IOF {formatCurrency(d.iof)}</span>
           <span className="inline-flex items-center gap-1.5 text-emerald-600"><FileText className="w-4 h-4" /> Notas {formatCurrency(d.nfe)}</span>
           <span className="inline-flex items-center gap-1.5 text-blue-600"><PiggyBank className="w-4 h-4" /> IR {formatCurrency(d.ir)}</span>
+          {d.folha > 0 && <span className="inline-flex items-center gap-1.5 text-pink-600"><Wallet className="w-4 h-4" /> Holerites (INSS+IRRF) {formatCurrency(d.folha)}</span>}
         </div>
       </Card>
     </Reveal>

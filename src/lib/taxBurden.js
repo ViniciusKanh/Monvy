@@ -145,7 +145,7 @@ export function buildTaxRecords(entrada = {}) {
       source: confirmado ? SOURCE.payroll : SOURCE.calculated,
       status: confirmado ? STATUS.confirmed : STATUS.estimated,
       available: true, lastUpdatedAt: at,
-      meta: { base: inssCalc.base, aliquotaEfetiva: inssCalc.aliquotaEfetiva, ano: inssCalc.ano, fonte: inssCalc.fonte },
+      meta: { base: inssCalc.base, aliquotaEfetiva: inssCalc.aliquotaEfetiva, ano: inssCalc.ano, fonte: confirmado && entrada.fonteSalario ? entrada.fonteSalario : inssCalc.fonte, calculado: inssCalc.valor },
     });
   } else {
     records.push({ id: `inss-${ref}`, key: 'inss', name: 'INSS', amount: 0, referenceMonth: ref, source: SOURCE.calculated, status: STATUS.estimated, available: false, lastUpdatedAt: at, meta: { fonte: 'Sem salario informado' } });
@@ -163,7 +163,7 @@ export function buildTaxRecords(entrada = {}) {
       source: confirmado ? SOURCE.payroll : SOURCE.calculated,
       status: confirmado ? STATUS.confirmed : STATUS.estimated,
       available: true, lastUpdatedAt: at,
-      meta: { base: irrfCalc.base, aliquota: irrfCalc.aliquota, aliquotaEfetiva: irrfCalc.aliquotaEfetiva, fonte: irrfCalc.fonte, isento: valor <= 0 },
+      meta: { base: irrfCalc.base, aliquota: irrfCalc.aliquota, aliquotaEfetiva: irrfCalc.aliquotaEfetiva, fonte: confirmado && entrada.fonteSalario ? entrada.fonteSalario : irrfCalc.fonte, isento: valor <= 0, calculado: irrfCalc.valor },
     });
   } else {
     records.push({ id: `irrf-${ref}`, key: 'irrf', name: 'IRRF', amount: 0, referenceMonth: ref, source: SOURCE.calculated, status: STATUS.estimated, available: false, lastUpdatedAt: at, meta: { fonte: 'Sem salario informado' } });

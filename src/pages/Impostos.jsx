@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Landmark, CreditCard, FileText, ChevronRight, Store, Info, PieChart as PieIcon, BarChart3, Layers, Search, CalendarDays, ChevronDown } from 'lucide-react';
+import { Landmark, CreditCard, FileText, ChevronRight, Store, Info, PieChart as PieIcon, BarChart3, Layers, Search, CalendarDays, ChevronDown, Wallet } from 'lucide-react';
 import { Card, Button, Spinner, EmptyState } from '../components/ui';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { TaxIllustration } from '../components/tax/TaxArt.jsx';
 import { formatCurrency, MONTHS_PT, monthKey } from '../lib/utils.js';
-import { TaxLedger, FiscalNote } from '../api/entities.js';
+import { TaxLedger, FiscalNote, CreditCardTransaction, CreditCard as CardEntity, Payslip } from '../api/entities.js';
+import { iofEntries } from '../lib/cardTaxes.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceDot } from 'recharts';
 
 const NF_TAX = { iss: 'ISS', icms: 'ICMS', ipi: 'IPI', ii: 'II', pis: 'PIS', cofins: 'COFINS', irrf: 'IRRF', csll: 'CSLL', inss: 'INSS', ibs: 'IBS', cbs: 'CBS', issqn: 'ISS', fcp: 'FCP' };
@@ -30,18 +31,27 @@ export default function Impostos() {
 
   const { data: ledger = [], isLoading: l1 } = useQuery({ queryKey: ['tax-ledger-all'], queryFn: () => TaxLedger.list() });
   const { data: notes = [], isLoading: l2 } = useQuery({ queryKey: ['fiscal-notes'], queryFn: () => FiscalNote.list() });
-  const loading = l1 || l2;
+  const { data: cardTxs = [], isLoading: l3 } = useQuery({ queryKey: ['cardtx'], queryFn: () => CreditCardTransaction.list() });
+  const { data: cards = [] } = useQuery({ queryKey: ['cards'], queryFn: () => CardEntity.list() });
+  const { data: payslips = [] } = useQuery({ queryKey: ['payslips'], queryFn: () => Payslip.list() });
+  const loading = l1 || l2 || l3;
+  // IOF consolidado (fatura importada × linhas de IOF no cartão, sem dupla contagem)
+  const iofAll = useMemo(() => iofEntries(ledger, cardTxs, { cardNames: Object.fromEntries(cards.map((c) => [c.id, c.name])) }), [ledger, cardTxs, cards]);
 
   const data = useMemo(() => {
     const ys = String(year);
-    const iof = ledger.filter((r) => r.source === 'invoice' && r.kind === 'IOF' && String(r.reference_month || '').startsWith(ys));
+    const iof = iofAll.filter((r) => String(r.mk || '').startsWith(ys));
+    const folha = payslips.filter((p) => String(p.competence || '').startsWith(ys));
     const informe = ledger.filter((r) => r.source === 'informe' && Number(r.year) === year);
     const nfe = notes.filter((r) => String(r.reference_month || '').startsWith(ys));
 
     const iofTotal = iof.reduce((s, r) => s + Number(r.amount || 0), 0);
     const informeTotal = informe.reduce((s, r) => s + Number(r.amount || 0), 0);
     const nfeTotal = nfe.reduce((s, r) => s + Number(r.total_tax || 0), 0);
-    const total = iofTotal + informeTotal + nfeTotal;
+    const inssTotal = folha.reduce((s, p) => s + Number(p.inss || 0), 0);
+    const irrfTotal = folha.reduce((s, p) => s + Number(p.irrf || 0), 0);
+    const folhaTotal = inssTotal + irrfTotal;
+    const total = iofTotal + informeTotal + nfeTotal + folhaTotal;
 
     // composição por tipo: tributos destacados nas notas (ISS, CBS, IBS...) + IOF + IR;
     // o que a nota só traz como "aproximado" (IBPT) entra em "Outros"
@@ -55,6 +65,8 @@ export default function Impostos() {
       }
     }
     if (iofTotal > 0) byType.IOF = iofTotal;
+    if (inssTotal > 0) byType.INSS = (byType.INSS || 0) + inssTotal;
+    if (irrfTotal > 0) byType.IRRF = (byType.IRRF || 0) + irrfTotal;
     if (informeTotal > 0) byType['IR (investimentos)'] = informeTotal;
     const outrosNfe = Math.max(0, nfeTotal - explicitNfe);
     let typeArr = Object.entries(byType).map(([name, value]) => ({ name, value })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
@@ -71,29 +83,32 @@ export default function Impostos() {
       { key: 'nota', name: 'Nota fiscal', icon: FileText, value: nfeTotal, color: '#2dd4bf' },
       { key: 'fatura', name: 'Fatura / cartão (IOF)', icon: CreditCard, value: iofTotal, color: '#8b5cf6' },
       { key: 'informe', name: 'Investimentos (IR)', icon: BarChart3, value: informeTotal, color: '#38bdf8' },
+      { key: 'folha', name: 'Holerites (INSS + IRRF)', icon: Wallet, value: folhaTotal, color: '#ec4899' },
     ];
 
     const events = [
       ...nfe.map((r) => ({ id: `n${r.id}`, origin: 'Nota fiscal', kind: r.note_type === 'servico' || r.note_type === 'serviço' ? 'Serviço' : 'Consumo', label: r.emitter || 'Nota fiscal', mk: r.reference_month, date: r.issued_date, amount: Number(r.total_tax || 0) })),
-      ...iof.map((r) => ({ id: `i${r.id}`, origin: 'Fatura', kind: 'IOF', label: r.origin_label || 'Fatura do cartão', mk: r.reference_month, date: null, amount: Number(r.amount || 0) })),
+      ...iof.map((r) => ({ id: `i${r.key}`, origin: 'Fatura', kind: 'IOF', label: `${r.label}${r.via === 'lançamentos' ? ' · lançamentos' : ''}`, mk: r.mk, date: null, amount: r.amount })),
+      ...folha.map((p) => ({ id: `h${p.id}`, origin: 'Holerite', kind: 'INSS + IRRF', label: p.company || 'Holerite', mk: p.competence, date: p.pay_date || null, amount: Number(p.inss || 0) + Number(p.irrf || 0) })),
       ...informe.map((r) => ({ id: `r${r.id}`, origin: 'Informe', kind: 'IR', label: r.origin_label || 'Informe de rendimentos', mk: `${r.year}`, date: null, amount: Number(r.amount || 0) })),
     ].sort((a, b) => String(b.date || b.mk).localeCompare(String(a.date || a.mk)));
 
-    return { total, iofTotal, informeTotal, nfeTotal, typeArr, topEmitters, sources, events, hasData: total > 0 };
-  }, [ledger, notes, year]);
+    return { total, iofTotal, informeTotal, nfeTotal, folhaTotal, typeArr, topEmitters, sources, events, hasData: total > 0 };
+  }, [ledger, notes, year, iofAll, payslips]);
 
-  // evolução mensal (IOF + notas) — janela móvel que termina no mês atual (ou dez/ano escolhido)
+  // evolução mensal (IOF + notas + holerites) — janela móvel que termina no mês atual (ou dez/ano escolhido)
   const evolution = useMemo(() => {
     const end = year === nowY ? new Date() : new Date(year, 11, 1);
     const arr = [];
     for (let i = range - 1; i >= 0; i--) {
       const d = new Date(end.getFullYear(), end.getMonth() - i, 1); const mk = monthKey(d);
       const nf = notes.filter((r) => r.reference_month === mk).reduce((s, r) => s + Number(r.total_tax || 0), 0);
-      const io = ledger.filter((r) => r.source === 'invoice' && r.kind === 'IOF' && r.reference_month === mk).reduce((s, r) => s + Number(r.amount || 0), 0);
-      arr.push({ mk, name: MES[d.getMonth()], v: Math.round((nf + io) * 100) / 100 });
+      const io = iofAll.filter((r) => r.mk === mk).reduce((s, r) => s + r.amount, 0);
+      const fo = payslips.filter((p) => p.competence === mk).reduce((s, p) => s + Number(p.inss || 0) + Number(p.irrf || 0), 0);
+      arr.push({ mk, name: MES[d.getMonth()], v: Math.round((nf + io + fo) * 100) / 100 });
     }
     return arr;
-  }, [notes, ledger, range, year, nowY]);
+  }, [notes, iofAll, payslips, range, year, nowY]);
   const lastEvo = evolution[evolution.length - 1];
 
   const monthsInEvents = useMemo(() => [...new Set(data.events.map((e) => e.mk).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort().reverse(), [data.events]);
@@ -114,7 +129,7 @@ export default function Impostos() {
           <Landmark className="w-12 h-12 text-teal-400 shrink-0 mt-1" strokeWidth={1.6} />
           <div>
             <h1 className="font-display text-3xl sm:text-4xl font-bold leading-tight">Impostos</h1>
-            <p className="text-sm text-muted mt-1">O Monvy acompanha tributos mensuráveis de notas fiscais, IOF do cartão e IR dos investimentos.</p>
+            <p className="text-sm text-muted mt-1">O Monvy acompanha tributos mensuráveis de notas fiscais, IOF do cartão, holerites (INSS/IRRF) e IR dos investimentos.</p>
             <div className="h-1 w-14 rounded-full mt-2.5 bg-gradient-to-r from-teal-400 to-sky-500" />
           </div>
         </div>
@@ -130,12 +145,13 @@ export default function Impostos() {
         <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 200" preserveAspectRatio="none" aria-hidden><path d="M520 200 C640 120 700 170 790 90 C860 30 930 60 1000 20 L1000 200 Z" fill="rgba(45,212,191,.16)" /><path d="M600 200 C700 150 760 190 850 120 C910 75 960 100 1000 80 L1000 200 Z" fill="rgba(45,212,191,.12)" /></svg>
         <div className="relative grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 p-6 items-center">
           <div className="min-w-0">
-            <p className="text-slate-200 flex items-center gap-2">Tributos medidos em {year} <span title="Valores confirmados por documento: tributos das notas fiscais, IOF das faturas importadas e IR do informe de rendimentos." className="text-slate-400 hover:text-white cursor-help"><Info className="w-4 h-4" /></span></p>
+            <p className="text-slate-200 flex items-center gap-2">Tributos medidos em {year} <span title="Valores confirmados por documento: tributos das notas fiscais, IOF das faturas do cartão, INSS/IRRF dos holerites e IR do informe de rendimentos." className="text-slate-400 hover:text-white cursor-help"><Info className="w-4 h-4" /></span></p>
             <p className="font-display text-[clamp(2.4rem,3.6vw,3.6rem)] font-extrabold leading-none mt-2 whitespace-nowrap"><AnimatedValue value={data.total} format={formatCurrency} /></p>
             <div className="flex flex-wrap gap-3 mt-5">
               <HeroChip icon={CreditCard} label="IOF" value={data.iofTotal} />
               <HeroChip icon={FileText} label="Notas fiscais" value={data.nfeTotal} />
               <HeroChip icon={BarChart3} label="IR" value={data.informeTotal} />
+              {data.folhaTotal > 0 && <HeroChip icon={Wallet} label="Holerites" value={data.folhaTotal} />}
             </div>
           </div>
           <div className="flex items-center gap-4 lg:pl-6 lg:border-l border-white/10 min-w-0">
@@ -230,7 +246,7 @@ export default function Impostos() {
               <div className="flex flex-wrap gap-2">
                 <div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar lançamento..." className="input-base !py-2 !pl-9 !w-60" /></div>
                 <FilterSelect icon={CalendarDays} value={monthF} onChange={setMonthF} options={[['all', 'Todos os meses'], ...monthsInEvents.map((m) => [m, mkLabel(m)])]} label="Mês" />
-                <FilterSelect icon={Layers} value={originF} onChange={setOriginF} options={[['all', 'Todas as origens'], ['Nota fiscal', 'Nota fiscal'], ['Fatura', 'Fatura (IOF)'], ['Informe', 'Investimentos (IR)']]} label="Origem" />
+                <FilterSelect icon={Layers} value={originF} onChange={setOriginF} options={[['all', 'Todas as origens'], ['Nota fiscal', 'Nota fiscal'], ['Fatura', 'Fatura (IOF)'], ['Informe', 'Investimentos (IR)'], ['Holerite', 'Holerites (INSS+IRRF)']]} label="Origem" />
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -241,8 +257,8 @@ export default function Impostos() {
                 <tbody>
                   {rows.length === 0 ? <tr><td colSpan={4} className="text-center text-muted py-8">Nenhum lançamento com esses filtros.</td></tr> : rows.map((e) => (
                     <tr key={e.id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
-                      <td className="px-4 py-2.5"><span className="flex items-center gap-3 min-w-0">{e.origin === 'Fatura' ? <CreditCard className="w-4 h-4 text-violet-400 shrink-0" /> : e.origin === 'Informe' ? <BarChart3 className="w-4 h-4 text-sky-400 shrink-0" /> : <Store className="w-4 h-4 text-violet-400 shrink-0" />}<span className="truncate max-w-[340px]">{e.label}</span></span></td>
-                      <td className="px-4 py-2.5 whitespace-nowrap"><span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold mr-2 ${e.origin === 'Fatura' ? 'bg-violet-500/15 text-violet-500 dark:text-violet-300' : e.origin === 'Informe' ? 'bg-sky-500/15 text-sky-600 dark:text-sky-300' : 'bg-blue-500/15 text-blue-600 dark:text-blue-300'}`}>{e.origin}</span><span className="text-muted text-xs">{e.kind}</span></td>
+                      <td className="px-4 py-2.5"><span className="flex items-center gap-3 min-w-0">{e.origin === 'Fatura' ? <CreditCard className="w-4 h-4 text-violet-400 shrink-0" /> : e.origin === 'Holerite' ? <Wallet className="w-4 h-4 text-pink-400 shrink-0" /> : e.origin === 'Informe' ? <BarChart3 className="w-4 h-4 text-sky-400 shrink-0" /> : <Store className="w-4 h-4 text-violet-400 shrink-0" />}<span className="truncate max-w-[340px]">{e.label}</span></span></td>
+                      <td className="px-4 py-2.5 whitespace-nowrap"><span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold mr-2 ${e.origin === 'Fatura' ? 'bg-violet-500/15 text-violet-500 dark:text-violet-300' : e.origin === 'Holerite' ? 'bg-pink-500/15 text-pink-600 dark:text-pink-300' : e.origin === 'Informe' ? 'bg-sky-500/15 text-sky-600 dark:text-sky-300' : 'bg-blue-500/15 text-blue-600 dark:text-blue-300'}`}>{e.origin}</span><span className="text-muted text-xs">{e.kind}</span></td>
                       <td className="px-4 py-2.5 whitespace-nowrap text-muted text-xs">{mkLabel(e.mk)}{e.date ? ` • ${brDate(e.date)}` : ''}</td>
                       <td className="px-4 py-2.5 text-right font-bold whitespace-nowrap">{formatCurrency(e.amount)}</td>
                     </tr>

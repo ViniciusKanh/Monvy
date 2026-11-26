@@ -3,9 +3,10 @@ import parseInforme from '../_handlers/ai_parse_informe.js';
 import parseDanfe from '../_handlers/ai_parse_danfe.js';
 import assistant from '../_handlers/ai_assistant.js';
 import nfceSefaz from '../_handlers/ai_nfce_sefaz.js';
+import parsePayslip from '../_handlers/ai_parse_payslip.js';
 import { sendJson } from '../_lib/auth.js';
 
-const map = { 'parse-invoice': parseInvoice, 'parse-informe': parseInforme, 'parse-danfe': parseDanfe, 'nfce-sefaz': nfceSefaz, assistant };
+const map = { 'parse-invoice': parseInvoice, 'parse-informe': parseInforme, 'parse-danfe': parseDanfe, 'nfce-sefaz': nfceSefaz, 'parse-payslip': parsePayslip, assistant };
 export default function handler(req, res) {
   const parts = (req.url || '').split('?')[0].split('/').filter(Boolean);
   const i = parts.indexOf('ai');

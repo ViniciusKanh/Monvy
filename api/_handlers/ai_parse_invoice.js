@@ -49,7 +49,15 @@ ATENCAO: NAO confunda "Antecipada - <loja> - Parcela X/N" (ignore, e antecipacao
 Para cada item: date (YYYY-MM-DD), description curta e limpa (remova " - Parcela x/y"), amount, category (a melhor entre: ${catList.join(', ') || 'Alimentacao, Transporte, Compras, Lazer, Saude, Assinaturas, Estorno, Outros'}), installment_current e installments_total (ex 2/10; senao 1/1).
 Informe "invoice_total" = o valor de "Total a pagar" do resumo da fatura.
 
-Responda SO JSON: {"invoice_total":0,"items":[{"date":"YYYY-MM-DD","description":"","amount":0,"category":"","installment_current":1,"installments_total":1}]}`;
+IMPOSTOS DA FATURA (muito importante — leia a fatura INTEIRA, inclusive resumo, "encargos", "outros lancamentos", "despesas", rodape e pagina de financiamento):
+- O IOF aparece com varios nomes: "IOF", "I.O.F.", "IOF de \"<loja>\"", "IOF compra internacional", "IOF transacoes exterior", "IOF diario", "IOF adicional", "IOF financiamento", "IOF rotativo", "IOF parcelamento de fatura", "Imp. s/ Op. Financeiras", "Imposto sobre Operacoes Financeiras".
+- Liste CADA cobranca de IOF em "taxes" com {"kind":"IOF","subtype":"internacional|rotativo|parcelamento|financiamento|outro","description":"texto como na fatura","amount":valor_positivo,"date":"YYYY-MM-DD ou vazio"}.
+- Se o resumo trouxer um TOTAL de IOF (ex.: "IOF: R$ 4,32" ou dentro de "Encargos"), informe em "iof_total_declared". Se nao houver, use 0.
+- Linhas de IOF que estao na lista de transacoes TAMBEM continuam em "items" (como compra, category "Impostos" se existir, senao "Outros").
+- Juros, multa, mora e encargos de rotativo NAO sao impostos: coloque a soma deles em "encargos_total" (contexto), nunca em "taxes".
+- NAO invente impostos: se a fatura nao tiver IOF, devolva "taxes": [] e 0.
+
+Responda SO JSON: {"invoice_total":0,"iof_total_declared":0,"encargos_total":0,"taxes":[{"kind":"IOF","subtype":"","description":"","amount":0,"date":""}],"items":[{"date":"YYYY-MM-DD","description":"","amount":0,"category":"","installment_current":1,"installments_total":1}]}`;
 
     const payload = {
       contents: [{
@@ -96,9 +104,22 @@ Responda SO JSON: {"invoice_total":0,"items":[{"date":"YYYY-MM-DD","description"
       const declaredTotal = Number(parsed.invoice_total) || null;
       // IOF da fatura: soma todas as linhas de IOF (compra internacional etc.),
       // reconhecendo variacoes de nome. Alimenta a Carga Tributaria (confirmado).
-      const iofRe = /\biof\b|imposto sobre opera/i;
-      const iof_total = Math.round(items.filter((it) => iofRe.test(it.description)).reduce((s, it) => s + Math.abs(it.amount), 0) * 100) / 100;
-      return sendJson(res, 200, { items, total, declaredTotal, iof_total, model: m });
+      // Tres fontes, sem dupla contagem: (1) linhas de IOF entre as compras,
+      // (2) lista "taxes" que a IA levantou na fatura inteira (resumo/encargos),
+      // (3) total de IOF declarado no resumo. Fica o MAIOR (sao visoes do mesmo imposto).
+      const iofRe = /\bi\.?\s?o\.?\s?f\b|imposto sobre opera|imp\.?\s*s\/?\s*op/i;
+      const r2 = (v) => Math.round(v * 100) / 100;
+      const iofItems = items.filter((it) => iofRe.test(it.description));
+      const fromItems = r2(iofItems.reduce((s, it) => s + Math.abs(it.amount), 0));
+      const taxes = (Array.isArray(parsed.taxes) ? parsed.taxes : [])
+        .map((t) => ({ kind: 'IOF', subtype: String(t.subtype || 'outro').toLowerCase(), description: String(t.description || 'IOF').trim(), amount: r2(Math.abs(Number(t.amount) || 0)), date: t.date || '' }))
+        .filter((t) => t.amount > 0 && (String(t.kind || 'IOF').toUpperCase() === 'IOF'));
+      const fromTaxes = r2(taxes.reduce((s, t) => s + t.amount, 0));
+      const declaredIof = r2(Math.abs(Number(parsed.iof_total_declared) || 0));
+      const iof_total = Math.max(fromItems, fromTaxes, declaredIof);
+      const iof_source = iof_total === 0 ? 'none' : iof_total === declaredIof ? 'resumo' : iof_total === fromTaxes ? 'ia' : 'itens';
+      const encargos_total = r2(Math.abs(Number(parsed.encargos_total) || 0));
+      return sendJson(res, 200, { items, total, declaredTotal, iof_total, iof_source, iof_breakdown: { itens: fromItems, ia: fromTaxes, resumo: declaredIof }, taxes, encargos_total, model: m });
     }
     return sendJson(res, 502, { error: 'Nao consegui usar o Gemini. Verifique se a chave e valida e tem acesso a um modelo Flash. Detalhe: ' + (firstErr || 'sem modelos disponiveis') });
   } catch (e) {

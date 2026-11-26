@@ -10,6 +10,7 @@ import { formatCurrency, monthKey, monthLabel, todayIso } from '../lib/utils.js'
 import { colorAt } from '../lib/analytics.js';
 import { buildCategoryIndex, predictCategory } from '../lib/categoryPredictor.js';
 import { isStaleChunkError, reloadOnceForFreshVersion } from '../lib/staleChunk.js';
+import { isIofText } from '../lib/cardTaxes.js';
 import { Plus, CreditCard as CardIcon, ChevronLeft, ChevronRight, Pencil, Trash2, Sparkles, FileText, CheckCircle2, Wallet, AlertTriangle, Nfc, CalendarClock, ShieldCheck, KeyRound, Receipt, Gauge, CalendarDays, Target, Layers, BarChart3, Settings2, PieChart as PieIcon, Tag, TrendingUp, ArrowRight, SlidersHorizontal } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -127,13 +128,13 @@ export default function CreditCards() {
     });
   }
   // abre o modal de revisão com as compras lidas (o usuário confere/desmarca antes de salvar)
-  function openReview(items, source, declaredTotal, iofHint) {
+  function openReview(items, source, declaredTotal, iofHint, taxInfo = null) {
     const clean = cleanInvoiceItems(items);
     if (!clean.length) { toast.error('Não encontrei compras válidas na fatura.'); return; }
     const mapped = clean
       .sort((a, b) => b.amount - a.amount) // compras primeiro, estornos no fim
       .map((it, i) => { const est = it.amount < 0; return { ...it, _k: i, _estorno: est, include: !est, category: est ? 'Estorno de Cartão de Crédito' : it.category }; });
-    setReview({ source, declaredTotal: declaredTotal || null, iofHint: Number(iofHint) || 0, items: mapped });
+    setReview({ source, declaredTotal: declaredTotal || null, iofHint: Number(iofHint) || 0, taxInfo, items: mapped });
   }
 
   const commitReview = useMutation({
@@ -154,17 +155,17 @@ export default function CreditCards() {
       if (rows.length) await CreditCardTransaction.bulkCreate(rows);
       // Captura o IOF da fatura (tributo confirmado) para a Carga Tributária.
       // Guarda 1 registro por cartão+mês (regrava se reimportar).
-      const iofFromItems = chosen.filter((it) => /\biof\b|imposto sobre opera/i.test(it.description || '')).reduce((s, it) => s + Math.abs(Number(it.amount) || 0), 0);
-      const iofTotal = (Number(review?.iofHint) > 0 ? Number(review.iofHint) : iofFromItems);
+      const iofFromItems = chosen.filter((it) => isIofText(it.description)).reduce((s, it) => s + Math.abs(Number(it.amount) || 0), 0);
+      const iofTotal = Math.max(Number(review?.iofHint) || 0, iofFromItems);
       try {
         const existentes = await TaxLedger.list({ source: 'invoice', origin_id: selected.id, reference_month: mk });
         for (const e of (existentes || [])) await TaxLedger.remove(e.id);
-        if (iofTotal > 0) await TaxLedger.create({ kind: 'IOF', amount: Number(iofTotal.toFixed(2)), reference_month: mk, year: Number(mk.slice(0, 4)), source: 'invoice', origin_kind: 'card', origin_id: selected.id, origin_label: selected.name || 'Cartão', meta: { via: review?.source || 'import' } });
+        if (iofTotal > 0) await TaxLedger.create({ kind: 'IOF', amount: Number(iofTotal.toFixed(2)), reference_month: mk, year: Number(mk.slice(0, 4)), source: 'invoice', origin_kind: 'card', origin_id: selected.id, origin_label: selected.name || 'Cartão', meta: { via: review?.source || 'import', fonte: review?.taxInfo?.iof_source || (iofFromItems > 0 ? 'itens' : 'ia'), itens: Number(iofFromItems.toFixed(2)), taxes: review?.taxInfo?.taxes || [] } });
       } catch { /* ledger é complementar; não bloqueia a importação */ }
       await Cards.generateInvoices();
       return rows.length;
     },
-    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success(`${n} lançamento(s) importado(s).`); setReview(null); },
+    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ['cardtx'] }); qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ predicate: (q) => String(q.queryKey?.[0] || '').startsWith('tax-') }); toast.success(`${n} lançamento(s) importado(s).`); setReview(null); },
   });
   async function handleInvoiceFile(e) {
     const file = e.target.files?.[0]; e.target.value = '';
@@ -177,8 +178,8 @@ export default function CreditCards() {
         toast.info('Lendo a fatura com IA...');
         try {
           const base64 = await fileToBase64(file);
-          const { items = [], declaredTotal, iof_total } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
-          if (items.length) { openReview(items, 'IA', declaredTotal, iof_total); setImporting(false); return; }
+          const { items = [], declaredTotal, iof_total, iof_source, taxes = [], encargos_total = 0 } = await Ai.parseInvoice(base64, apiKey, categories.map((c) => ({ id: c.id, name: c.name })));
+          if (items.length) { openReview(items, 'IA', declaredTotal, iof_total, { iof_source, taxes, encargos_total }); setImporting(false); return; }
           toast.info('A IA não encontrou lançamentos — tentando leitura local...');
         } catch (aiErr) {
           toast.info('IA indisponível (' + (aiErr.message || 'erro') + ') — tentando leitura local...');
@@ -440,6 +441,24 @@ export default function CreditCards() {
                   <Button size="sm" variant="outline" onClick={() => setAll(false)}>Limpar</Button>
                 </div>
               </div>
+              {(() => {
+                const iofItens = sel.filter((i) => isIofText(i.description)).reduce((s, i) => s + Math.abs(i.amount), 0);
+                const iof = Math.max(review.iofHint || 0, iofItens);
+                const taxes = review.taxInfo?.taxes || [];
+                const enc = Number(review.taxInfo?.encargos_total) || 0;
+                return (
+                  <div className={`rounded-xl p-3 text-xs border ${iof > 0 ? 'border-violet-400/40 bg-violet-500/10' : 'border-[hsl(var(--border))] bg-black/5 dark:bg-white/5'}`}>
+                    <p className="font-semibold flex items-center gap-1.5"><Receipt className="w-3.5 h-3.5 text-violet-500" /> Impostos da fatura → Minha Carga Tributária</p>
+                    {iof > 0 ? (
+                      <>
+                        <p className="mt-1">IOF identificado: <b>{formatCurrency(iof)}</b>{review.taxInfo?.iof_source === 'resumo' ? ' (total do resumo da fatura)' : review.taxInfo?.iof_source === 'ia' ? ' (encontrado pela IA na fatura inteira)' : ' (linhas de IOF entre as compras)'} · entra como tributo <b>confirmado</b> de {monthLabel(mk)}.</p>
+                        {taxes.length > 0 && <ul className="mt-1.5 space-y-0.5 text-muted">{taxes.slice(0, 6).map((t, i) => <li key={i} className="flex justify-between gap-3"><span className="truncate">{t.description}{t.subtype && t.subtype !== 'outro' ? ` · ${t.subtype}` : ''}</span><span className="tabular-nums">{formatCurrency(t.amount)}</span></li>)}</ul>}
+                      </>
+                    ) : <p className="mt-1 text-muted">Nenhum IOF encontrado nesta fatura{review.source === 'local' ? ' (leitura local — com a chave de IA a leitura dos encargos é mais completa)' : ''}.</p>}
+                    {enc > 0 && <p className="mt-1 text-muted">Juros/encargos de {formatCurrency(enc)} não são imposto e não entram na carga tributária.</p>}
+                  </div>
+                );
+              })()}
               {review.declaredTotal != null && !bate && <p className="text-xs text-muted">Se houver parcelas antecipadas na fatura, a soma pode não fechar exatamente — marque os estornos abaixo para se aproximar do total a pagar.</p>}
               <div className="max-h-[52vh] overflow-y-auto divide-y divide-[hsl(var(--border))] rounded-xl border border-[hsl(var(--border))]">
                 {review.items.map((it) => (

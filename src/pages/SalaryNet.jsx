@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Input } from '../components/ui';
 import { AnimatedValue } from '../components/Animated.jsx';
-import { HeroTitle, Panel, Donut } from '../components/kit.jsx';
+import { HeroTitle, Panel, Donut, GlowButton } from '../components/kit.jsx';
+import { PayslipBank } from '../components/payslips/PayslipBank.jsx';
 import { PayslipArt } from '../components/art/PageArt.jsx';
-import { formatCurrency } from '../lib/utils.js';
+import { formatCurrency, monthLabel } from '../lib/utils.js';
 import { DEFAULT_TAX, aplicarTabela } from '../lib/tax.js';
-import { Wallet, Receipt, ShieldCheck, Layers, Calculator, Settings2, Banknote, Users, Tag, Info, BarChart3, PieChart, Equal } from 'lucide-react';
+import { Wallet, Receipt, ShieldCheck, Layers, Calculator, Settings2, Banknote, Users, Tag, Info, BarChart3, PieChart, Equal, FolderOpen, Scale, X } from 'lucide-react';
 
 const n = (v) => { const x = Number(String(v).replace(',', '.')); return Number.isFinite(x) ? x : 0; };
 const money = (v) => formatCurrency(v);
@@ -32,6 +33,8 @@ export default function SalaryNet() {
   const [bruto, setBruto] = useState(init.bruto ?? '3000');
   const [dep, setDep] = useState(init.dep ?? '0');
   const [outros, setOutros] = useState(init.outros ?? '');
+  useEffect(() => { if (window.location.hash === '#holerites') setTimeout(() => document.getElementById('holerites')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400); }, []);
+  const [slip, setSlip] = useState(null); // holerite usado na simulação (conferência real × calculado)
   const persist = (o) => { try { localStorage.setItem(LS, JSON.stringify({ bruto, dep, outros, ...o })); } catch { /* */ } };
 
   const r = useMemo(() => {
@@ -66,12 +69,43 @@ export default function SalaryNet() {
     [Receipt, '(−) IRRF', -r.irrf, 'text-rose-500 dark:text-rose-400'],
     [Tag, '(−) Outros descontos', -r.out, 'text-rose-500 dark:text-rose-400'],
   ];
+  const useSlip = (h) => {
+    const v = { bruto: String(h.gross || 0), dep: String(h.dependents || 0), outros: String(h.other_deductions || '') };
+    setBruto(v.bruto); setDep(v.dep); setOutros(v.outros); persist(v); setSlip(h);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const conf = slip ? [
+    ['INSS', Number(slip.inss) || 0, r.inss],
+    ['IRRF', Number(slip.irrf) || 0, r.irrf],
+    ['Líquido', Number(slip.net) || 0, r.liquido],
+  ] : [];
   const descParts = [['INSS', r.inss, '#ec4899'], ['IRRF', r.irrf, '#3b82f6'], ['Outros', r.out, '#a855f7']];
 
   return (
-    <div className="space-y-5 animate-fadeIn">
-      <HeroTitle icon={Wallet} lead="Salário Líquido" accent="(CLT)" iconClass="text-sky-400" subtitle="Calcule quanto cai na conta depois de INSS e Imposto de Renda."
-        art={<PayslipArt className="w-80 h-36 opacity-90" />} />
+    <div className="space-y-5 animate-fadeIn" style={{ '--art-right': '190px' }}>
+      <HeroTitle icon={Wallet} lead="Salário Líquido" accent="(CLT)" iconClass="text-sky-400" subtitle="Calcule quanto cai na conta e guarde seus holerites por empresa — a IA lê e preenche."
+        art={<PayslipArt className="w-80 h-36 opacity-90" />}
+        actions={<GlowButton tone="violet" onClick={() => document.getElementById('holerites')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><FolderOpen className="w-4 h-4" /> Meus holerites</GlowButton>} />
+
+      {slip && (
+        <Panel tone="sky" title={`Holerite × cálculo — ${slip.company}, ${monthLabel(slip.competence)}`} subtitle="Compara o que a empresa descontou com o cálculo pelas tabelas oficiais." icon={Scale} iconClass="text-sky-400"
+          action={<button onClick={() => setSlip(null)} className="p-1.5 rounded-lg text-muted hover:bg-black/5 dark:hover:bg-white/10" aria-label="Fechar conferência"><X className="w-4 h-4" /></button>}>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {conf.map(([l, real, calc]) => {
+              const d = real - calc; const ok = Math.abs(d) <= Math.max(1, calc * 0.01);
+              return (
+                <div key={l} className={`rounded-2xl p-3.5 ring-1 ${ok ? 'ring-emerald-400/40 bg-emerald-500/5' : 'ring-amber-400/50 bg-amber-500/5'}`}>
+                  <p className="text-xs text-muted">{l}</p>
+                  <p className="text-sm mt-1 flex justify-between"><span>No holerite</span><b>{money(real)}</b></p>
+                  <p className="text-sm flex justify-between"><span>Calculado</span><b>{money(calc)}</b></p>
+                  <p className={`text-xs font-semibold mt-1 ${ok ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300'}`}>{ok ? 'Confere ✓' : `Diferença de ${money(Math.abs(d))}`}</p>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted mt-3 flex gap-1.5"><Info className="w-3.5 h-3.5 shrink-0" />Diferenças são normais quando há horas extras, faltas, férias, 13º, pensão ou rubricas fora da base de cálculo. O cálculo usa as tabelas de referência abaixo.</p>
+        </Panel>
+      )}
 
       <Panel tone="violet" title="Simulação do salário" icon={Settings2} iconClass="text-violet-400">
         <div className="grid sm:grid-cols-3 gap-4">
@@ -138,6 +172,8 @@ export default function SalaryNet() {
           </div>
         </Panel>
       </div>
+
+      <PayslipBank onSimulate={useSlip} simulated={slip ? `Simulação preenchida com o holerite de ${monthLabel(slip.competence)} (${slip.company}).` : ''} />
     </div>
   );
 }
