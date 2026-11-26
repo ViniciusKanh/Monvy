@@ -1,15 +1,17 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Support } from '../api/entities.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { PageHeader } from '../components/PageHeader.jsx';
+import { HeroTitle, Panel, Donut, GlowButton, KebabMenu, Pager } from '../components/kit.jsx';
+import { SupportBotArt } from '../components/art/PageArt.jsx';
 import { Card, Button, Input, Select, Field, Modal, Spinner, EmptyState, Textarea } from '../components/ui';
 import { Reveal } from '../components/Animated.jsx';
 import { toast } from '../lib/toast.js';
 import {
   Ticket, Plus, Search, Settings2, Send, Paperclip, X, Image as ImageIcon, UserCircle, Mail,
   Shield, CheckCircle2, RotateCcw, Trash2, Filter, MailWarning, MailX, RefreshCw,
-  Lock, UserPlus, MessageSquareText, ChevronDown,
+  Lock, UserPlus, MessageSquareText, ChevronDown, Layers, FolderOpen, Clock, Zap, Timer, AlertTriangle, LayoutGrid, Activity, ChevronsRight, MessageCircle, Upload, FileText, KeyRound, GitCompare, Link2, Lightbulb, HelpCircle, ArrowRight, ArrowUp, ArrowDown, ListChecks,
 } from 'lucide-react';
 
 const HEX = { amber: '#f59e0b', blue: '#3b82f6', violet: '#8b5cf6', emerald: '#10b981', slate: '#64748b', rose: '#f43f5e', sky: '#0ea5e9', teal: '#14b8a6', indigo: '#6366f1' };
@@ -52,9 +54,21 @@ function EmailStatus({ status, error, onResend, resending }) {
   );
 }
 
+const PRIO = { urgente: ['Urgente', '#f43f5e'], alta: ['Alta', '#fb7185'], normal: ['Média', '#fbbf24'], baixa: ['Baixa', '#34d399'] };
+const CAT_ICON = [[/import/i, Upload], [/relat/i, FileText], [/acess|permiss|login|senha/i, KeyRound], [/concil/i, GitCompare], [/integra|banc/i, Link2], [/sugest|melhor/i, Lightbulb], [/d[uú]vida/i, HelpCircle]];
+const catIcon = (c) => (CAT_ICON.find(([re]) => re.test(c || '')) || [null, FolderOpen])[1];
+const PALETTE = ['#22d3ee', '#a855f7', '#3b82f6', '#c084fc', '#2dd4bf', '#f472b6', '#fbbf24', '#64748b'];
+const SLA_MIN = 24 * 60; // meta: 1ª resposta em até 24 h
+const initials = (n) => String(n || '?').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
+const hueOf = (s) => [...String(s || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+const dur = (min) => (min == null ? '—' : min < 60 ? `${Math.round(min)} min` : min < 1440 ? `${Math.floor(min / 60)} h ${Math.round(min % 60)} min` : `${(min / 1440).toFixed(1).replace('.', ',')} d`);
+const ago = (d) => { if (!d) return ''; const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `há ${Math.max(1, m)} min` : m < 1440 ? `há ${Math.round(m / 60)} h` : `há ${Math.round(m / 1440)} d`; };
+const PER = 8;
+
 export default function TicketsCenter() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
   const ticketsQ = useQuery({ queryKey: ['support-tickets'], queryFn: () => Support.tickets() });
   const cfgQ = useQuery({ queryKey: ['support-config'], queryFn: () => Support.config() });
   const tickets = ticketsQ.data?.tickets || [];
@@ -69,12 +83,15 @@ export default function TicketsCenter() {
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('all');
   const [fCat, setFCat] = useState('all');
-  const [scope, setScope] = useState('all'); // admin: all | mine | users
-  const [fAssigned, setFAssigned] = useState('all'); // admin: all | mine | unassigned
+  const [scope, setScope] = useState('all');
+  const [fAssigned, setFAssigned] = useState('all');
+  const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [cfgOpen, setCfgOpen] = useState(false);
   const [macrosOpen, setMacrosOpen] = useState(false);
+  // atalho vindo da tela de Ajuda: /chamados?novo=1
+  useEffect(() => { if (params.get('novo')) { setCreateOpen(true); params.delete('novo'); setParams(params, { replace: true }); } }, [params, setParams]);
 
   const shown = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -89,66 +106,120 @@ export default function TicketsCenter() {
       return true;
     });
   }, [tickets, q, fStatus, fCat, scope, fAssigned, isAdmin, user]);
+  const pages = Math.max(1, Math.ceil(shown.length / PER)); const cur = Math.min(page, pages);
+  const rows = shown.slice((cur - 1) * PER, cur * PER);
 
-  const counts = useMemo(() => { const m = {}; for (const t of tickets) m[t.status] = (m[t.status] || 0) + 1; return m; }, [tickets]);
-  const openCount = tickets.filter((t) => !stOf(t.status).final).length;
+  // métricas reais: últimos 30 dias contra os 30 anteriores
+  const m = useMemo(() => {
+    const isFinal = (t) => !!stOf(t.status).final;
+    const now = Date.now(); const d30 = now - 30 * 864e5; const d60 = now - 60 * 864e5;
+    const inWin = (t, a, b) => { const c = new Date(t.created_date).getTime(); return c >= a && c < b; };
+    const cur30 = tickets.filter((t) => inWin(t, d30, now + 1)); const prev30 = tickets.filter((t) => inWin(t, d60, d30));
+    const delta = (a, b) => (b > 0 ? ((a - b) / b) * 100 : null);
+    const firstMin = (t) => (t.first_reply_date ? (new Date(t.first_reply_date) - new Date(t.created_date)) / 60000 : null);
+    const replied = tickets.map(firstMin).filter((x) => x != null && x >= 0);
+    const resolved = tickets.filter((t) => isFinal(t) && t.resolved_date).map((t) => (new Date(t.resolved_date) - new Date(t.created_date)) / 60000).filter((x) => x >= 0);
+    // SLA: respondido em até 24 h, ou ainda aberto e dentro das 24 h
+    let inSla = 0, outSla = 0;
+    for (const t of tickets) { const f = firstMin(t); if (f != null) (f <= SLA_MIN ? inSla++ : outSla++); else if (!isFinal(t)) ((now - new Date(t.created_date)) / 60000 <= SLA_MIN ? inSla++ : outSla++); }
+    const byCat = {}; for (const t of tickets) byCat[t.category || 'Outro'] = (byCat[t.category || 'Outro'] || 0) + 1;
+    const byStatus = {}; for (const t of tickets) byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+    const high = tickets.filter((t) => ['alta', 'urgente'].includes(t.priority) && !isFinal(t)).length;
+    return {
+      total: tickets.length, open: tickets.filter((t) => !isFinal(t)).length, waiting: byStatus.answered || 0, done: tickets.filter(isFinal).length, high,
+      dTotal: delta(cur30.length, prev30.length), dOpen: delta(cur30.filter((t) => !isFinal(t)).length, prev30.filter((t) => !isFinal(t)).length),
+      avgResolve: resolved.length ? resolved.reduce((a, b) => a + b, 0) / resolved.length : null,
+      avgFirst: replied.length ? replied.reduce((a, b) => a + b, 0) / replied.length : null,
+      inSla, outSla, byCat: Object.entries(byCat).sort((a, b) => b[1] - a[1]), byStatus,
+      recent: [...tickets].sort((a, b) => String(b.updated_date).localeCompare(String(a.updated_date))).slice(0, 4),
+    };
+  }, [tickets, statusMap]);
+  const slaPct = m.inSla + m.outSla ? Math.round((m.inSla / (m.inSla + m.outSla)) * 100) : null;
+  const catData = m.byCat.slice(0, 5).map(([name, value], i) => ({ name, value, color: PALETTE[i] }));
+  if (m.byCat.length > 5) catData.push({ name: 'Demais', value: m.byCat.slice(5).reduce((s, x) => s + x[1], 0), color: PALETTE[7] });
 
-  const delTicket = useMutation({ mutationFn: (id) => Support.deleteTicket(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); toast.success('Chamado excluido. Um e-mail de aviso foi enviado.'); }, onError: (e) => toast.error(e.message || 'Falha ao excluir') });
-  const confirmDel = (t) => { if (window.confirm(`Excluir o chamado #${t.number || ''} — ${t.subject}? Um e-mail de aviso sera enviado. Esta acao não pode ser desfeita.`)) delTicket.mutate(t.id); };
+  const delTicket = useMutation({ mutationFn: (id) => Support.deleteTicket(id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); toast.success('Chamado excluído. Um e-mail de aviso foi enviado.'); }, onError: (e) => toast.error(e.message || 'Falha ao excluir') });
+  const assignMe = useMutation({ mutationFn: (id) => Support.assignTicket(id, user?.id), onSuccess: () => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); toast.success('Chamado atribuído a você.'); }, onError: (e) => toast.error(e.message || 'Falha') });
+  const confirmDel = (t) => { if (window.confirm(`Excluir o chamado #${t.number || ''} — ${t.subject}? Um e-mail de aviso será enviado. Esta ação não pode ser desfeita.`)) delTicket.mutate(t.id); };
+  const chip = (v, invert) => v == null || !Number.isFinite(v) ? null : <span className={`text-[11px] font-bold inline-flex items-center gap-0.5 ${(invert ? v <= 0 : v >= 0) ? 'text-emerald-500' : 'text-rose-500'}`}>{v >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}{v >= 0 ? '+' : ''}{Math.round(v)}%</span>;
+  const KPIS = [
+    [Layers, 'Total', m.total, '#38bdf8', chip(m.dTotal)], [FolderOpen, 'Em aberto', m.open, '#fbbf24', chip(m.dOpen, true)], [Clock, 'Aguardando resposta', m.waiting, '#a78bfa'],
+    [CheckCircle2, 'Finalizados', m.done, '#34d399'], [Zap, 'Resolução média', dur(m.avgResolve), '#818cf8'], [Timer, 'Primeira resposta', dur(m.avgFirst), '#22d3ee'], [AlertTriangle, 'Prioridade alta', m.high, '#fb7185'],
+  ];
 
   return (
     <div className="space-y-5 animate-fadeIn">
-      <PageHeader
-        title={<span className="flex items-center gap-2"><Ticket className="w-6 h-6 text-indigo-500" /> Central de Tickets</span>}
-        subtitle={isAdmin ? 'Gerencie, responda e resolva os chamados' : 'Acompanhe seus chamados'}
-        actions={<div className="flex gap-2">{isAdmin && <Button variant="outline" onClick={() => setMacrosOpen(true)}><MessageSquareText className="w-4 h-4" /> Respostas prontas</Button>}{isAdmin && <Button variant="outline" onClick={() => setCfgOpen(true)}><Settings2 className="w-4 h-4" /> Categorias & Status</Button>}<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Novo chamado</Button></div>}
-      />
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="py-4"><p className="text-xs text-muted">Total</p><p className="font-display text-2xl font-bold">{tickets.length}</p></Card>
-        <Card className="py-4"><p className="text-xs text-muted">Em aberto</p><p className="font-display text-2xl font-bold text-amber-500">{openCount}</p></Card>
-        <Card className="py-4"><p className="text-xs text-muted">Aguardando resposta</p><p className="font-display text-2xl font-bold text-violet-500">{counts.answered || 0}</p></Card>
-        <Card className="py-4"><p className="text-xs text-muted">Finalizados</p><p className="font-display text-2xl font-bold text-emerald-500">{statuses.filter((s) => s.final).reduce((n, s) => n + (counts[s.key] || 0), 0)}</p></Card>
+      <div className="relative">
+        <HeroTitle icon={Ticket} lead="Central de" accent="Tickets" iconClass="text-sky-400" subtitle={isAdmin ? 'Gerencie, responda e resolva os chamados.' : 'Abra e acompanhe seus chamados.'}
+          actions={<div className="flex flex-wrap gap-2 relative z-[1]">{isAdmin && <Button variant="outline" onClick={() => setMacrosOpen(true)}><MessageSquareText className="w-4 h-4" /> Respostas prontas</Button>}{isAdmin && <Button variant="outline" onClick={() => setCfgOpen(true)}><Settings2 className="w-4 h-4" /> Categorias & Status</Button>}<GlowButton tone="sky" onClick={() => setCreateOpen(true)} className="py-2.5"><Plus className="w-4 h-4" />Novo chamado</GlowButton></div>} />
+        <SupportBotArt className="hidden 2xl:block absolute left-[36%] -top-6 w-80 h-40 pointer-events-none opacity-90" />
       </div>
 
-      {/* Filtros */}
-      <Card className="py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-[180px] card px-2 py-1.5"><Search className="w-4 h-4 text-muted shrink-0" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por numero (#1001) ou assunto..." className="flex-1 bg-transparent outline-none text-sm" /></div>
-          <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="w-auto"><option value="all">Todos os status</option>{statuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
-          <Select value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-auto"><option value="all">Todas as categorias</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
-          {isAdmin && <Select value={scope} onChange={(e) => setScope(e.target.value)} className="w-auto"><option value="all">Todos</option><option value="users">De usuários</option><option value="mine">Abertos por mim</option></Select>}
-          {isAdmin && <Select value={fAssigned} onChange={(e) => setFAssigned(e.target.value)} className="w-auto"><option value="all">Qualquer responsável</option><option value="mine">Atribuídos a mim</option><option value="unassigned">Não atribuídos</option></Select>}
-        </div>
-      </Card>
-
-      {ticketsQ.isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-emerald-500" /></div>
-        : tickets.length === 0 ? <Card><EmptyState icon={Ticket} title="Nenhum chamado" subtitle="Abra um chamado para comecar." action={<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Novo chamado</Button>} /></Card>
-        : shown.length === 0 ? <Card><EmptyState icon={Filter} title="Nada neste filtro" /></Card>
-        : (
-          <div className="space-y-2">
-            {shown.map((t, i) => (
-              <Reveal key={t.id} i={Math.min(i, 10)}>
-                <Card className="py-3 hover-lift">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setOpenId(t.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                      <span className="font-mono text-xs text-muted shrink-0 w-14">#{t.number || '—'}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{t.subject}</p>
-                        <p className="text-xs text-muted truncate">{t.category || 'Sem categoria'}{isAdmin ? ` · ${t.user_name || t.user_email}` : ''} · aberto {fmtDate(t.created_date)}</p>
-                      </div>
-                    </button>
-                    {isAdmin && t.priority && t.priority !== 'normal' && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0" style={{ background: (t.priority === 'urgente' ? HEX.rose : HEX.amber) + '22', color: t.priority === 'urgente' ? HEX.rose : HEX.amber }}>{t.priority}</span>}
-                    {isAdmin && t.assigned_to_id && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 bg-indigo-500/10 text-indigo-500 flex items-center gap-0.5"><UserPlus className="w-3 h-3" /> {adminMap[t.assigned_to_id]?.name || 'responsável'}</span>}
-                    <StatusChip st={stOf(t.status)} />
-                    <button onClick={(e) => { e.stopPropagation(); confirmDel(t); }} title="Excluir chamado" className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 shrink-0"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </Card>
-              </Reveal>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+        <div className="xl:col-span-9 space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 2xl:grid-cols-7 gap-3">
+            {KPIS.map(([Ic, l, v, c, d]) => (
+              <div key={l} className="rounded-2xl ring-1 bg-[hsl(var(--card))] p-3.5" style={{ '--tw-ring-color': `${c}66`, backgroundImage: `linear-gradient(160deg,${c}24,transparent 70%)`, boxShadow: `0 0 22px -12px ${c}` }}>
+                <Ic className="w-6 h-6" style={{ color: c }} />
+                <p className="text-xs text-muted mt-2 leading-tight min-h-[2rem]">{l}</p>
+                <div className="flex items-end justify-between gap-1"><b className="font-display text-2xl leading-none whitespace-nowrap">{ticketsQ.isLoading ? '…' : v}</b>{d}</div>
+              </div>
             ))}
           </div>
-        )}
+
+          <section className="rounded-2xl ring-1 ring-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px] rounded-xl ring-1 ring-[hsl(var(--border))] px-3 py-2"><Search className="w-4 h-4 text-muted shrink-0" /><input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Buscar por número (#1001) ou assunto..." className="flex-1 bg-transparent outline-none text-sm" /></div>
+            <Select value={fStatus} onChange={(e) => { setFStatus(e.target.value); setPage(1); }} className="w-auto"><option value="all">Todos os status</option>{statuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
+            <Select value={fCat} onChange={(e) => { setFCat(e.target.value); setPage(1); }} className="w-auto"><option value="all">Todas as categorias</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
+            {isAdmin && <Select value={scope} onChange={(e) => { setScope(e.target.value); setPage(1); }} className="w-auto"><option value="all">Todos</option><option value="users">De usuários</option><option value="mine">Abertos por mim</option></Select>}
+            {isAdmin && <Select value={fAssigned} onChange={(e) => { setFAssigned(e.target.value); setPage(1); }} className="w-auto"><option value="all">Qualquer responsável</option><option value="mine">Atribuídos a mim</option><option value="unassigned">Não atribuídos</option></Select>}
+          </section>
+
+          <Panel tone="violet" title={`Chamados (${shown.length})`} icon={Ticket} iconClass="text-sky-400" action={<button onClick={() => ticketsQ.refetch()} className="text-xs text-muted flex items-center gap-1.5 hover:text-[hsl(var(--text))]">Atualizado {ticketsQ.dataUpdatedAt ? ago(ticketsQ.dataUpdatedAt) : ''}<RefreshCw className={`w-4 h-4 ${ticketsQ.isFetching ? 'animate-spin' : ''}`} /></button>}>
+            {ticketsQ.isLoading ? <div className="flex justify-center py-10"><Spinner className="w-6 h-6 text-sky-500" /></div>
+              : tickets.length === 0 ? <EmptyState icon={Ticket} title="Nenhum chamado" subtitle="Abra um chamado para começar." action={<Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Novo chamado</Button>} />
+              : shown.length === 0 ? <EmptyState icon={Filter} title="Nada neste filtro" />
+              : (
+                <>
+                  <div className="overflow-x-auto -mx-1"><table className="w-full text-[13px] min-w-[900px]">
+                    <thead><tr className="text-left text-xs text-muted border-b border-[hsl(var(--border))]"><th className="py-2 pl-3 font-medium">#</th><th className="py-2 font-medium">Assunto</th><th className="py-2 font-medium">Categoria</th>{isAdmin && <th className="py-2 font-medium">Solicitante</th>}<th className="py-2 font-medium">Abertura</th><th className="py-2 font-medium">Prioridade</th>{isAdmin && <th className="py-2 font-medium">Responsável</th>}<th className="py-2 font-medium">Status</th><th className="py-2" /></tr></thead>
+                    <tbody>{rows.map((t) => { const [pl, pc] = PRIO[t.priority] || PRIO.normal; const CI = catIcon(t.category); const resp = adminMap[t.assigned_to_id]; const st = stOf(t.status); const sc = HEX[st.color] || HEX.slate; return (
+                      <tr key={t.id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-black/[.03] dark:hover:bg-white/[.03] cursor-pointer" onClick={() => setOpenId(t.id)}>
+                        <td className="py-2.5 pl-3 font-mono text-xs relative"><span className="absolute left-0 top-2 bottom-2 w-1 rounded-full" style={{ background: pc }} />#{t.number || '—'}</td>
+                        <td className="py-2.5 max-w-[220px]"><b className="block truncate">{t.subject}</b><span className="text-[11px] text-muted">atualizado {ago(t.updated_date)}</span></td>
+                        <td className="py-2.5"><span className="inline-flex items-center gap-1.5"><CI className="w-4 h-4 text-sky-400" />{t.category || 'Outro'}</span></td>
+                        {isAdmin && <td className="py-2.5"><span className="inline-flex items-center gap-2 max-w-[170px]"><span className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-bold text-white shrink-0" style={{ background: `hsl(${hueOf(t.user_email)} 60% 45%)` }}>{initials(t.user_name || t.user_email)}</span><span className="truncate">{t.user_name || t.user_email}</span></span></td>}
+                        <td className="py-2.5 text-xs whitespace-nowrap">{t.created_date ? new Date(t.created_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}<br /><span className="text-muted">{t.created_date ? new Date(t.created_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}</span></td>
+                        <td className="py-2.5"><span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ring-1" style={{ color: pc, '--tw-ring-color': `${pc}66`, background: `${pc}1a` }}><ChevronsRight className="w-3 h-3" />{pl}</span></td>
+                        {isAdmin && <td className="py-2.5 text-xs">{resp ? <span className="inline-flex items-center gap-1.5"><span className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold text-white" style={{ background: `hsl(${hueOf(resp.email)} 55% 45%)` }}>{initials(resp.name)}</span>{String(resp.name).split(' ')[0]}</span> : <span className="text-muted">—</span>}</td>}
+                        <td className="py-2.5"><span className="inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 leading-tight text-center" style={{ color: sc, '--tw-ring-color': `${sc}66`, background: `${sc}1a` }}>{st.label}</span></td>
+                        <td className="py-2.5 pr-2" onClick={(e) => e.stopPropagation()}><div className="flex items-center gap-1 justify-end"><button onClick={() => setOpenId(t.id)} className="p-1.5 rounded-lg text-muted hover:text-[hsl(var(--text))]" aria-label="Abrir conversa"><MessageCircle className="w-4 h-4" /></button>
+                          <KebabMenu items={[{ label: 'Abrir conversa', icon: MessageCircle, onClick: () => setOpenId(t.id) }, isAdmin && t.assigned_to_id !== user?.id && { label: 'Atribuir a mim', icon: UserPlus, onClick: () => assignMe.mutate(t.id) }, { label: 'Excluir chamado', icon: Trash2, danger: true, onClick: () => confirmDel(t) }]} /></div></td>
+                      </tr>); })}</tbody>
+                  </table></div>
+                  <div className="flex items-center justify-between mt-3 flex-wrap gap-2"><span className="text-xs text-muted">Mostrando {(cur - 1) * PER + 1}–{Math.min(cur * PER, shown.length)} de {shown.length} chamados</span>{pages > 1 && <Pager page={cur} pages={pages} onPage={setPage} />}</div>
+                </>
+              )}
+          </Panel>
+        </div>
+
+        <div className="xl:col-span-3 space-y-4">
+          <Panel tone="sky" title="Volume por categoria" icon={LayoutGrid} iconClass="text-sky-400">
+            <div className="flex items-center gap-4"><Donut size={120} thickness={0.24} data={catData} center={<><b className="font-display text-xl">{m.total}</b><span className="text-[10px] text-muted">chamados</span></>} />
+              <div className="flex-1 space-y-1 text-xs min-w-0">{catData.map((c) => <p key={c.name} className="flex items-center gap-1.5"><i className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} /><span className="flex-1 truncate">{c.name}</span><b>{Math.round((c.value / Math.max(1, m.total)) * 100)}%</b><span className="text-muted">({c.value})</span></p>)}{!catData.length && <span className="text-muted">Sem dados.</span>}</div></div>
+          </Panel>
+          <Panel tone="violet" title="Fila por status" icon={ListChecks} iconClass="text-sky-400">
+            <div className="space-y-2.5">{statuses.map((s) => { const n = m.byStatus[s.key] || 0; const c = HEX[s.color] || HEX.slate; return <button key={s.key} onClick={() => { setFStatus(s.key); setPage(1); }} className="w-full flex items-center gap-2 text-sm text-left"><span className="w-28 truncate">{s.label}</span><span className="flex-1 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${(n / Math.max(1, m.total)) * 100}%`, background: c, boxShadow: `0 0 8px ${c}` }} /></span><b className="w-6 text-right">{n}</b></button>; })}</div>
+          </Panel>
+          <Panel tone="violet" title="Atividade recente" icon={Activity} iconClass="text-sky-400">
+            {m.recent.length === 0 ? <p className="text-sm text-muted">Sem atividade.</p> : <ol className="relative border-l border-sky-400/40 ml-1.5 space-y-3">{m.recent.map((t) => <li key={t.id} className="pl-4 relative"><span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-sky-400" /><button onClick={() => setOpenId(t.id)} className="text-left w-full"><p className="text-sm font-medium flex justify-between gap-2"><span className="truncate">#{t.number} · {t.subject}</span><span className="text-[11px] text-muted shrink-0">{ago(t.updated_date)}</span></p><p className="text-xs text-muted">Status: {stOf(t.status).label}{t.assigned_to_id && adminMap[t.assigned_to_id] ? ` · ${adminMap[t.assigned_to_id].name}` : ''}</p></button></li>)}</ol>}
+          </Panel>
+          <Panel tone="emerald" title="SLA de atendimento" icon={Zap} iconClass="text-sky-400" subtitle={`Meta: 1ª resposta em até 24 h${slaPct != null ? ` · ${slaPct}% no prazo` : ''}`}>
+            <div className="h-3 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400" style={{ width: `${slaPct ?? 0}%` }} /></div>
+            <div className="grid grid-cols-3 gap-2 mt-3 text-xs"><div><p className="text-muted">Dentro do prazo</p><b className="text-emerald-500 text-sm">{m.inSla}</b></div><div><p className="text-muted">Fora do prazo</p><b className="text-rose-500 text-sm">{m.outSla}</b></div><div><p className="text-muted">1ª resposta média</p><b className="text-sm">{dur(m.avgFirst)}</b></div></div>
+          </Panel>
+        </div>
+      </div>
 
       {createOpen && <CreateTicket categories={categories} onClose={() => setCreateOpen(false)} onDone={() => { qc.invalidateQueries({ queryKey: ['support-tickets'] }); setCreateOpen(false); }} />}
       {openId && <TicketThread id={openId} isAdmin={isAdmin} statuses={statuses} categories={categories} stOf={stOf} admins={admins} onClose={() => setOpenId(null)} />}

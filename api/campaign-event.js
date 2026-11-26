@@ -21,6 +21,12 @@ export default async function handler(req, res) {
     let all = {}; try { all = raw ? JSON.parse(raw) : {}; } catch { all = {}; }
     const cur = all[campaignId] || { shown: 0, clicked: 0, dismissed: 0 };
     cur[kind] = (Number(cur[kind]) || 0) + 1;
+    // série diária (para o gráfico "Desempenho ao longo do tempo"), guarda ~90 dias
+    const day = new Date().toISOString().slice(0, 10);
+    cur.days = cur.days || {};
+    const d = cur.days[day] || { shown: 0, clicked: 0, dismissed: 0 };
+    d[kind] = (Number(d[kind]) || 0) + 1; cur.days[day] = d;
+    const keys = Object.keys(cur.days).sort(); while (keys.length > 90) delete cur.days[keys.shift()];
     all[campaignId] = cur;
     await setSetting('rate_campaign_stats', JSON.stringify(all));
     return sendJson(res, 200, { ok: true });

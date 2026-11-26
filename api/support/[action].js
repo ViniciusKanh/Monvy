@@ -79,6 +79,9 @@ async function seedArticles(ownerId) {
   await setSetting('help_seeded', '1');
 }
 
+// 1ª resposta pública do suporte em cada chamado (para tempo de 1ª resposta e SLA na Central)
+const FIRST_REPLY = `(SELECT MIN(m.created_date) FROM TicketMessage m WHERE m.ticket_id=t.id AND m.author_role='admin' AND (m.internal IS NULL OR m.internal=0)) AS first_reply_date`;
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'Metodo não permitido' });
   try {
@@ -152,8 +155,8 @@ export default async function handler(req, res) {
       }
       if (op === 'list') {
         const rows = isAdmin
-          ? (await db().execute(`SELECT * FROM SupportTicket WHERE (is_deleted IS NULL OR is_deleted=0) ORDER BY updated_date DESC`)).rows
-          : (await db().execute({ sql: `SELECT * FROM SupportTicket WHERE created_by_id=? AND (is_deleted IS NULL OR is_deleted=0) ORDER BY updated_date DESC`, args: [u.id] })).rows;
+          ? (await db().execute(`SELECT t.*, ${FIRST_REPLY} FROM SupportTicket t WHERE (t.is_deleted IS NULL OR t.is_deleted=0) ORDER BY t.updated_date DESC`)).rows
+          : (await db().execute({ sql: `SELECT t.*, ${FIRST_REPLY} FROM SupportTicket t WHERE t.created_by_id=? AND (t.is_deleted IS NULL OR t.is_deleted=0) ORDER BY t.updated_date DESC`, args: [u.id] })).rows;
         // para o admin poder atribuir um chamado a um responsavel, manda a lista de admins junto
         const admins = isAdmin ? (await adminUsers()).map((a) => ({ id: a.id, name: a.full_name || a.email, email: a.email })) : undefined;
         return sendJson(res, 200, { tickets: rows, isAdmin, admins });

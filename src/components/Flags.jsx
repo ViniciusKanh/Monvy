@@ -46,6 +46,9 @@ const FLAGS = {
   ),
   ARS: (<><rect width="32" height="32" fill="#fff" /><rect width="32" height="10.6" fill="#74acdf" /><rect y="21.4" width="32" height="10.6" fill="#74acdf" /><circle cx="16" cy="16" r="3" fill="#f6b40e" /></>),
   BRL: (<><rect width="32" height="32" fill="#009c3b" /><path d="M16 5L29 16L16 27L3 16Z" fill="#ffdf00" /><circle cx="16" cy="16" r="6" fill="#002776" /><path d="M10.2 14.6c4-1.2 8.2-.8 11.8 1.2" stroke="#fff" strokeWidth="1.2" fill="none" /></>),
+  ES: (<><rect width="32" height="32" fill="#c60b1e" /><rect y="8" width="32" height="16" fill="#ffc400" /></>),
+  FR: (<><rect width="32" height="32" fill="#fff" /><rect width="10.7" height="32" fill="#0055a4" /><rect x="21.3" width="10.7" height="32" fill="#ef4135" /></>),
+  DE: (<><rect width="32" height="32" fill="#dd0000" /><rect width="32" height="10.7" fill="#000" /><rect y="21.3" width="32" height="10.7" fill="#ffce00" /></>),
   CHF: (<><rect width="32" height="32" fill="#d52b1e" /><rect x="13.5" y="7" width="5" height="18" fill="#fff" /><rect x="7" y="13.5" width="18" height="5" fill="#fff" /></>),
   CNY: (<><rect width="32" height="32" fill="#de2910" /><path d="M10 6l1.5 4.6h4.8l-3.9 2.8 1.5 4.6L10 15.2 6.1 18l1.5-4.6L3.7 10.6h4.8z" fill="#ffde00" /></>),
 };

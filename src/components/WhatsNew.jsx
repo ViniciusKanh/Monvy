@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, X, ArrowRight, TrendingUp, ArrowRightLeft, CalendarDays, Building2, ShieldCheck, CreditCard } from 'lucide-react';
 
 const KEY = 'monvy_whatsnew_v3';
-const ITEMS = [
+export const WHATS_NEW = [
   { icon: TrendingUp, color: '#10b981', title: 'Mercado & Indicadores', desc: 'Cotações do dolar/euro/bitcoin e Selic, CDI e IPCA — com o impacto no seu bolso.', path: '/mercado' },
   { icon: CreditCard, color: '#8b5cf6', title: 'Cartão mais inteligente', desc: 'Importe a fatura em PDF e o Monvy separa e categoriza tudo, já considerando estornos.', path: '/cartões' },
   { icon: ArrowRightLeft, color: '#6366f1', title: 'Conversor de Moedas', desc: 'Converta Real para dolar, euro e mais com a cotacao do dia.', path: '/conversor' },
@@ -29,7 +29,7 @@ export function WhatsNew() {
         </div>
 
         <div className="p-3 overflow-y-auto flex-1">
-          {ITEMS.map((it, i) => (
+          {WHATS_NEW.map((it, i) => (
             <button key={i} onClick={() => go(it.path)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition text-left group">
               <span className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: it.color }}><it.icon className="w-5 h-5" /></span>
               <div className="min-w-0 flex-1"><p className="font-semibold text-sm">{it.title}</p><p className="text-xs text-muted leading-tight">{it.desc}</p></div>

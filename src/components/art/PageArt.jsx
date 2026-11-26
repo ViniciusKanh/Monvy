@@ -631,3 +631,65 @@ export function BellArt({ className = 'w-80 h-36' }) {
     </svg>
   );
 }
+
+// Robô de suporte com fone (ajuda / tickets) — personagem original do Monvy
+export function SupportBotArt({ className = 'w-96 h-44' }) {
+  return (
+    <svg viewBox="0 0 380 170" className={className}>
+      <Defs id="sb" />
+      <Orbit id="sb" cx={250} cy={150} rx={120} ry={14} />
+      <g transform="translate(70 40)"><rect width="70" height="44" rx="12" fill="#0f172a" fillOpacity=".7" stroke="#38bdf8" strokeWidth="2" /><circle cx="22" cy="22" r="4" fill="#7dd3fc" /><circle cx="35" cy="22" r="4" fill="#7dd3fc" /><circle cx="48" cy="22" r="4" fill="#7dd3fc" /><path d="M16 44 l-6 12 16 -12" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" /></g>
+      <g transform="translate(96 104) rotate(-10)"><rect width="56" height="40" rx="10" fill="url(#sba)" opacity=".85" />{[0, 1, 2].map((i) => <rect key={i} x="10" y={10 + i * 8} width={34 - i * 8} height="4" rx="2" fill="#fff" opacity=".7" />)}</g>
+      <g transform="translate(250 82)">
+        <ellipse cy="52" rx="40" ry="28" fill="url(#sba)" opacity=".9" />
+        <text y="62" textAnchor="middle" fontSize="22" fontWeight="900" fill="#e0f2fe" fontFamily="system-ui">M</text>
+        <circle r="50" fill="#e2e8f0" />
+        <circle r="50" fill="url(#sbg)" opacity=".3" />
+        <rect x="-38" y="-26" width="76" height="50" rx="22" fill="#0f172a" />
+        <path d="M-20 0 q6 -10 12 0 M8 0 q6 -10 12 0" stroke="#67e8f9" strokeWidth="5" fill="none" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 6px #22d3ee)' }} />
+        <path d="M-52 4 a52 52 0 0 1 104 0" stroke="#334155" strokeWidth="9" fill="none" />
+        <rect x="-62" y="-6" width="18" height="30" rx="8" fill="url(#sba)" /><rect x="44" y="-6" width="18" height="30" rx="8" fill="url(#sba)" />
+        <path d="M-53 24 q0 22 26 26" stroke="#334155" strokeWidth="4" fill="none" /><circle cx="-25" cy="50" r="5" fill="#38bdf8" />
+      </g>
+      <Sparkle x={40} y={30} /><Sparkle x={350} y={24} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Engrenagem + controles (configurações)
+export function GearArt({ className = 'w-96 h-40' }) {
+  const teeth = Array.from({ length: 8 }, (_, i) => (i * Math.PI) / 4);
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="gr" />
+      <Orbit id="gr" cx={190} cy={142} rx={170} ry={14} />
+      <g transform="translate(40 50) rotate(-8)"><rect width="96" height="62" rx="12" fill="#0f172a" fillOpacity=".7" stroke="#38bdf8" strokeWidth="2" /><line x1="16" x2="80" y1="22" y2="22" stroke="#38bdf8" strokeWidth="3" /><circle cx="58" cy="22" r="7" fill="#a78bfa" /><line x1="16" x2="80" y1="42" y2="42" stroke="#38bdf8" strokeWidth="3" /><circle cx="34" cy="42" r="7" fill="#67e8f9" /></g>
+      <g transform="translate(190 76)">
+        <rect x="-54" y="-54" width="108" height="108" rx="22" fill="url(#gra)" opacity=".9" />
+        {teeth.map((a, i) => <rect key={i} x="-7" y="-40" width="14" height="14" rx="3" fill="#e0f2fe" transform={`rotate(${(a * 180) / Math.PI})`} />)}
+        <circle r="28" fill="#e0f2fe" /><circle r="13" fill="url(#gra)" />
+      </g>
+      <g transform="translate(300 64)"><path d="M0 -30 C26 -30 40 -12 34 6 C30 18 16 14 14 24 C12 34 -8 36 -22 26 C-38 14 -34 -30 0 -30 Z" fill="#1e1b4b" stroke="#a78bfa" strokeWidth="2.5" />{[['#f472b6', -12, -14], ['#38bdf8', 4, -18], ['#34d399', 18, -6], ['#fbbf24', -18, 4]].map(([c, x, y]) => <circle key={c} cx={x} cy={y} r="5" fill={c} />)}</g>
+      <Sparkle x={20} y={26} /><Sparkle x={360} y={120} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Megafone + balão de estrelas (campanhas)
+export function MegaphoneArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="mg" />
+      <Orbit id="mg" cx={170} cy={144} rx={150} ry={12} />
+      <g transform="translate(60 70) rotate(-18)">
+        <path d="M0 -14 L70 -44 L70 44 L0 14 Z" fill="url(#mga)" />
+        <ellipse cx="70" cy="0" rx="12" ry="44" fill="#1e1b4b" stroke="#a5b4fc" strokeWidth="2" />
+        <rect x="-18" y="-16" width="20" height="32" rx="6" fill="#e0e7ff" />
+        <rect x="10" y="14" width="12" height="30" rx="4" fill="#c4b5fd" />
+      </g>
+      {[[-10, 0], [0, 0], [10, 0]].map((_, i) => <path key={i} d={`M150 ${40 + i * 22} l22 ${-8 + i * 8}`} stroke="#e879f9" strokeWidth="4" strokeLinecap="round" />)}
+      <g transform="translate(196 22)"><rect width="150" height="70" rx="16" fill="#0f172a" fillOpacity=".7" stroke="#38bdf8" strokeWidth="2" style={{ filter: 'drop-shadow(0 0 8px #38bdf8)' }} />{[0, 1, 2, 3, 4].map((i) => <path key={i} transform={`translate(${20 + i * 27} 24)`} d="M0 -9 L2.6 -3 L9 -2.6 L4 1.6 L5.6 8 L0 4.6 L-5.6 8 L-4 1.6 L-9 -2.6 L-2.6 -3 Z" fill="#fbbf24" />)}<rect x="16" y="44" width="110" height="6" rx="3" fill="#fff" opacity=".5" /><path d="M24 70 l-4 14 16 -14" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" /></g>
+      <Sparkle x={30} y={30} /><Sparkle x={360} y={120} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
