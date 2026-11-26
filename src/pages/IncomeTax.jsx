@@ -4,7 +4,8 @@ import { Transaction, Account, Category, Investment, Debt } from '../api/entitie
 import { Card, Button, Select, Input, Badge, Spinner } from '../components/ui';
 import { formatCurrency } from '../lib/utils.js';
 import { DEFAULT_TAX, calcAnual, calcMensal, calcRendaVariavel } from '../lib/tax.js';
-import { Landmark, FileText, Calculator, CalendarClock, ClipboardList, Wallet, TrendingUp, Printer, Settings2, CheckCircle2, ArrowUpRight, LineChart, Paperclip } from 'lucide-react';
+import { Landmark, FileText, Calculator, CalendarClock, ClipboardList, Wallet, TrendingUp, Printer, Settings2, CheckCircle2, ArrowUpRight, LineChart, Paperclip, Layers, Home, Layers3, HeartPulse, BarChart3, PieChart, Briefcase, Gift, Award, MoreHorizontal, Info } from 'lucide-react';
+import { Panel, Donut, DeltaChip } from '../components/kit.jsx';
 import { TaxOfficialHeader } from '../components/incometax/TaxOfficialHeader.jsx';
 import { TaxSummaryBar } from '../components/incometax/TaxSummaryBar.jsx';
 import { TaxStepper } from '../components/incometax/TaxStepper.jsx';
@@ -16,19 +17,22 @@ const save = (o) => { try { localStorage.setItem(LS_KEY, JSON.stringify(o)); } c
 const DEDUCTIBLE = { saude: /saude|médico|medico|hospital|farmacia|farmácia|plano de saude|odonto|dentista/i, educacao: /educa|escola|faculdade|curso|mensalidade|universidade/i, previdencia: /previd|inss|pgbl/i };
 
 const TABS = [
-  { id: 'org', label: 'Organizador', icon: ClipboardList, hint: 'Visão geral do ano' },
-  { id: 'anual', label: 'Estimativa anual', icon: Calculator, hint: 'Rendimentos e deduções' },
+  { id: 'org', label: 'Organizador', icon: Layers, hint: 'Visão geral do ano' },
+  { id: 'anual', label: 'Estimativa anual', icon: BarChart3, hint: 'Rendimentos e deduções' },
   { id: 'mensal', label: 'Carnê-Leão', icon: CalendarClock, hint: 'Autônomos (mensal)' },
   { id: 'rv', label: 'Renda variável', icon: LineChart, hint: 'Ações, FIIs, cripto' },
   { id: 'rel', label: 'Relatório', icon: FileText, hint: 'Para o contador' },
 ];
 
+const PALETTE = ['#34d399', '#a855f7', '#38bdf8', '#f472b6', '#fbbf24', '#2dd4bf', '#fb7185'];
+const srcIcon = (k) => /sal[aá]rio|pro.?labore/i.test(k) ? Briefcase : /b[oô]nus|prêmio|premio|plr/i.test(k) ? Award : /benef|vale|aux/i.test(k) ? Gift : /invest|dividend|juros|rend/i.test(k) ? TrendingUp : MoreHorizontal;
+
 function Stat({ label, value, color = '', icon: Icon }) {
   return (
-    <Card className="py-4 hover-lift h-full">
+    <div className="rounded-2xl ring-1 ring-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 h-full">
       <p className="text-xs text-muted flex items-center gap-1">{Icon && <Icon className="w-3 h-3" />}{label}</p>
       <p className={`font-display text-xl font-bold ${color}`}>{value}</p>
-    </Card>
+    </div>
   );
 }
 function Field({ label, value, onChange, prefix = 'R$', hint }) {
@@ -85,9 +89,14 @@ export default function IncomeTax() {
       for (const k of Object.keys(DEDUCTIBLE)) if (DEDUCTIBLE[k].test(name)) { ded[k] += Number(t.amount || 0); dedTx.push({ ...t, bucket: k }); break; }
     }
     const comComprovante = dedTx.filter((t) => t.receipt_url).length;
+    // ano anterior — só para a variação por fonte (nunca inventa: sem dado, sem variação)
+    const pTx = transactions.filter((t) => t.type === 'income' && String(t.date).slice(0, 4) === String(year - 1));
+    const rendPrev = pTx.reduce((s, t) => s + Number(t.amount || 0), 0);
+    const rendPorCatPrev = {};
+    for (const t of pTx) { const k = catMap[t.category_id]?.name || 'Outros rendimentos'; rendPorCatPrev[k] = (rendPorCatPrev[k] || 0) + Number(t.amount || 0); }
     const bens = accounts.reduce((s, a) => s + Number(a.current_balance || 0), 0) + investments.reduce((s, i) => s + Number(i.current_value || i.invested_amount || 0), 0);
     const dividas = debts.reduce((s, d) => { const rest = Number(d.installment_amount || 0) * Math.max(0, Number(d.installments || 0) - Number(d.paid_installments || 0)); return s + (rest || Number(d.total_amount || 0)); }, 0);
-    return { rendimentos, rendPorCat, ded, dedTx, comComprovante, bens, dividas, contas: accounts, investimentos: investments };
+    return { rendimentos, rendPorCat, rendPrev, rendPorCatPrev, ded, dedTx, comComprovante, bens, dividas, contas: accounts, investimentos: investments, nDebts: debts.length };
   }, [transactions, accounts, investments, debts, catMap, year]);
 
   const rAnual = useMemo(() => calcAnual(anual, cfg), [anual, cfg]);
@@ -151,29 +160,60 @@ export default function IncomeTax() {
       <TaxStepper steps={TABS} active={tab} onChange={setTab} filled={stepFilled} />
 
       {tab === 'org' && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat label="Rendimentos tributaveis" value={formatCurrency(org.rendimentos)} color="text-emerald-500" icon={ArrowUpRight} />
-            <Stat label="Bens e direitos" value={formatCurrency(org.bens)} icon={Wallet} />
-            <Stat label="Dívidas e onus" value={formatCurrency(org.dividas)} color="text-rose-500" icon={Landmark} />
-            <Stat label="Desp. dedutiveis" value={formatCurrency(org.ded.saude + org.ded.educacao + org.ded.previdencia + org.ded.outras)} color="text-indigo-500" icon={TrendingUp} />
+            {[
+              { l: 'Rendimentos tributáveis', v: org.rendimentos, icon: Wallet, c: '#34d399', ring: 'ring-emerald-400/40', chip: org.rendPrev > 0 ? <DeltaChip v={((org.rendimentos - org.rendPrev) / org.rendPrev) * 100} /> : null },
+              { l: 'Bens e direitos', v: org.bens, icon: Home, c: '#22d3ee', ring: 'ring-cyan-400/40', chip: <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-[hsl(var(--border))]">{org.contas.length + org.investimentos.length} itens</span> },
+              { l: 'Dívidas e ônus', v: org.dividas, icon: Layers3, c: '#fb7185', ring: 'ring-rose-400/40', chip: <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-[hsl(var(--border))]">{org.nDebts} itens</span> },
+              { l: 'Desp. dedutíveis', v: org.ded.saude + org.ded.educacao + org.ded.previdencia + org.ded.outras, icon: HeartPulse, c: '#c084fc', ring: 'ring-violet-400/40', chip: <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-[hsl(var(--border))]">{org.dedTx.length} itens</span> },
+            ].map((k) => (
+              <div key={k.l} className={`relative overflow-hidden rounded-2xl ring-1 ${k.ring} bg-[hsl(var(--card))] p-4`} style={{ backgroundImage: `linear-gradient(135deg,${k.c}26,transparent 70%)` }}>
+                <svg className="absolute right-0 bottom-0 w-1/2 h-12 pointer-events-none opacity-50" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden><path d="M0 40 C30 34 50 16 100 6 L100 40 Z" fill={k.c} fillOpacity=".18" /></svg>
+                <div className="relative flex items-start justify-between gap-2"><span className="flex items-center gap-2 text-sm font-semibold"><span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${k.c}26`, color: k.c }}><k.icon className="w-5 h-5" /></span>{k.l}</span>{k.chip}</div>
+                <p className="relative font-display text-2xl font-bold mt-3" style={{ color: k.l === 'Bens e direitos' ? undefined : k.c }}>{formatCurrency(k.v)}</p>
+              </div>
+            ))}
           </div>
-          <Card>
-            <div className="flex items-center justify-between mb-3"><h3 className="font-semibold">Rendimentos por fonte — {year}</h3><Badge color="emerald">{Object.keys(org.rendPorCat).length} fonte(s)</Badge></div>
-            {Object.keys(org.rendPorCat).length === 0 ? <p className="text-sm text-muted">Sem rendimentos lancados em {year}.</p> :
-              <div className="divide-y divide-[hsl(var(--border))]">{Object.entries(org.rendPorCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-                <div key={k} className="flex justify-between py-2 text-sm"><span>{k}</span><span className="font-semibold text-emerald-500">{formatCurrency(v)}</span></div>
-              ))}</div>}
-          </Card>
-          <Card>
-            <h3 className="font-semibold mb-3">Despesas dedutiveis identificadas</h3>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+            <Panel className="xl:col-span-8" tone="emerald" title={`Rendimentos por fonte — ${year}`} subtitle="Composição dos seus rendimentos tributáveis no ano." icon={BarChart3} iconClass="text-emerald-400" action={<span className="text-[11px] font-bold px-2.5 py-1 rounded-full ring-1 ring-sky-400/40 bg-sky-500/10 text-sky-600 dark:text-sky-300">{Object.keys(org.rendPorCat).length} fonte(s)</span>}>
+              {Object.keys(org.rendPorCat).length === 0 ? <p className="text-sm text-muted">Sem rendimentos lançados em {year}.</p> : (
+                <>
+                  <div className="overflow-x-auto"><table className="w-full text-sm min-w-[560px]">
+                    <thead><tr className="text-xs text-muted text-left border-b border-[hsl(var(--border))]"><th className="py-2 font-medium">Fonte de rendimento</th><th className="py-2 font-medium text-right">Valor (R$)</th><th className="py-2 font-medium pl-6">Participação</th><th className="py-2 font-medium text-right">Variação (vs. {year - 1})</th></tr></thead>
+                    <tbody>{Object.entries(org.rendPorCat).sort((a, b) => b[1] - a[1]).map(([k, v], i) => {
+                      const share = org.rendimentos ? (v / org.rendimentos) * 100 : 0; const prev = org.rendPorCatPrev[k]; const Ic = srcIcon(k);
+                      return (
+                        <tr key={k} className="border-b border-[hsl(var(--border))] last:border-0">
+                          <td className="py-2.5"><span className="flex items-center gap-2.5"><span className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${PALETTE[i % PALETTE.length]}26`, color: PALETTE[i % PALETTE.length] }}><Ic className="w-4 h-4" /></span>{k}</span></td>
+                          <td className="py-2.5 text-right font-semibold">{formatCurrency(v)}</td>
+                          <td className="py-2.5 pl-6"><span className="flex items-center gap-2"><span className="w-12 text-xs">{share.toFixed(1).replace('.', ',')}%</span><span className="flex-1 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden min-w-[90px]"><span className="block h-full rounded-full" style={{ width: `${share}%`, background: PALETTE[i % PALETTE.length], boxShadow: `0 0 8px ${PALETTE[i % PALETTE.length]}88` }} /></span></span></td>
+                          <td className="py-2.5 text-right">{prev > 0 ? <DeltaChip v={((v - prev) / prev) * 100} /> : <span className="text-xs text-muted">{org.rendPrev > 0 ? 'nova fonte' : 'sem dado'}</span>}</td>
+                        </tr>);
+                    })}</tbody>
+                  </table></div>
+                  <div className="mt-3 rounded-2xl ring-1 ring-emerald-400/50 bg-emerald-500/10 px-4 py-3 flex items-center justify-between"><span className="font-semibold flex items-center gap-1.5">Total de rendimentos tributáveis <Info className="w-3.5 h-3.5 text-muted" title="Soma das receitas lançadas no ano" /></span><b className="font-display text-xl text-emerald-600 dark:text-emerald-300">{formatCurrency(org.rendimentos)}</b></div>
+                </>
+              )}
+            </Panel>
+            <Panel className="xl:col-span-4" tone="emerald" title="Composição dos rendimentos" subtitle={`Participação de cada fonte no total (${formatCurrency(org.rendimentos)}).`} icon={PieChart} iconClass="text-emerald-400">
+              {(() => { const d = Object.entries(org.rendPorCat).sort((a, b) => b[1] - a[1]).map(([k, v], i) => ({ name: k, value: v, color: PALETTE[i % PALETTE.length] })); return (
+                <div className="flex flex-col sm:flex-row xl:flex-col 2xl:flex-row items-center gap-5">
+                  <Donut size={190} thickness={0.22} data={d} center={<><b className="font-display text-base">{formatCurrency(org.rendimentos)}</b><span className="text-xs text-muted">Total</span></>} />
+                  <div className="flex-1 w-full space-y-2">{d.length === 0 ? <p className="text-sm text-muted">Sem dados.</p> : d.map((x) => <p key={x.name} className="flex items-center gap-2 text-sm"><i className="w-3 h-3 rounded-full" style={{ background: x.color }} /><span className="flex-1 truncate">{x.name}</span><b>{org.rendimentos ? ((x.value / org.rendimentos) * 100).toFixed(1).replace('.', ',') : 0}%</b></p>)}</div>
+                </div>); })()}
+            </Panel>
+          </div>
+
+          <Panel tone="violet" title="Despesas dedutíveis identificadas" icon={HeartPulse} iconClass="text-violet-400">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
               {[['Saúde', org.ded.saude], ['Educação', org.ded.educacao], ['Previdência', org.ded.previdencia], ['Outras', org.ded.outras]].map(([k, v]) => (
-                <div key={k} className="rounded-xl bg-black/5 dark:bg-white/5 py-3"><p className="text-xs text-muted">{k}</p><p className="font-semibold">{formatCurrency(v)}</p></div>
+                <div key={k} className="rounded-xl ring-1 ring-[hsl(var(--border))] bg-black/[.03] dark:bg-white/[.03] py-3"><p className="text-xs text-muted">{k}</p><p className="font-semibold">{formatCurrency(v)}</p></div>
               ))}
             </div>
-            <p className="text-xs text-muted mt-3">Marque a dedutibilidade em <b>Categorias</b> (campo "Dedutível no IR") para precisao total; sem marcacao, o Monvy estima por palavra-chave. Confira os comprovantes antes de declarar.</p>
-          </Card>
+            <p className="text-xs text-muted mt-3">Marque a dedutibilidade em <b>Categorias</b> (campo "Dedutível no IR") para precisão total; sem marcação, o Monvy estima por palavra-chave. Confira os comprovantes antes de declarar.</p>
+          </Panel>
           {org.dedTx.length > 0 && (
             <Card>
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">

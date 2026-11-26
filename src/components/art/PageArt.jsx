@@ -374,3 +374,128 @@ export function ShieldArt({ className = 'w-60 h-40' }) {
     </svg>
   );
 }
+
+// Gráfico + chip (simulador com aprendizado de máquina)
+export function MlChartArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="ml" />
+      <Orbit id="ml" cx={190} cy={142} rx={160} ry={14} />
+      <rect x="40" y="30" width="200" height="104" rx="12" fill="#0f172a" fillOpacity=".55" stroke="#818cf8" strokeOpacity=".5" />
+      {[0, 1, 2].map((i) => <line key={i} x1="54" x2="226" y1={56 + i * 24} y2={56 + i * 24} stroke="#64748b" strokeOpacity=".3" strokeDasharray="3 4" />)}
+      {[[62, 30], [86, 44], [110, 38], [134, 58], [158, 66], [182, 54]].map(([x, h], i) => <rect key={i} x={x} y={122 - h} width="14" height={h} rx="3" fill="url(#mla)" opacity=".75" />)}
+      <path d="M56 104 L90 86 L118 92 L146 66 L176 58 L222 38" stroke="#5eead4" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M222 38 L214 36 M222 38 L220 46" stroke="#5eead4" strokeWidth="3.5" strokeLinecap="round" />
+      <g transform="translate(290 78)">
+        <rect x="-38" y="-38" width="76" height="76" rx="14" fill="url(#mla)" />
+        <rect x="-26" y="-26" width="52" height="52" rx="8" fill="#0f172a" fillOpacity=".55" />
+        {[-24, -8, 8, 24].map((p) => <g key={p}><line x1={p} y1="-38" x2={p} y2="-50" stroke="#a5b4fc" strokeWidth="3" /><line x1={p} y1="38" x2={p} y2="50" stroke="#a5b4fc" strokeWidth="3" /><line x1="-38" y1={p} x2="-50" y2={p} stroke="#a5b4fc" strokeWidth="3" /><line x1="38" y1={p} x2="50" y2={p} stroke="#a5b4fc" strokeWidth="3" /></g>)}
+        <text x="0" y="8" textAnchor="middle" fontSize="22" fontWeight="900" fill="#e0e7ff" fontFamily="system-ui">ML</text>
+      </g>
+      <Sparkle x={26} y={24} /><Sparkle x={356} y={22} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Pilhas de moedas crescendo + seta (juros compostos)
+export function CoinsGrowthArt({ className = 'w-80 h-40' }) {
+  return (
+    <svg viewBox="0 0 320 160" className={className}>
+      <Defs id="cg" />
+      <Orbit id="cg" cx={160} cy={142} rx={140} ry={14} />
+      {[2, 4, 6, 8].map((n, k) => <g key={k}>{Array.from({ length: n }).map((_, i) => <ellipse key={i} cx={70 + k * 56} cy={136 - i * 9} rx="22" ry="7" fill={i % 2 ? '#d97706' : '#f59e0b'} stroke="#fde68a" strokeOpacity=".7" />)}</g>)}
+      <path d="M50 110 Q120 100 170 70 T290 18" stroke="url(#cga)" strokeWidth="5" fill="none" strokeLinecap="round" />
+      <path d="M290 18 L276 18 M290 18 L288 32" stroke="#e879f9" strokeWidth="5" strokeLinecap="round" />
+      <Sparkle x={30} y={36} /><Sparkle x={240} y={30} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Casa + calculadora (financiamento)
+export function HouseCalcArt({ className = 'w-80 h-40' }) {
+  return (
+    <svg viewBox="0 0 320 160" className={className}>
+      <Defs id="hc" />
+      <Orbit id="hc" cx={160} cy={142} rx={140} ry={14} />
+      <path d="M40 80 L110 26 L180 80" stroke="url(#hca)" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="58" y="76" width="104" height="60" rx="6" fill="#1e1b4b" fillOpacity=".7" stroke="#a5b4fc" strokeOpacity=".5" />
+      <rect x="98" y="100" width="26" height="36" rx="3" fill="url(#hca)" />
+      <rect x="70" y="88" width="20" height="16" rx="2" fill="#67e8f9" opacity=".6" /><rect x="132" y="88" width="20" height="16" rx="2" fill="#67e8f9" opacity=".6" />
+      <g transform="rotate(8 248 84)">
+        <rect x="204" y="30" width="88" height="110" rx="12" fill="url(#hca)" />
+        <rect x="214" y="40" width="68" height="24" rx="5" fill="#0f172a" fillOpacity=".7" />
+        <text x="276" y="58" textAnchor="end" fontSize="13" fontWeight="800" fill="#5eead4" fontFamily="monospace">R$</text>
+        {[0, 1, 2].map((r) => [0, 1, 2].map((c) => <rect key={`${r}${c}`} x={214 + c * 24} y={72 + r * 21} width="18" height="15" rx="3" fill="#fff" fillOpacity={r === 2 && c === 2 ? '.85' : '.3'} />))}
+      </g>
+      <Sparkle x={24} y={34} /><Sparkle x={196} y={20} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Contracheque (salário líquido)
+export function PayslipArt({ className = 'w-72 h-40' }) {
+  return (
+    <svg viewBox="0 0 300 160" className={className}>
+      <Defs id="ps" />
+      <Orbit id="ps" cx={150} cy={142} rx={130} ry={14} />
+      <g transform="rotate(-6 130 80)">
+        <rect x="70" y="16" width="130" height="122" rx="10" fill="#1e1b4b" fillOpacity=".8" stroke="#a5b4fc" strokeOpacity=".5" />
+        <rect x="70" y="16" width="130" height="24" rx="10" fill="url(#psa)" />
+        <circle cx="90" cy="60" r="10" fill="#a78bfa" />
+        {[0, 1, 2, 3].map((i) => <g key={i}><rect x="84" y={80 + i * 12} width="60" height="5" rx="2.5" fill="#fff" opacity=".35" /><rect x={160 + (i % 2) * 8} y={80 + i * 12} width={28 - (i % 2) * 8} height="5" rx="2.5" fill={i === 3 ? '#5eead4' : '#fff'} opacity={i === 3 ? 1 : 0.35} /></g>)}
+        <rect x="108" y="56" width="60" height="7" rx="3.5" fill="#fff" opacity=".5" />
+      </g>
+      <g transform="translate(230 92)"><circle r="30" fill="#d97706" stroke="#fde68a" strokeWidth="3" /><text y="7" textAnchor="middle" fontSize="20" fontWeight="900" fill="#fff7ed" fontFamily="system-ui">R$</text></g>
+      <Sparkle x={40} y={30} /><Sparkle x={270} y={36} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Documento IRPF com leão estilizado não; apenas doc + selo de porcentagem
+export function TaxDocArt({ className = 'w-56 h-32' }) {
+  return (
+    <svg viewBox="0 0 220 130" className={className}>
+      <Defs id="td" />
+      <g transform="rotate(-8 90 64)">
+        <rect x="40" y="10" width="96" height="112" rx="10" fill="#0f172a" fillOpacity=".5" stroke="#bae6fd" strokeOpacity=".6" />
+        <text x="88" y="36" textAnchor="middle" fontSize="15" fontWeight="900" fill="#e0f2fe" fontFamily="system-ui">IRPF</text>
+        {[0, 1, 2, 3, 4].map((i) => <rect key={i} x="54" y={48 + i * 13} width={i % 2 ? 50 : 68} height="5" rx="2.5" fill="#fff" opacity=".35" />)}
+      </g>
+      <g transform="translate(160 78)"><circle r="30" fill="url(#tda)" /><text y="8" textAnchor="middle" fontSize="24" fontWeight="900" fill="#fff" fontFamily="system-ui">%</text></g>
+      <Sparkle x={22} y={24} c="#bae6fd" /><Sparkle x={200} y={30} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Dois documentos com check (conciliação)
+export function ReconcileArt({ className = 'w-80 h-40' }) {
+  return (
+    <svg viewBox="0 0 320 160" className={className}>
+      <Defs id="rc" />
+      <Orbit id="rc" cx={160} cy={142} rx={140} ry={14} />
+      {[[70, -8], [150, 6]].map(([x, r], k) => (
+        <g key={k} transform={`rotate(${r} ${x + 45} 76)`}>
+          <rect x={x} y="18" width="90" height="112" rx="10" fill="#1e1b4b" fillOpacity=".8" stroke="#a5b4fc" strokeOpacity=".5" />
+          {[0, 1, 2, 3, 4].map((i) => <g key={i}><rect x={x + 12} y={36 + i * 16} width="10" height="10" rx="2" fill={i < 3 ? '#34d399' : '#475569'} /><rect x={x + 28} y={39 + i * 16} width={44 - (i % 2) * 10} height="5" rx="2.5" fill="#fff" opacity=".35" /></g>)}
+        </g>
+      ))}
+      <g transform="translate(266 56)"><circle r="28" fill="url(#rca)" /><path d="M-12 0 L-3 10 L14 -10" stroke="#fff" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" /></g>
+      <path d="M140 66 l12 0 m-6 -6 l6 6 l-6 6" stroke="#5eead4" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <Sparkle x={36} y={30} /><Sparkle x={300} y={110} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Candles + globo (mercado)
+export function MarketArt({ className = 'w-80 h-40' }) {
+  const c = [[60, 70, 100, 80, 96], [86, 60, 92, 66, 88], [112, 52, 84, 76, 58], [138, 40, 70, 46, 64], [164, 30, 60, 54, 36], [190, 20, 48, 24, 42]];
+  return (
+    <svg viewBox="0 0 320 160" className={className}>
+      <Defs id="mk" />
+      <Orbit id="mk" cx={160} cy={142} rx={140} ry={14} />
+      {c.map(([x, hi, lo, o, cl], i) => { const up = cl < o; return <g key={i}><line x1={x + 7} x2={x + 7} y1={hi + 20} y2={lo + 30} stroke={up ? '#34d399' : '#fb7185'} strokeWidth="2" /><rect x={x} y={Math.min(o, cl) + 24} width="14" height={Math.max(6, Math.abs(o - cl))} rx="2" fill={up ? '#34d399' : '#fb7185'} /></g>; })}
+      <g transform="translate(262 70)"><circle r="40" fill="url(#mka)" opacity=".9" /><ellipse rx="40" ry="14" fill="none" stroke="#fff" strokeOpacity=".5" strokeWidth="2" /><ellipse rx="16" ry="40" fill="none" stroke="#fff" strokeOpacity=".5" strokeWidth="2" /><line x1="-40" x2="40" stroke="#fff" strokeOpacity=".5" strokeWidth="2" /></g>
+      <Sparkle x={34} y={30} /><Sparkle x={214} y={20} s={4} c="#67e8f9" />
+    </svg>
+  );
+}

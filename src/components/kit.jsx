@@ -90,7 +90,7 @@ export function Donut({ data, center, size = 180, thickness = 0.3 }) {
 
 export function Ring({ value, size = 150, stroke = 14, from = '#2dd4bf', to = '#a855f7', children, track = 'hsl(var(--muted) / .18)' }) {
   const r = (size - stroke) / 2; const c = 2 * Math.PI * r; const v = Math.max(0, Math.min(100, value));
-  const id = `rg${size}${Math.round(from.length * 7 + to.length)}`;
+  const id = `rg${size}${String(from).replace(/[^a-z0-9]/gi, '')}${String(to).replace(/[^a-z0-9]/gi, '')}`;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">

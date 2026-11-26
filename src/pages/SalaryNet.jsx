@@ -1,12 +1,17 @@
 import { useMemo, useState } from 'react';
-import { PageHeader } from '../components/PageHeader.jsx';
-import { Card, Input, Field } from '../components/ui';
-import { AnimatedValue, Reveal } from '../components/Animated.jsx';
+import { Input } from '../components/ui';
+import { AnimatedValue } from '../components/Animated.jsx';
+import { HeroTitle, Panel, Donut } from '../components/kit.jsx';
+import { PayslipArt } from '../components/art/PageArt.jsx';
 import { formatCurrency } from '../lib/utils.js';
 import { DEFAULT_TAX, aplicarTabela } from '../lib/tax.js';
-import { Wallet, Receipt, Landmark, TrendingDown } from 'lucide-react';
+import { Wallet, Receipt, ShieldCheck, Layers, Calculator, Settings2, Banknote, Users, Tag, Info, BarChart3, PieChart, Equal } from 'lucide-react';
 
-const n = (v) => { const x = Number(v); return isNaN(x) ? 0 : x; };
+const n = (v) => { const x = Number(String(v).replace(',', '.')); return Number.isFinite(x) ? x : 0; };
+const money = (v) => formatCurrency(v);
+const pct = (v, d = 2) => `${(Number.isFinite(v) ? v : 0).toFixed(d).replace('.', ',')}%`;
+const LS = 'monvy_salary_v1';
+const load = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch { return null; } };
 // INSS 2025 (tabela progressiva mensal)
 const INSS_FAIXAS = [
   { ate: 1518.00, aliq: 0.075 },
@@ -23,54 +28,116 @@ function calcINSS(bruto) {
 }
 
 export default function SalaryNet() {
-  const [bruto, setBruto] = useState('3000');
-  const [dep, setDep] = useState('0');
-  const [outros, setOutros] = useState('');
+  const init = load() || {};
+  const [bruto, setBruto] = useState(init.bruto ?? '3000');
+  const [dep, setDep] = useState(init.dep ?? '0');
+  const [outros, setOutros] = useState(init.outros ?? '');
+  const persist = (o) => { try { localStorage.setItem(LS, JSON.stringify({ bruto, dep, outros, ...o })); } catch { /* */ } };
 
   const r = useMemo(() => {
-    const b = n(bruto);
+    const b = Math.max(0, n(bruto));
     const inss = calcINSS(b);
-    const baseIR = Math.max(0, b - inss - n(dep) * DEFAULT_TAX.deducaoDependenteMensal);
+    const baseIR = Math.max(0, b - inss - Math.max(0, n(dep)) * DEFAULT_TAX.deducaoDependenteMensal);
     const irNormal = aplicarTabela(baseIR, DEFAULT_TAX.mensal).imposto;
     const irSimpl = aplicarTabela(Math.max(0, b - inss - DEFAULT_TAX.descontoSimplificadoMensal), DEFAULT_TAX.mensal).imposto;
     const irrf = Math.min(irNormal, irSimpl);
-    const liquido = Math.max(0, b - inss - irrf - n(outros));
-    return { b, inss, irrf, liquido, baseIR, aliqEfetiva: b > 0 ? (inss + irrf) / b : 0 };
+    const out = Math.max(0, n(outros));
+    const desc = inss + irrf + out;
+    const liquido = Math.max(0, b - desc);
+    return { b, inss, irrf, out, desc, liquido, baseIR, modo: irSimpl < irNormal ? 'simplificado' : 'normal', aliqEfetiva: b > 0 ? desc / b : 0 };
   }, [bruto, dep, outros]);
+  const p = (v) => (r.b > 0 ? (v / r.b) * 100 : 0);
+  const recebe = p(r.liquido);
+
+  const inputs = [
+    ['Salário bruto (R$)', bruto, (v) => { setBruto(v); persist({ bruto: v }); }, Banknote, '#34d399', ''],
+    ['Dependentes', dep, (v) => { setDep(v); persist({ dep: v }); }, Users, '#38bdf8', ''],
+    ['Outros descontos (R$)', outros, (v) => { setOutros(v); persist({ outros: v }); }, Tag, '#c084fc', 'VT, VA, plano...'],
+  ];
+  const cards = [
+    { l: 'INSS', v: r.inss, icon: ShieldCheck, c: '#f472b6', ring: 'ring-pink-400/40', bg: 'linear-gradient(135deg,rgba(236,72,153,.18),transparent 70%)' },
+    { l: 'IRRF', v: r.irrf, icon: Receipt, c: '#38bdf8', ring: 'ring-sky-400/40', bg: 'linear-gradient(135deg,rgba(14,165,233,.18),transparent 70%)' },
+    { l: 'Outros descontos', v: r.out, icon: Layers, c: '#a78bfa', ring: 'ring-violet-400/40', bg: 'linear-gradient(135deg,rgba(139,92,246,.18),transparent 70%)' },
+    { l: 'Total de descontos', v: r.desc, icon: Calculator, c: '#f472b6', ring: 'ring-fuchsia-400/50', bg: 'linear-gradient(135deg,rgba(217,70,239,.22),transparent 70%)' },
+  ];
+  const rows = [
+    [Wallet, 'Salário bruto', r.b, null],
+    [ShieldCheck, '(−) INSS', -r.inss, 'text-rose-500 dark:text-rose-400'],
+    [Receipt, '(−) IRRF', -r.irrf, 'text-rose-500 dark:text-rose-400'],
+    [Tag, '(−) Outros descontos', -r.out, 'text-rose-500 dark:text-rose-400'],
+  ];
+  const descParts = [['INSS', r.inss, '#ec4899'], ['IRRF', r.irrf, '#3b82f6'], ['Outros', r.out, '#a855f7']];
 
   return (
     <div className="space-y-5 animate-fadeIn">
-      <PageHeader title={<span className="flex items-center gap-2"><Wallet className="w-6 h-6 text-emerald-500" /> Salário Líquido (CLT)</span>}
-        subtitle="Calcule quanto cai na conta depois de INSS e Imposto de Renda" />
+      <HeroTitle icon={Wallet} lead="Salário Líquido" accent="(CLT)" iconClass="text-sky-400" subtitle="Calcule quanto cai na conta depois de INSS e Imposto de Renda."
+        art={<PayslipArt className="w-80 h-36 opacity-90" />} />
 
-      <Card>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Field label="Salário bruto (R$)"><Input type="number" value={bruto} onChange={(e) => setBruto(e.target.value)} /></Field>
-          <Field label="Dependentes"><Input type="number" value={dep} onChange={(e) => setDep(e.target.value)} /></Field>
-          <Field label="Outros descontos (R$)"><Input type="number" value={outros} onChange={(e) => setOutros(e.target.value)} placeholder="VT, VA, plano..." /></Field>
+      <Panel tone="violet" title="Simulação do salário" icon={Settings2} iconClass="text-violet-400">
+        <div className="grid sm:grid-cols-3 gap-4">
+          {inputs.map(([l, v, set, Ic, c, ph]) => (
+            <div key={l} className="flex items-end gap-3">
+              <span className="w-12 h-12 rounded-xl grid place-items-center shrink-0 ring-1" style={{ background: `${c}22`, color: c, '--tw-ring-color': `${c}55` }}><Ic className="w-6 h-6" /></span>
+              <div className="flex-1 min-w-0"><label className="text-sm font-medium">{l}</label><Input type="number" min="0" value={v} onChange={(e) => set(e.target.value)} placeholder={ph} className="mt-1 h-11" /></div>
+            </div>
+          ))}
         </div>
-        <p className="text-xs text-muted mt-2">Tabelas de referência 2025. Não inclui FGTS (é depositado pelo empregador, não descontado). O IR usa a opção mais vantajosa (normal x simplificado).</p>
-      </Card>
+        <p className="text-xs text-muted mt-3 flex items-center gap-1.5"><Info className="w-3.5 h-3.5 shrink-0" />Tabelas de referência 2025. Não inclui FGTS (é depositado pelo empregador, não descontado). O IR usa a opção mais vantajosa (normal × simplificado) — aqui: <b className="text-[hsl(var(--text))]">{r.modo}</b>.</p>
+      </Panel>
 
-      <div className="rounded-2xl p-5 text-white shadow-lg" style={{ background: 'linear-gradient(135deg,#059669,#0d9488)' }}>
-        <p className="text-sm opacity-90">Salário líquido estimado</p>
-        <p className="font-display text-4xl font-extrabold mt-1"><AnimatedValue value={r.liquido} format={formatCurrency} /></p>
-        <p className="text-sm opacity-90 mt-1">de {formatCurrency(r.b)} bruto · alíquota efetiva de descontos {(r.aliqEfetiva * 100).toFixed(1)}%</p>
-      </div>
+      <section className="relative overflow-hidden rounded-3xl ring-1 ring-emerald-400/50 shadow-[0_0_40px_-12px_rgba(52,211,153,.6)] p-5 sm:p-6 bg-[hsl(var(--card))]" style={{ backgroundImage: 'linear-gradient(120deg,rgba(16,185,129,.28),rgba(6,78,59,.12) 55%,rgba(14,165,233,.12))' }}>
+        <svg className="absolute right-0 bottom-0 w-2/3 h-full pointer-events-none opacity-40" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden><path d="M0 110 C120 90 180 20 400 10" stroke="#5eead4" strokeWidth="2" fill="none" /><path d="M0 120 C140 100 200 40 400 30" stroke="#a78bfa" strokeWidth="1.5" fill="none" /></svg>
+        <div className="relative flex flex-col md:flex-row md:items-center gap-5">
+          <span className="w-16 h-16 rounded-2xl bg-emerald-500/25 ring-1 ring-emerald-300/50 grid place-items-center shrink-0"><Wallet className="w-8 h-8 text-emerald-300" /></span>
+          <div className="flex-1 min-w-0 md:pl-5 md:border-l border-emerald-400/30">
+            <p className="text-sm font-semibold">Salário líquido estimado</p>
+            <p className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight"><AnimatedValue value={r.liquido} format={money} /></p>
+            <p className="text-sm text-muted mt-1">de {money(r.b)} bruto · alíquota efetiva de descontos <span className="ml-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold">{pct(r.aliqEfetiva * 100, 1)}</span></p>
+          </div>
+          <div className="rounded-2xl ring-1 ring-emerald-400/50 px-5 py-4 flex items-center gap-3" style={{ background: "linear-gradient(135deg,rgba(16,185,129,.18),rgba(16,185,129,.06)), hsl(var(--card) / .9)" }}>
+            <BarChart3 className="w-9 h-9 text-emerald-400" />
+            <div><p className="text-xs text-muted">Você recebe</p><p className="font-display text-3xl font-extrabold text-emerald-500 dark:text-emerald-300">{pct(recebe, 1)}</p><p className="text-xs text-muted">do salário bruto</p></div>
+          </div>
+        </div>
+      </section>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Reveal i={0}><Card className="py-4 hover-lift"><p className="text-xs text-muted flex items-center gap-1"><Landmark className="w-3 h-3" /> INSS</p><p className="font-display text-xl font-bold text-rose-500"><AnimatedValue value={r.inss} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={1}><Card className="py-4 hover-lift"><p className="text-xs text-muted flex items-center gap-1"><Receipt className="w-3 h-3" /> IRRF</p><p className="font-display text-xl font-bold text-rose-500"><AnimatedValue value={r.irrf} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={2}><Card className="py-4 hover-lift"><p className="text-xs text-muted flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Outros descontos</p><p className="font-display text-xl font-bold"><AnimatedValue value={n(outros)} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={3}><Card className="py-4 hover-lift"><p className="text-xs text-muted">Total de descontos</p><p className="font-display text-xl font-bold text-rose-500"><AnimatedValue value={r.inss + r.irrf + n(outros)} format={formatCurrency} /></p></Card></Reveal>
+        {cards.map((c) => (
+          <div key={c.l} className={`rounded-2xl ring-1 ${c.ring} bg-[hsl(var(--card))] p-4 flex items-center gap-3`} style={{ backgroundImage: c.bg }}>
+            <span className="w-11 h-11 rounded-xl grid place-items-center shrink-0" style={{ background: `${c.c}26`, color: c.c }}><c.icon className="w-5 h-5" /></span>
+            <div className="min-w-0 flex-1"><p className="text-xs text-muted">{c.l}</p><p className="font-display text-xl font-bold truncate" style={{ color: c.v > 0 ? c.c : undefined }}>{money(c.v)}</p></div>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full ring-1 shrink-0" style={{ color: c.c, '--tw-ring-color': `${c.c}66` }}>{pct(p(c.v))}</span>
+          </div>
+        ))}
       </div>
 
-      <Card>
-        <h3 className="font-semibold mb-3">Composição</h3>
-        {[['Salário bruto', r.b, 'text-[hsl(var(--text))]'], ['(-) INSS', -r.inss, 'text-rose-500'], ['(-) IRRF', -r.irrf, 'text-rose-500'], ['(-) Outros', -n(outros), 'text-rose-500'], ['(=) Líquido', r.liquido, 'text-emerald-500']].map(([l, v, c]) => (
-          <div key={l} className="flex justify-between py-1.5 text-sm border-b border-[hsl(var(--border))] last:border-0"><span>{l}</span><span className={`font-semibold ${c}`}>{formatCurrency(v)}</span></div>
-        ))}
-      </Card>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <Panel tone="violet" title="Composição" subtitle="Detalhamento da composição do salário (CLT)" icon={Layers} iconClass="text-violet-400">
+          <div className="divide-y divide-[hsl(var(--border))]">
+            {rows.map(([Ic, l, v, cls]) => (
+              <div key={l} className="flex items-center gap-3 py-2.5 text-sm"><Ic className="w-4 h-4 text-muted shrink-0" /><span className="flex-1">{l}</span><b className={cls || ''}>{v < 0 ? `-${money(-v)}` : money(v)}</b><span className="w-20 text-right text-[11px] font-semibold px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5">{pct(p(Math.abs(v)))}</span></div>
+            ))}
+          </div>
+          <div className="mt-2 rounded-2xl ring-1 ring-emerald-400/60 bg-emerald-500/10 shadow-[0_0_20px_-8px_rgba(52,211,153,.6)] px-4 py-3 flex items-center gap-3"><Equal className="w-5 h-5 text-emerald-400" /><b className="flex-1 text-lg">(=) Líquido</b><b className="font-display text-xl text-emerald-600 dark:text-emerald-300">{money(r.liquido)}</b><span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">{pct(recebe)}</span></div>
+          <p className="mt-3 text-xs rounded-xl ring-1 ring-sky-400/40 bg-sky-500/10 px-3 py-2"><Info className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-sky-400" /><b>Resumo:</b> dos {money(r.b)} brutos, são descontados {money(r.desc)} ({pct(r.aliqEfetiva * 100, 1)}), resultando em <b className="text-emerald-600 dark:text-emerald-300">{money(r.liquido)}</b> líquidos.</p>
+        </Panel>
+
+        <Panel tone="sky" title="Distribuição do salário" subtitle="Proporção do salário bruto entre valor líquido e descontos." icon={PieChart} iconClass="text-cyan-400">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <Donut size={200} thickness={0.2} data={[{ name: 'Salário líquido', value: r.liquido, color: '#34d399' }, { name: 'Descontos', value: r.desc, color: '#ec4899' }]} center={<><b className="font-display text-lg">{money(r.b)}</b><span className="text-xs text-muted">Salário bruto</span></>} />
+            <div className="flex-1 w-full space-y-3">
+              {[['Salário líquido', r.liquido, '#34d399'], ['Total de descontos', r.desc, '#ec4899']].map(([l, v, c]) => (
+                <div key={l} className="flex items-center gap-2 text-sm"><i className="w-3 h-3 rounded-sm" style={{ background: c }} /><span className="flex-1">{l}</span><b>{money(v)}</b><span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 w-14 text-center">{pct(p(v), 1)}</span></div>
+              ))}
+              <div className="pt-3 border-t border-[hsl(var(--border))]">
+                <p className="text-sm font-semibold mb-2">Composição dos descontos ({money(r.desc)})</p>
+                <div className="flex h-3 rounded-full overflow-hidden bg-black/10 dark:bg-white/10">{descParts.map(([l, v, c]) => r.desc > 0 && v > 0 && <div key={l} style={{ width: `${(v / r.desc) * 100}%`, background: c }} title={l} />)}</div>
+                <div className="mt-2 space-y-1 text-xs">{descParts.map(([l, v, c]) => <p key={l} className="flex items-center gap-2"><i className="w-2.5 h-2.5 rounded-full" style={{ background: c }} /><span className="text-muted w-12">{l}:</span><b>{money(v)}</b><span className="text-muted">({pct(p(v))})</span></p>)}</div>
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }
