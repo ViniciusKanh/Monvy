@@ -499,3 +499,135 @@ export function MarketArt({ className = 'w-80 h-40' }) {
     </svg>
   );
 }
+
+// Globo + moedas flutuando (conversor)
+export function GlobeFxArt({ className = 'w-96 h-40' }) {
+  const coin = (x, y, s, c, t) => <g key={t} transform={`translate(${x} ${y})`}><rect x={-s / 2} y={-s / 2} width={s} height={s} rx={s * 0.24} fill="#0f172a" fillOpacity=".7" stroke={c} strokeWidth="2.5" style={{ filter: `drop-shadow(0 0 6px ${c})` }} /><text y={s * 0.2} textAnchor="middle" fontSize={s * 0.58} fontWeight="900" fill={c} fontFamily="system-ui">{t}</text></g>;
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="gf" />
+      <Orbit id="gf" cx={200} cy={138} rx={160} ry={16} />
+      <circle cx="200" cy="78" r="58" fill="url(#gfa)" opacity=".35" />
+      <circle cx="200" cy="78" r="58" fill="none" stroke="#67e8f9" strokeOpacity=".7" strokeWidth="2" />
+      {[-36, -18, 0, 18, 36].map((dy) => <ellipse key={dy} cx="200" cy={78 + dy} rx={Math.sqrt(58 * 58 - dy * dy)} ry="5" fill="none" stroke="#67e8f9" strokeOpacity=".35" />)}
+      {[16, 34, 52].map((rx) => <ellipse key={rx} cx="200" cy="78" rx={rx} ry="58" fill="none" stroke="#a78bfa" strokeOpacity=".35" />)}
+      <path d="M150 112 Q260 150 330 60" stroke="#22d3ee" strokeWidth="2" fill="none" strokeDasharray="4 5" />
+      <path d="M318 52 l16 4 -8 12" fill="none" stroke="#22d3ee" strokeWidth="2.5" />
+      {coin(120, 40, 40, '#34d399', '$')}{coin(296, 82, 36, '#38bdf8', '€')}{coin(150, 126, 28, '#5eead4', '¥')}{coin(262, 132, 32, '#e879f9', '£')}
+      <Sparkle x={60} y={70} /><Sparkle x={350} y={24} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Prédio com colunas + gráfico de velas (indicadores econômicos)
+export function EconArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="ec" />
+      <Orbit id="ec" cx={190} cy={142} rx={160} ry={14} />
+      <path d="M60 58 L130 30 L200 58 Z" fill="url(#eca)" />
+      <rect x="66" y="58" width="128" height="8" fill="#a5b4fc" opacity=".8" />
+      {[0, 1, 2, 3, 4].map((i) => <rect key={i} x={74 + i * 24} y="70" width="12" height="54" rx="3" fill="#1e1b4b" stroke="#818cf8" strokeOpacity=".6" />)}
+      <rect x="60" y="124" width="140" height="10" rx="3" fill="url(#eca)" />
+      {[[226, 90, 30, true], [246, 80, 36, false], [266, 66, 40, true], [286, 56, 34, true], [306, 44, 40, false], [326, 30, 44, true]].map(([x, y, h, up], i) => <g key={i}><line x1={x + 6} x2={x + 6} y1={y - 8} y2={y + h + 8} stroke={up ? '#34d399' : '#fb7185'} strokeWidth="2" /><rect x={x} y={y} width="12" height={h} rx="2" fill={up ? '#34d399' : '#fb7185'} /></g>)}
+      <path d="M220 120 Q280 100 300 70 T356 24" stroke="#22d3ee" strokeWidth="3" fill="none" />
+      <Sparkle x={34} y={40} /><Sparkle x={210} y={26} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Velas + seta para cima (ações & FIIs)
+export function StocksArt({ className = 'w-96 h-40' }) {
+  const c = [[40, 96, 22], [62, 88, 26], [84, 92, 18], [106, 76, 30], [128, 70, 22], [150, 58, 34], [172, 62, 20], [194, 46, 34], [216, 40, 26], [238, 28, 34]];
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="sk" />
+      <Orbit id="sk" cx={190} cy={142} rx={170} ry={14} />
+      {c.map(([x, y, h], i) => { const up = i % 3 !== 2; return <g key={i}><line x1={x + 7} x2={x + 7} y1={y - 8} y2={y + h + 8} stroke={up ? '#34d399' : '#fb7185'} strokeWidth="2" /><rect x={x} y={y} width="14" height={h} rx="2" fill={up ? '#34d399' : '#fb7185'} style={{ filter: `drop-shadow(0 0 4px ${up ? '#34d399' : '#fb7185'})` }} /></g>; })}
+      <g transform="translate(300 76)">
+        <rect x="-44" y="-50" width="88" height="100" rx="16" fill="url(#ska)" opacity=".9" />
+        <rect x="-32" y="-38" width="64" height="76" rx="10" fill="#0f172a" fillOpacity=".55" />
+        <path d="M-20 22 L-6 4 L6 12 L22 -16" stroke="#5eead4" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M22 -16 L10 -16 M22 -16 L22 -4" stroke="#5eead4" strokeWidth="5" strokeLinecap="round" />
+      </g>
+      <Sparkle x={26} y={30} /><Sparkle x={360} y={20} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Cofrinho × cofre (poupança × CDB)
+export function PiggyVsVaultArt({ className = 'w-[26rem] h-40' }) {
+  return (
+    <svg viewBox="0 0 420 160" className={className}>
+      <Defs id="pv" />
+      <Orbit id="pv" cx={210} cy={142} rx={190} ry={14} />
+      <g transform="translate(100 86)">
+        <ellipse rx="56" ry="40" fill="#f9a8d4" /><ellipse rx="56" ry="40" fill="url(#pva)" opacity=".25" />
+        <circle cx="44" cy="-6" r="16" fill="#f472b6" /><circle cx="40" cy="-8" r="2.5" fill="#831843" /><circle cx="48" cy="-8" r="2.5" fill="#831843" />
+        <circle cx="16" cy="-20" r="4" fill="#1e1b4b" /><path d="M-12 -40 l10 -14 6 16" fill="#f472b6" />
+        <rect x="-10" y="-44" width="24" height="5" rx="2.5" fill="#831843" />
+        {[-34, 26].map((x) => <rect key={x} x={x} y="30" width="12" height="16" rx="4" fill="#f472b6" />)}
+        <g transform="translate(0 -66)"><circle r="14" fill="#f59e0b" stroke="#fde68a" strokeWidth="2.5" /><text y="5" textAnchor="middle" fontSize="13" fontWeight="900" fill="#fff7ed" fontFamily="system-ui">$</text></g>
+      </g>
+      <g transform="translate(210 80)"><rect x="-26" y="-20" width="52" height="40" rx="10" fill="#0f172a" fillOpacity=".6" stroke="#67e8f9" strokeWidth="2" /><text y="8" textAnchor="middle" fontSize="20" fontWeight="900" fill="#67e8f9" fontFamily="system-ui">VS</text></g>
+      <g transform="translate(320 80)">
+        <rect x="-62" y="-50" width="124" height="96" rx="14" fill="url(#pva)" stroke="#e0e7ff" strokeOpacity=".5" strokeWidth="2" />
+        <rect x="-50" y="-38" width="100" height="72" rx="8" fill="#0f172a" fillOpacity=".45" />
+        <text y="10" textAnchor="middle" fontSize="30" fontWeight="900" fill="#e0e7ff" fontFamily="system-ui" fontStyle="italic">CDB</text>
+        {[0, 1, 2, 3].map((i) => <ellipse key={i} cx="58" cy={36 - i * 8} rx="18" ry="6" fill={i % 2 ? '#d97706' : '#f59e0b'} stroke="#fde68a" strokeOpacity=".7" />)}
+      </g>
+      <Sparkle x={30} y={30} /><Sparkle x={400} y={24} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Carro genérico (hatch) — FIPE
+export function CarArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="ca2" />
+      <Orbit id="ca2" cx={190} cy={136} rx={170} ry={16} />
+      <path d="M40 112 C40 92 60 86 86 82 L128 52 C140 44 156 40 176 40 L236 40 C262 40 280 50 298 66 L316 80 C338 84 350 94 350 112 Z" fill="url(#ca2a)" opacity=".92" />
+      <path d="M136 56 L176 46 L234 46 C252 46 266 54 280 68 L140 72 Z" fill="#0f172a" fillOpacity=".55" stroke="#bae6fd" strokeOpacity=".5" />
+      <line x1="200" y1="46" x2="198" y2="70" stroke="#bae6fd" strokeOpacity=".5" />
+      <path d="M318 88 l24 4" stroke="#e0f2fe" strokeWidth="4" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 6px #67e8f9)' }} />
+      {[110, 290].map((x) => <g key={x}><circle cx={x} cy="114" r="24" fill="#0f172a" stroke="#64748b" strokeWidth="4" /><circle cx={x} cy="114" r="10" fill="#94a3b8" /></g>)}
+      <path d="M40 112 L350 112" stroke="#22d3ee" strokeOpacity=".5" />
+      <Sparkle x={30} y={36} /><Sparkle x={350} y={30} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Painel de relatório inclinado (relatórios)
+export function ReportArt({ className = 'w-96 h-40' }) {
+  return (
+    <svg viewBox="0 0 380 160" className={className}>
+      <Defs id="rp" />
+      <Orbit id="rp" cx={190} cy={142} rx={170} ry={14} />
+      {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} x={30 + i * 22} y={110 - [20, 34, 28, 46, 40, 58][i]} width="14" height={[20, 34, 28, 46, 40, 58][i]} rx="3" fill="#34d399" opacity={0.35 + i * 0.1} />)}
+      <g transform="rotate(-10 220 80)">
+        <rect x="160" y="26" width="140" height="100" rx="12" fill="#0f172a" fillOpacity=".7" stroke="#a5b4fc" strokeOpacity=".6" />
+        <circle cx="262" cy="64" r="22" fill="none" stroke="url(#rpa)" strokeWidth="9" strokeDasharray="100 40" />
+        {[0, 1, 2].map((i) => <rect key={i} x="176" y={46 + i * 14} width={50 - i * 10} height="6" rx="3" fill="#fff" opacity=".4" />)}
+        {[0, 1, 2, 3].map((i) => <rect key={`b${i}`} x={178 + i * 14} y={112 - (12 + i * 6)} width="9" height={12 + i * 6} rx="2" fill="#22d3ee" />)}
+      </g>
+      <path d="M300 120 Q330 80 360 40" stroke="#e879f9" strokeWidth="3" fill="none" />
+      <Sparkle x={24} y={30} /><Sparkle x={350} y={110} s={4} c="#67e8f9" />
+    </svg>
+  );
+}
+
+// Sino com ondas (notificações)
+export function BellArt({ className = 'w-80 h-36' }) {
+  return (
+    <svg viewBox="0 0 320 150" className={className}>
+      <Defs id="bl" />
+      <circle cx="110" cy="70" r="58" fill="none" stroke="#67e8f9" strokeOpacity=".5" strokeWidth="2" />
+      <circle cx="110" cy="70" r="46" fill="url(#blg)" />
+      <path d="M110 30 C88 30 78 48 78 66 L78 88 L68 100 L152 100 L142 88 L142 66 C142 48 132 30 110 30 Z" fill="url(#bla)" />
+      <circle cx="110" cy="108" r="8" fill="#c4b5fd" /><circle cx="110" cy="27" r="5" fill="#c4b5fd" />
+      <path d="M180 74 L200 74 L208 56 L218 94 L228 64 L236 74 L300 74" stroke="#e879f9" strokeWidth="3" fill="none" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 6px #e879f9)' }} />
+      <Sparkle x={40} y={30} /><Sparkle x={176} y={30} s={4} c="#67e8f9" />
+    </svg>
+  );
+}

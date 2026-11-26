@@ -5,12 +5,14 @@ import { Transaction, Account, Category, CreditCardTransaction, AppSettings, Tax
 import { AiWordCloud } from '../components/AiWordCloud.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Card, Button, Select, Badge, Spinner } from '../components/ui';
+import { HeroTitle, Panel, Donut, DeltaChip, GlowButton, TIP } from '../components/kit.jsx';
+import { ReportArt } from '../components/art/PageArt.jsx';
 import { formatCurrency, monthKey, monthLabel, monthRange, MONTHS_PT } from '../lib/utils.js';
 import { combineExpenses, categoryTrends } from '../lib/analytics.js';
 import { buildTaxRecords, aggregate } from '../lib/taxBurden.js';
 import { Landmark } from 'lucide-react';
-import { BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { FileText, Download, Printer, TrendingUp, TrendingDown, Lightbulb, Sparkles, FileSpreadsheet } from 'lucide-react';
+import { BarChart, Bar, AreaChart, Area, LineChart, Line, LabelList, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { FileText, Download, Printer, TrendingUp, TrendingDown, Lightbulb, Sparkles, FileSpreadsheet, Wallet, CreditCard, Layers, PiggyBank, Target, Check, BarChart3, PieChart as PieIcon, Activity } from 'lucide-react';
 import { AnimatedValue, Reveal } from '../components/Animated.jsx';
 import { Reports as ReportsApi } from '../api/entities.js';
 import { toast } from '../lib/toast.js';
@@ -204,20 +206,50 @@ export default function Reports() {
     finally { setEmailing(false); }
   };
 
+  // período anterior de mesmo tamanho (para as variações dos KPIs)
+  const prevTotals = useMemo(() => {
+    const [y, m] = months[0].split('-').map(Number); const prevMonths = []; for (let i = period; i >= 1; i--) prevMonths.push(monthKey(new Date(y, m - 1 - i, 1)));
+    let inc = 0, exp = 0; for (const t of tx) { if (!prevMonths.includes(String(t.date).slice(0, 7))) continue; if (t.type === 'income') inc += +t.amount; if (t.type === 'expense') exp += +t.amount; }
+    return { inc, exp };
+  }, [tx, months, period]);
+  const chg = (a, b) => (b > 0 ? ((a - b) / b) * 100 : null);
+  // variação do patrimônio no período: saldo de hoje menos tudo que entrou/saiu desde o início do período
+  const varPeriodo = useMemo(() => {
+    const start = months[0]; let net = 0; for (const t of tx) { if (String(t.date).slice(0, 7) < start) continue; if (t.type === 'income') net += +t.amount; if (t.type === 'expense') net -= +t.amount; }
+    const startBal = totalBalance - net; return startBal > 0 ? (totals.bal / startBal) * 100 : null;
+  }, [tx, months, totalBalance, totals.bal]);
+  const trend = useMemo(() => { if (monthly.length < 2) return {}; const a = monthly[0], b = monthly[monthly.length - 1]; const pc = (x, y) => (x !== 0 ? ((y - x) / Math.abs(x)) * 100 : null); return { inc: pc(a.Receita, b.Receita), exp: pc(a.Despesa, b.Despesa), net: pc(a.net, b.net) }; }, [monthly]);
+  const exec = useMemo(() => {
+    const expUp = chg(totals.exp, prevTotals.exp);
+    const headline = totals.bal < 0 ? `Período desafiador${expUp != null && expUp > 10 ? ', com aumento relevante de despesas' : ', com gastos acima da renda'}.` : totals.rate >= 20 ? 'Período saudável, com boa sobra no orçamento.' : 'Período equilibrado, com espaço para poupar mais.';
+    const top = byCategory[0];
+    const conclusao = totals.bal < 0 ? `controle os gastos${top ? ` de ${top.name}` : ''} e revise as despesas variáveis.` : totals.rate >= 20 ? 'mantenha o ritmo e direcione a sobra para reserva e investimentos.' : `defina um teto para ${top ? top.name : 'as maiores categorias'} e automatize um aporte mensal.`;
+    return { headline, conclusao };
+  }, [totals, prevTotals, byCategory]);
+  const recs = useMemo(() => {
+    const items = []; const top = byCategory[0];
+    if (top && top.value / totalExp >= 0.3) items.push(`Reduza em pelo menos 20% os gastos com ${top.name} (−${formatCurrency(top.value * 0.2)} no período).`);
+    if (totals.rate < 10) items.push(`Aumente a taxa de poupança para ≥ 10% (hoje em ${totals.rate.toFixed(1).replace('.', ',')}%).`);
+    if (rising) items.push(`Revise ${rising.name}, que cresceu ${rising.change.toFixed(0)}% no período.`);
+    if (!items.length) items.push('Continue registrando tudo e reserve a sobra logo no início do mês.');
+    return { items: items.slice(0, 3), prio: totals.bal < 0 ? 'Alta' : totals.rate < 10 ? 'Média' : 'Baixa' };
+  }, [byCategory, totalExp, totals, rising]);
+
   return (
     <div ref={printRef} className="space-y-4 animate-fadeIn print:space-y-2">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h1 className="font-display text-2xl font-bold gradient-text">Relatório Financeiro</h1><p className="text-muted text-sm">Análise completa das suas financas</p></div>
-        <div className="flex items-center gap-2 print:hidden flex-wrap">
-          <Select value={endMk} onChange={(e) => setEndMk(e.target.value)} className="w-auto">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</Select>
-          <Select value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="w-auto"><option value={1}>Somente o mes</option><option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option></Select>
-          <Button variant="outline" onClick={exportExcel}><FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Excel</Button>
+      <div className="print:hidden relative">
+        <HeroTitle icon={FileText} lead="Relatório" accent="Financeiro" iconClass="text-sky-400" subtitle="Análise completa, insights e evolução das suas finanças." art={<ReportArt className="w-[24rem] h-36 opacity-90" />} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <Select value={endMk} onChange={(e) => setEndMk(e.target.value)} className="w-auto min-w-[170px]">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</Select>
+        <Select value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="w-auto min-w-[150px]"><option value={1}>Somente o mês</option><option value={3}>3 meses</option><option value={6}>6 meses</option><option value={12}>12 meses</option></Select>
+        <div className="flex flex-wrap gap-2 lg:ml-auto">
+          <Button variant="outline" onClick={exportExcel}><FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Excel</Button>
           <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4" /> CSV</Button>
           <Button variant="outline" onClick={sendByEmail} disabled={emailing}>{emailing ? <Spinner className="w-4 h-4" /> : <><Mail className="w-4 h-4" /> Enviar por e-mail</>}</Button>
-          <Button onClick={exportPDF} disabled={pdfBusy}>{pdfBusy ? <Spinner className="w-4 h-4" /> : <><Printer className="w-4 h-4" /> Exportar PDF</>}</Button>
+          <GlowButton tone="sky" onClick={exportPDF} disabled={pdfBusy}>{pdfBusy ? <Spinner className="w-4 h-4" /> : <><Printer className="w-4 h-4" /> Exportar PDF</>}</GlowButton>
         </div>
       </div>
-
       {/* Capa só para impressão (PDF limpo, sem o hero pesado) */}
       <div className="hidden print:block" style={{ borderBottom: '3px solid #065f46', paddingBottom: 10, marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -232,79 +264,92 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* header perfil */}
-      <div className="print:hidden relative overflow-hidden rounded-2xl p-6 text-white shadow-soft flex flex-wrap items-center justify-between gap-4 animate-gradient" style={{ background: 'linear-gradient(120deg,#4f46e5,#7c3aed 40%,#ec4899 80%,#4f46e5)' }}>
-        <div className="sheen" />
-        <div className="flex items-center gap-4">
-          {user?.photo_url ? <img src={user.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30" />
-            : <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center font-display font-bold text-2xl">{(user?.full_name || '?').slice(0, 1)}</div>}
-          <div>
-            <p className="font-display text-2xl font-bold">{user?.full_name || 'Usuário'}</p>
-            <p className="text-sm text-white/80">{user?.email}{user?.profession ? ` · ${user.profession}` : ''}</p>
-            <Badge className="mt-1 bg-white/20 text-white border-0">{period === 1 ? monthLabel(endMk) : `${period} meses até ${monthLabel(endMk)}`}</Badge>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-white/70">Saldo Total</p>
-          <p className="font-display text-3xl font-extrabold">{formatCurrency(totalBalance)}</p>
-          <p className="text-xs text-white/70">{new Date().toLocaleDateString('pt-BR')}</p>
-        </div>
-      </div>
 
-      {/* KPIs */}
+      {/* faixa do perfil */}
+      <section className="print:hidden relative overflow-hidden rounded-3xl ring-1 ring-fuchsia-400/50 shadow-[0_0_40px_-12px_rgba(168,85,247,.6)] p-5 text-white flex flex-wrap items-center gap-5" style={{ background: 'linear-gradient(110deg,#6d28d9,#7c3aed 40%,#a21caf 75%,#4338ca)' }}>
+        <svg className="absolute inset-0 w-full h-full opacity-30 pointer-events-none" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden><path d="M0 70 C80 30 140 90 220 50 S340 20 400 40" stroke="#f0abfc" strokeWidth="1.5" fill="none" /><path d="M0 85 C90 55 170 100 250 70 S360 45 400 60" stroke="#a5f3fc" strokeWidth="1" fill="none" /></svg>
+        {user?.photo_url ? <img src={user.photo_url} alt="" className="relative w-16 h-16 rounded-2xl object-cover ring-2 ring-white/40" />
+          : <div className="relative w-16 h-16 rounded-2xl bg-white/20 ring-2 ring-white/40 grid place-items-center font-display font-bold text-2xl">{(user?.full_name || '?').slice(0, 1)}</div>}
+        <div className="relative flex-1 min-w-[200px]">
+          <p className="font-display text-2xl font-bold">{user?.full_name || 'Usuário'}</p>
+          <p className="text-sm text-white/80">{user?.email}{user?.profession ? ` · ${user.profession}` : ''}</p>
+          <span className="inline-block mt-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-black/25">{periodLabel}</span>
+        </div>
+        <div className="relative text-right"><p className="text-sm text-white/80">Saldo total</p><p className="font-display text-3xl font-black">{formatCurrency(totalBalance)}</p><p className="text-xs text-white/70">{new Date().toLocaleDateString('pt-BR')}</p></div>
+        {varPeriodo != null && <div className="relative rounded-2xl bg-black/30 ring-1 ring-white/25 px-4 py-3 flex items-center gap-3"><span className="w-10 h-10 rounded-xl grid place-items-center bg-emerald-400/25 text-emerald-300"><TrendingUp className="w-5 h-5" /></span><div><p className="text-xs text-white/75">Variação (período)</p><p className={`font-display text-2xl font-extrabold ${varPeriodo >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{varPeriodo >= 0 ? '+' : ''}{varPeriodo.toFixed(1).replace('.', ',')}%</p></div></div>}
+      </section>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Reveal i={0}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Receita do período</p><p className="font-display text-xl font-bold text-emerald-500"><AnimatedValue value={totals.inc} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={1}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Despesa do período</p><p className="font-display text-xl font-bold text-rose-500"><AnimatedValue value={totals.exp} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={2}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Saldo do período</p><p className={`font-display text-xl font-bold ${totals.bal < 0 ? 'text-rose-500' : ''}`}><AnimatedValue value={totals.bal} format={formatCurrency} /></p></Card></Reveal>
-        <Reveal i={3}><Card className="py-3 hover-lift h-full"><p className="text-xs text-muted">Taxa de poupança</p><p className="font-display text-xl font-bold text-violet-500"><AnimatedValue value={totals.rate} format={(v) => `${v.toFixed(1)}%`} /></p></Card></Reveal>
+        {[
+          { l: 'Receita do período', v: totals.inc, icon: Wallet, c: '#38bdf8', d: chg(totals.inc, prevTotals.inc), inv: false },
+          { l: 'Despesa do período', v: totals.exp, icon: CreditCard, c: '#fb7185', d: chg(totals.exp, prevTotals.exp), inv: true },
+          { l: 'Saldo do período', v: totals.bal, icon: Layers, c: '#a78bfa', neg: totals.bal < 0 },
+          { l: 'Taxa de poupança', v: null, txt: `${totals.rate.toFixed(1).replace('.', ',')}%`, icon: PiggyBank, c: '#c084fc', neg: totals.rate < 0 },
+        ].map((k) => (
+          <div key={k.l} className="rounded-2xl ring-1 ring-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 flex items-center gap-3" style={{ backgroundImage: `linear-gradient(135deg,${k.c}22,transparent 70%)` }}>
+            <span className="w-11 h-11 rounded-xl grid place-items-center shrink-0" style={{ background: `${k.c}26`, color: k.c }}><k.icon className="w-5 h-5" /></span>
+            <div className="min-w-0 flex-1"><p className="text-xs text-muted">{k.l}</p><p className={`font-display text-xl font-bold truncate ${k.neg ? 'text-rose-500' : ''}`}>{k.txt ?? <AnimatedValue value={k.v} format={formatCurrency} />}</p></div>
+            {k.d != null && <DeltaChip v={k.d} invert={k.inv} className="self-start" />}
+          </div>
+        ))}
       </div>
 
-      {/* Resumo inteligente */}
-      <Card>
-        <h3 className="font-semibold flex items-center gap-2 mb-3"><Sparkles className="w-4 h-4 text-indigo-500" /> Resumo inteligente do período</h3>
-        <div className="grid sm:grid-cols-2 gap-2">
-          {insights.map((i, k) => (
-            <div key={k} className={`flex items-start gap-2 p-3 rounded-xl text-sm ${i.t === 'warn' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300' : i.t === 'ok' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'}`}>
-              {i.t === 'warn' ? <TrendingUp className="w-4 h-4 mt-0.5 shrink-0" /> : i.t === 'ok' ? <TrendingDown className="w-4 h-4 mt-0.5 shrink-0" /> : <Lightbulb className="w-4 h-4 mt-0.5 shrink-0" />}
-              <span>{i.m}</span>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <Panel className="xl:col-span-7" tone="violet" title="Resumo inteligente do período" icon={Sparkles} iconClass="text-sky-400" action={<span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg ring-1 ring-violet-400/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">Visão executiva · Auto</span>}>
+          <div className="grid sm:grid-cols-[minmax(0,.9fr)_minmax(0,1.4fr)] gap-4">
+            <div className="rounded-2xl ring-1 ring-emerald-400/40 p-4 flex items-center gap-3" style={{ backgroundImage: 'linear-gradient(135deg,rgba(16,185,129,.2),transparent)' }}><Target className="w-10 h-10 text-emerald-300 shrink-0" strokeWidth={1.6} /><p className="font-display text-lg font-bold leading-snug">{exec.headline}</p></div>
+            <div className="space-y-2 text-sm">
+              {insights.slice(0, 3).map((i, k) => <p key={k} className="flex items-start gap-2">{i.t === 'warn' ? <TrendingUp className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" /> : i.t === 'ok' ? <TrendingDown className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /> : <Lightbulb className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />}{i.m}</p>)}
+              <p className="rounded-xl ring-1 ring-amber-400/40 bg-amber-500/10 px-3 py-2 flex gap-2"><Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" /><span><b>Conclusão:</b> {exec.conclusao}</span></p>
             </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* charts */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card><h3 className="font-semibold mb-3">Receitas vs Despesas</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={monthly}><CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} /><YAxis width={40} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} /><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /><Bar dataKey="Receita" fill="#10b981" radius={[6,6,0,0]} maxBarSize={30} /><Bar dataKey="Despesa" fill="#ef4444" radius={[6,6,0,0]} maxBarSize={30} /></BarChart>
-          </ResponsiveContainer>
-        </Card>
-        <Card><h3 className="font-semibold mb-3 flex items-center gap-1"><TrendingUp className="w-4 h-4 text-violet-500" /> Evolucao do Saldo (acumulado)</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={evolution}><defs><linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} /><stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} /><YAxis width={44} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 || v <= -1000 ? `${(v/1000).toFixed(0)}k` : v} /><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /><Area dataKey="Saldo" stroke="#8b5cf6" strokeWidth={2} fill="url(#gArea)" /></AreaChart>
-          </ResponsiveContainer>
-        </Card>
+          </div>
+        </Panel>
+        <Panel className="xl:col-span-5" tone="pink" title="Recomendações" icon={Target} iconClass="text-pink-400" action={<span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${recs.prio === 'Alta' ? 'bg-rose-500/20 text-rose-500 dark:text-rose-300' : recs.prio === 'Média' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300'}`}>Prioridade: {recs.prio}</span>}>
+          <ul className="space-y-3">{recs.items.map((r, i) => <li key={i} className="flex items-start gap-2.5 text-sm"><span className="w-5 h-5 rounded-md bg-emerald-500 text-white grid place-items-center shrink-0 mt-0.5"><Check className="w-3.5 h-3.5" /></span>{r}</li>)}</ul>
+        </Panel>
       </div>
 
-      <Card>
-        <h3 className="font-semibold mb-3">Despesas por Categoria</h3>
-        {byCategory.length === 0 ? <p className="text-sm text-muted py-6 text-center">Sem despesas no período.</p>
-          : (
-            <div className="grid md:grid-cols-2 gap-6 items-center">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart><Pie data={byCategory} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2} stroke="none">{byCategory.map((e, i) => <Cell key={i} fill={e.color || COLORS[i % COLORS.length]} />)}</Pie><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }} /></PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-3">
-                {byCategory.slice(0, 6).map((c, i) => (
-                  <div key={i}>
-                    <div className="flex justify-between text-sm mb-1"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c.color || COLORS[i % COLORS.length] }} />{c.name}</span><span className="font-semibold">{formatCurrency(c.value)}</span></div>
-                    <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(c.value / maxCat) * 100}%`, background: c.color || COLORS[i % COLORS.length] }} /></div>
-                  </div>
-                ))}
-              </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Panel title={<>Receitas vs Despesas <span className="text-sm text-muted font-normal">(últimos {period} {period > 1 ? 'meses' : 'mês'})</span></>} icon={BarChart3} iconClass="text-sky-400" action={<div className="flex gap-3 text-xs text-muted"><span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-emerald-400" />Receitas</span><span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-full bg-rose-500" />Despesas</span></div>}>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={monthly} margin={{ top: 22, right: 6, left: 0, bottom: 0 }}><defs><linearGradient id="rbInc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" /></linearGradient><linearGradient id="rbExp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fb7185" /><stop offset="100%" stopColor="#e11d48" /></linearGradient></defs>
+              <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} /><YAxis width={40} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => (Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)} /><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={TIP} />
+              <Bar dataKey="Receita" fill="url(#rbInc)" radius={[6, 6, 0, 0]} maxBarSize={46}>{period <= 6 && <LabelList dataKey="Receita" position="top" formatter={(v) => formatCurrency(v)} style={{ fontSize: 10, fontWeight: 700, fill: 'hsl(var(--text))' }} />}</Bar>
+              <Bar dataKey="Despesa" fill="url(#rbExp)" radius={[6, 6, 0, 0]} maxBarSize={46}>{period <= 6 && <LabelList dataKey="Despesa" position="top" formatter={(v) => formatCurrency(v)} style={{ fontSize: 10, fontWeight: 700, fill: 'hsl(var(--text))' }} />}</Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Panel>
+        <Panel title="Evolução do saldo (acumulado)" icon={TrendingUp} iconClass="text-violet-400">
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={evolution} margin={{ top: 30, right: 56, left: 0, bottom: 0 }}><defs><linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} /><stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} padding={{ left: 40, right: 10 }} /><YAxis width={44} tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} tickFormatter={(v) => (Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)} /><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={TIP} />
+              <Area dataKey="Saldo" stroke="#a78bfa" strokeWidth={2.5} fill="url(#gArea)" dot={{ r: 5, fill: '#a78bfa', stroke: '#fff', strokeWidth: 2 }}>{period <= 6 && <LabelList dataKey="Saldo" content={(p) => { const t = formatCurrency(p.value); const w = t.length * 6.4 + 14; const c = p.value >= 0 ? '#34d399' : '#fb7185'; return <g><rect x={p.x - w / 2} y={p.y - 30} width={w} height="20" rx="6" fill="hsl(var(--card))" stroke={c} /><text x={p.x} y={p.y - 16} textAnchor="middle" fontSize="10.5" fontWeight="800" fill={c}>{t}</text></g>; }} />}</Area>
+            </AreaChart>
+          </ResponsiveContainer>
+        </Panel>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <Panel title="Despesas por categoria" subtitle={periodLabel} icon={PieIcon} iconClass="text-fuchsia-400">
+          {byCategory.length === 0 ? <p className="text-sm text-muted py-6 text-center">Sem despesas no período.</p> : (
+            <div className="flex flex-col sm:flex-row xl:flex-col items-center gap-4">
+              <Donut size={140} thickness={0.26} data={byCategory.slice(0, 6).map((c, i) => ({ name: c.name, value: c.value, color: c.color || COLORS[i % COLORS.length] }))} center={<><b className="font-display text-sm">{formatCurrency(totalExp)}</b><span className="text-[10px] text-muted">Total</span></>} />
+              <div className="flex-1 w-full space-y-1.5 text-xs">{byCategory.slice(0, 6).map((c, i) => <p key={c.name} className="flex items-center gap-2"><i className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color || COLORS[i % COLORS.length] }} /><span className="flex-1 truncate">{c.name}</span><b>{formatCurrency(c.value)}</b><span className="text-muted w-10 text-right">{((c.value / totalExp) * 100).toFixed(1).replace('.', ',')}%</span></p>)}</div>
             </div>
           )}
-      </Card>
+        </Panel>
+        <Panel title={<>Análise de tendência <span className="text-sm text-muted font-normal">({period} {period > 1 ? 'meses' : 'mês'})</span></>} icon={Activity} iconClass="text-sky-400">
+          {monthly.length < 2 ? <p className="text-sm text-muted">Escolha 3 meses ou mais para ver a tendência.</p> : (
+            <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
+              <div className="space-y-2">{[['Receitas', trend.inc, false, TrendingUp], ['Despesas', trend.exp, true, TrendingUp], ['Saldo', trend.net, false, Layers]].map(([l, v, inv, Ic]) => <div key={l} className="rounded-xl ring-1 ring-[hsl(var(--border))] px-3 py-1.5 flex items-center gap-3 text-sm"><Ic className="w-4 h-4 text-muted" /><span className="w-16">{l}</span><b className={v == null ? '' : (inv ? v <= 0 : v >= 0) ? 'text-emerald-500' : 'text-rose-500'}>{v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1).replace('.', ',')}%`}</b></div>)}</div>
+              <ResponsiveContainer width="100%" height={130}><LineChart data={monthly} margin={{ top: 6, right: 6, left: 6, bottom: 0 }}><XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted))' }} axisLine={false} tickLine={false} /><Tooltip formatter={(v) => formatCurrency(v)} contentStyle={TIP} /><Line dataKey="Receita" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} /><Line dataKey="Despesa" stroke="#fb7185" strokeWidth={2} dot={{ r: 3 }} /><Line dataKey="net" name="Saldo" stroke="#a78bfa" strokeWidth={2} dot={{ r: 3 }} /></LineChart></ResponsiveContainer>
+            </div>
+          )}
+          <p className="text-[11px] text-muted mt-2">Variação do primeiro para o último mês do período.</p>
+        </Panel>
+        <Panel tone="emerald" title="Principais insights do relatório" icon={BarChart3} iconClass="text-emerald-400">
+          <ul className="space-y-2.5 text-sm">{insights.slice(0, 5).map((i, k) => <li key={k} className="flex items-start gap-2"><span className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-500 grid place-items-center shrink-0"><Check className="w-3.5 h-3.5" /></span>{i.m}</li>)}</ul>
+        </Panel>
+      </div>
 
       {/* Maiores despesas + resumo por categoria */}
       <div className="grid lg:grid-cols-2 gap-4">

@@ -44,7 +44,7 @@ export function AppLayout() {
   const location = useLocation();
   const navItem = currentNavKey(location.pathname);
   // Dashboard usa a largura toda (layout em grid de sistema); demais telas mantem a coluna de leitura
-  const isWide = ['/', '/contas', '/lancamentos', '/cartoes', '/impostos', '/carga-tributaria', '/notas-fiscais', '/categorias', '/regras', '/orcamento', '/metas', '/pagamentos', '/investimentos', '/dividas', '/quitacao', '/objetivo', '/rateio', '/envelopes', '/fluxo', '/assinaturas', '/cofres', '/calendario', '/inteligencia', '/saude', '/comportamental', '/recorrencias', '/comparador', '/para-onde-vai', '/mapa-de-calor', '/gastos-formiga', '/score', '/simulador', '/juros-compostos', '/price-sac', '/salario-liquido', '/imposto-de-renda', '/mercado', '/conciliacao'].includes(location.pathname);
+  const isWide = ['/', '/contas', '/lancamentos', '/cartoes', '/impostos', '/carga-tributaria', '/notas-fiscais', '/categorias', '/regras', '/orcamento', '/metas', '/pagamentos', '/investimentos', '/dividas', '/quitacao', '/objetivo', '/rateio', '/envelopes', '/fluxo', '/assinaturas', '/cofres', '/calendario', '/inteligencia', '/saude', '/comportamental', '/recorrencias', '/comparador', '/para-onde-vai', '/mapa-de-calor', '/gastos-formiga', '/score', '/simulador', '/juros-compostos', '/price-sac', '/salario-liquido', '/imposto-de-renda', '/mercado', '/conciliacao', '/conversor', '/indicadores', '/acoes', '/poupanca-cdb', '/fipe', '/relatorios', '/notificacoes'].includes(location.pathname);
   const isDash = location.pathname === '/';
   const pageTitle = navItem ? t('nav.' + navItem.key, navItem.label) : 'Monvy';
   const qc = useQueryClient();
