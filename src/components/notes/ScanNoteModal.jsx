@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, ImageUp, Keyboard, ScanLine, QrCode, Barcode, CheckCircle2, AlertTriangle, ExternalLink, Copy, Sparkles, X, RefreshCw, Landmark, Receipt, ShoppingBag, Loader2, Info } from 'lucide-react';
+import { Camera, ImageUp, Keyboard, ScanLine, QrCode, Barcode, CheckCircle2, AlertTriangle, ExternalLink, Copy, Sparkles, X, RefreshCw, Landmark, ShoppingBag, Loader2, Info } from 'lucide-react';
 import { Button, Spinner } from '../ui';
 import { startCameraScan, decodeImageFile } from '../../lib/codeScanner.js';
 import { extractFromCode, formatKey, formatCnpj, lookupCnpjName } from '../../lib/nfeKey.js';
@@ -207,25 +207,24 @@ export function ScanNoteModal({ open, onClose, onUse, geminiKey, existingKeys })
               </div>
               {info && (
                 <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                  <Item k="Emitente" v={scan.emitterName || <span className="text-muted">buscando…</span>} wide />
+                  <Item k="Emitente" v={sn?.emitter || scan.emitterName || <span className="text-muted">buscando…</span>} wide />
                   <Item k="CNPJ" v={formatCnpj(info.cnpj)} />
                   <Item k="Número / série" v={`${info.numero} / ${info.serie}`} />
-                  <Item k={scan.issuedAt ? 'Emissão' : 'Mês de emissão'} v={scan.issuedAt ? new Date(scan.issuedAt + 'T00:00').toLocaleDateString('pt-BR') : `${String(info.month).padStart(2, '0')}/${info.year}`} />
+                  <Item k={sn?.issued_date || scan.issuedAt ? 'Emissão' : 'Mês de emissão'} v={sn?.issued_date || scan.issuedAt ? new Date((sn?.issued_date || scan.issuedAt) + 'T00:00').toLocaleDateString('pt-BR') : `${String(info.month).padStart(2, '0')}/${info.year}`} />
                   <Item k="UF" v={info.uf || '—'} />
-                  <Item k="Valor da nota" v={scan.totalValue ? formatCurrency(scan.totalValue) : <span className="text-muted">não vem no código</span>} />
+                  <Item k="Valor da nota" v={sn?.total_value || scan.totalValue ? formatCurrency(sn?.total_value || scan.totalValue) : <span className="text-muted">{sefaz?.status === 'loading' ? 'buscando…' : 'não vem no código'}</span>} />
                 </dl>
               )}
               {scan.kind === 'nfce' && sefaz && sefaz.key === scan.key ? (
                 <div className="rounded-xl ring-1 ring-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 space-y-3">
                   <ol className="space-y-1.5 text-sm">
                     <Step done label="QR Code lido" />
-                    <Step done={sefaz.status === 'ok'} fail={sefaz.status === 'fail'} loading={sefaz.status === 'loading'} label={sefaz.status === 'fail' ? 'Não consegui abrir a nota na SEFAZ' : 'Buscando a nota na SEFAZ'} />
+                    <Step done={sefaz.status === 'ok'} fail={sefaz.status === 'fail'} loading={sefaz.status === 'loading'} label={sefaz.status === 'fail' ? 'Não consegui abrir a nota na SEFAZ' : sefaz.status === 'ok' ? 'Nota encontrada na SEFAZ' : 'Buscando a nota na SEFAZ…'} />
                     <Step done={sefaz.status === 'ok' && !!sn?.taxes?.aproximado} fail={sefaz.status === 'ok' && !sn?.taxes?.aproximado} loading={sefaz.status === 'loading'} label={sefaz.status === 'ok' ? (sn?.tax_origin === 'impresso' ? 'Tributos lidos do cupom (Lei 12.741)' : sn?.tax_origin === 'estimado_ia' ? 'Tributos estimados pela IA (Gemini)' : geminiKey ? 'O cupom não traz os tributos e a IA não conseguiu estimar' : 'O cupom não traz os tributos — configure o Gemini para estimar') : geminiKey ? 'Lendo itens e tributos com o Gemini' : 'Lendo tributos'} />
                   </ol>
                   {sefaz.status === 'ok' && sn && (
                     <>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <Kpi icon={Receipt} k="Valor da nota" v={sn.total_value ? formatCurrency(sn.total_value) : '—'} />
+                      <div className="grid grid-cols-2 gap-2">
                         <Kpi icon={Landmark} k={sn.tax_origin === 'estimado_ia' ? 'Tributos (estimativa)' : 'Tributos aprox.'} v={sn.taxes?.aproximado ? formatCurrency(sn.taxes.aproximado) : '—'} accent={sn.tax_origin === 'estimado_ia' ? 'text-violet-500 dark:text-violet-300' : 'text-emerald-600 dark:text-emerald-300'} sub={sn.total_value && sn.taxes?.aproximado ? `${((sn.taxes.aproximado / sn.total_value) * 100).toFixed(1).replace('.', ',')}% da compra` : null} />
                         <Kpi icon={ShoppingBag} k="Itens" v={sn.items_count ?? (sn.items?.length || '—')} />
                       </div>
@@ -275,7 +274,7 @@ function Step({ done, fail, loading, label }) {
   );
 }
 function Kpi({ icon: Icon, k, v, sub, accent = '' }) {
-  return <div className="rounded-lg bg-black/5 dark:bg-white/5 px-3 py-2"><p className="text-[11px] text-muted flex items-center gap-1"><Icon className="w-3 h-3" />{k}</p><p className={`font-display font-bold ${accent}`}>{v}</p>{sub && <p className="text-[10px] text-muted">{sub}</p>}</div>;
+  return <div className="rounded-lg bg-black/5 dark:bg-white/5 px-2.5 sm:px-3 py-2 min-w-0"><p className="text-[10px] sm:text-[11px] text-muted flex items-center gap-1 truncate"><Icon className="w-3 h-3 shrink-0" />{k}</p><p className={`font-display text-sm sm:text-base font-bold truncate ${accent}`}>{v}</p>{sub && <p className="text-[10px] text-muted">{sub}</p>}</div>;
 }
 
 function Item({ k, v, wide }) {
